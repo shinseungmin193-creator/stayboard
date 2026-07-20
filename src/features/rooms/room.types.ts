@@ -1,0 +1,1 @@
+export interface RoomListItem { id: string; propertyId: string; propertyName: string; propertyIsActive: boolean; name: string; code: string; capacity: number; sortOrder: number; isActive: boolean; calendarSourceCount: number }

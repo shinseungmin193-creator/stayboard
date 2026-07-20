@@ -1,0 +1,152 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/lib/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum CalendarProviderType {
+  AIRBNB
+  BOOKING
+  AGODA
+  EXPEDIA
+  VRBO
+  OTHER
+}
+
+enum ReservationStatus {
+  CONFIRMED
+  CANCELLED
+  BLOCKED
+  TENTATIVE
+  UNKNOWN
+}
+
+enum SyncStatus {
+  RUNNING
+  SUCCESS
+  FAILED
+}
+
+model Company {
+  id         String     @id @default(cuid())
+  name       String
+  isActive   Boolean    @default(true)
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+  properties Property[]
+
+  @@index([isActive, name])
+}
+
+model Property {
+  id           String        @id @default(cuid())
+  companyId    String
+  name         String
+  address      String
+  timezone     String        @default("Asia/Tokyo")
+  isActive     Boolean       @default(true)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  company      Company       @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  rooms        Room[]
+  reservations Reservation[]
+
+  @@unique([companyId, name])
+  @@index([companyId, isActive])
+  @@index([isActive, name])
+}
+
+model Room {
+  id              String           @id @default(cuid())
+  propertyId      String
+  name            String
+  code            String
+  capacity        Int              @default(1)
+  sortOrder       Int              @default(0)
+  isActive        Boolean          @default(true)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  property        Property         @relation(fields: [propertyId], references: [id], onDelete: Restrict)
+  calendarSources CalendarSource[]
+  reservations    Reservation[]
+
+  @@unique([propertyId, code])
+  @@index([propertyId, isActive, sortOrder])
+  @@index([isActive])
+}
+
+model CalendarSource {
+  id           String               @id @default(cuid())
+  roomId       String
+  provider     CalendarProviderType
+  name         String
+  calendarUrl  String
+  isActive     Boolean              @default(true)
+  lastSyncedAt DateTime?
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
+  room         Room                 @relation(fields: [roomId], references: [id], onDelete: Restrict)
+  reservations Reservation[]
+  syncLogs     SyncLog[]
+
+  @@unique([roomId, calendarUrl])
+  @@index([roomId, isActive])
+  @@index([provider, isActive])
+  @@index([isActive, lastSyncedAt])
+}
+
+model Reservation {
+  /// Application and calendar-sync services must enforce startDate < endDate.
+  id                    String               @id @default(cuid())
+  provider              CalendarProviderType
+  providerReservationId String?
+  propertyId            String
+  roomId                String
+  calendarSourceId      String
+  guestName             String?
+  summary               String?
+  description           String?
+  startDate             DateTime
+  endDate               DateTime
+  status                ReservationStatus
+  rawUid                String
+  providerCreatedAt     DateTime?
+  providerUpdatedAt     DateTime?
+  createdAt             DateTime             @default(now())
+  updatedAt             DateTime             @updatedAt
+  property              Property             @relation(fields: [propertyId], references: [id], onDelete: Restrict)
+  room                  Room                 @relation(fields: [roomId], references: [id], onDelete: Restrict)
+  calendarSource        CalendarSource       @relation(fields: [calendarSourceId], references: [id], onDelete: Restrict)
+
+  @@unique([calendarSourceId, rawUid])
+  @@index([roomId, startDate, endDate])
+  @@index([propertyId, startDate, endDate])
+  @@index([startDate, status])
+  @@index([endDate, status])
+  @@index([calendarSourceId, status])
+  @@index([provider, startDate])
+  @@index([provider, providerReservationId])
+}
+
+model SyncLog {
+  /// Service input validation must keep all count fields at zero or greater.
+  id               String         @id @default(cuid())
+  calendarSourceId String
+  status           SyncStatus
+  startedAt        DateTime       @default(now())
+  completedAt      DateTime?
+  fetchedCount     Int            @default(0)
+  createdCount     Int            @default(0)
+  updatedCount     Int            @default(0)
+  cancelledCount   Int            @default(0)
+  errorMessage     String?
+  createdAt        DateTime       @default(now())
+  calendarSource   CalendarSource @relation(fields: [calendarSourceId], references: [id], onDelete: Restrict)
+
+  @@index([calendarSourceId, createdAt])
+  @@index([status, createdAt])
+  @@index([calendarSourceId, status, startedAt])
+}

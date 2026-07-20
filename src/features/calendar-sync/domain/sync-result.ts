@@ -1,0 +1,1 @@
+export interface CalendarSyncResult { calendarSourceId: string; provider: string; fetchedCount: number; parsedCount: number; excludedCount: number; createdCount: number; updatedCount: number; unchangedCount: number; cancelledCount: number; completedAt: string }

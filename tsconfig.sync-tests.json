@@ -1,0 +1,4 @@
+{
+  "compilerOptions": { "target": "ES2022", "module": "CommonJS", "moduleResolution": "Node", "esModuleInterop": true, "strict": true, "skipLibCheck": true, "rootDir": "src", "outDir": ".sync-tests", "baseUrl": ".", "paths": { "@/*": ["src/*"] } },
+  "include": ["src/features/calendar-sync/domain/**/*.ts", "src/features/calendar-sync/infrastructure/ics-parser.ts", "src/features/calendar-sync/providers/reservation-normalizer.ts", "src/features/calendar-sync/providers/airbnb-normalizer.ts", "src/features/calendar-sync/providers/booking-normalizer.ts", "src/features/calendar-sync/providers/agoda-normalizer.ts", "src/features/calendar-sync/tests/**/*.ts", "src/providers/calendar/types.ts", "src/lib/generated/prisma/enums.ts"]
+}

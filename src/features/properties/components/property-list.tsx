@@ -1,0 +1,14 @@
+import { Building2 } from "lucide-react";
+import type { CompanyOption } from "@/features/companies";
+import type { PropertyListItem } from "../property.types";
+import { EmptyState } from "@/components/shared/empty-state";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { PropertyActiveForm } from "./property-active-form";
+import { PropertyFormDialog } from "./property-form-dialog";
+
+export function PropertyList({ properties, companies }: { properties: PropertyListItem[]; companies: CompanyOption[] }) {
+  if (!properties.length) return <Card><CardContent className="flex min-h-72 items-center"><EmptyState icon={Building2} title="등록된 숙소가 없습니다" description={companies.length ? "첫 숙소를 등록해 객실과 캘린더 관리를 시작하세요." : "숙소를 등록하려면 먼저 회사 데이터가 필요합니다."} /></CardContent></Card>;
+  return <><div className="grid gap-3 md:hidden">{properties.map((property) => <Card key={property.id}><CardContent className="space-y-3 p-4"><div className="flex items-start justify-between gap-3"><div><p className="font-semibold">{property.name}</p><p className="text-xs text-muted-foreground">{property.companyName}</p></div><Badge variant={property.isActive ? "secondary" : "outline"}>{property.isActive ? "활성" : "비활성"}</Badge></div><p className="text-sm">{property.address}</p><div className="flex justify-between text-xs text-muted-foreground"><span>{property.timezone}</span><span>객실 {property.activeRooms}/{property.totalRooms} 활성</span></div><div className="flex gap-2"><PropertyFormDialog companies={companies} property={property} /><PropertyActiveForm id={property.id} isActive={property.isActive} /></div></CardContent></Card>)}</div><Card className="hidden md:block"><Table><TableHeader><TableRow><TableHead>숙소 / 회사</TableHead><TableHead>주소</TableHead><TableHead>타임존</TableHead><TableHead>객실</TableHead><TableHead>상태</TableHead><TableHead className="text-right">관리</TableHead></TableRow></TableHeader><TableBody>{properties.map((property) => <TableRow key={property.id}><TableCell><p className="font-medium">{property.name}</p><p className="text-xs text-muted-foreground">{property.companyName}</p></TableCell><TableCell className="max-w-64 truncate">{property.address}</TableCell><TableCell>{property.timezone}</TableCell><TableCell>{property.activeRooms}/{property.totalRooms} 활성</TableCell><TableCell><Badge variant={property.isActive ? "secondary" : "outline"}>{property.isActive ? "활성" : "비활성"}</Badge></TableCell><TableCell><div className="flex justify-end gap-2"><PropertyFormDialog companies={companies} property={property} /><PropertyActiveForm id={property.id} isActive={property.isActive} /></div></TableCell></TableRow>)}</TableBody></Table></Card></>;
+}
