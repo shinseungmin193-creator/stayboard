@@ -63,13 +63,13 @@ enum CompanyMemberRole {
 }
 
 model Company {
-  id         String           @id @default(cuid())
-  name       String
-  isActive   Boolean          @default(true)
-  createdAt  DateTime         @default(now())
-  updatedAt  DateTime         @updatedAt
-  properties Property[]
-  settings   CompanySettings?
+  id          String              @id @default(cuid())
+  name        String
+  isActive    Boolean             @default(true)
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+  properties  Property[]
+  settings    CompanySettings?
   memberships CompanyMembership[]
 
   @@index([isActive, name])
@@ -113,17 +113,17 @@ model SidebarPreference {
 }
 
 model Property {
-  id           String        @id @default(cuid())
-  companyId    String
-  name         String
-  address      String
-  timezone     String        @default("Asia/Tokyo")
-  isActive     Boolean       @default(true)
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
-  company      Company       @relation(fields: [companyId], references: [id], onDelete: Restrict)
-  rooms        Room[]
-  reservations Reservation[]
+  id               String            @id @default(cuid())
+  companyId        String
+  name             String
+  address          String
+  timezone         String            @default("Asia/Tokyo")
+  isActive         Boolean           @default(true)
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  company          Company           @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  rooms            Room[]
+  reservations     Reservation[]
   staffAssignments StaffAssignment[]
 
   @@unique([companyId, name])
@@ -157,20 +157,20 @@ model Room {
 }
 
 model User {
-  id            String             @id @default(cuid())
-  username      String?            @unique
-  email         String             @unique
-  name          String
-  passwordHash  String
-  systemRole    UserSystemRole     @default(NONE)
-  isActive      Boolean            @default(true)
-  lastLoginAt   DateTime?
-  createdAt     DateTime           @default(now())
-  updatedAt     DateTime           @updatedAt
-  memberships   CompanyMembership[]
-  assignments   StaffAssignment[]
-  auditLogsAsActor AuditLog[]       @relation("AuditActor")
-  auditLogsAsTarget AuditLog[]      @relation("AuditTarget")
+  id                String              @id @default(cuid())
+  username          String?             @unique
+  email             String              @unique
+  name              String
+  passwordHash      String
+  systemRole        UserSystemRole      @default(NONE)
+  isActive          Boolean             @default(true)
+  lastLoginAt       DateTime?
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  memberships       CompanyMembership[]
+  assignments       StaffAssignment[]
+  auditLogsAsActor  AuditLog[]          @relation("AuditActor")
+  auditLogsAsTarget AuditLog[]          @relation("AuditTarget")
   syncRuns          SyncRun[]
 
   @@index([isActive, name])
@@ -343,33 +343,33 @@ model ReservationConflict {
 
 model SyncLog {
   /// Service input validation must keep all count fields at zero or greater.
-  id                    String         @id @default(cuid())
+  id                    String               @id @default(cuid())
   calendarSourceId      String
   syncRunId             String?
   provider              CalendarProviderType
   status                SyncStatus
-  startedAt             DateTime       @default(now())
+  startedAt             DateTime             @default(now())
   completedAt           DateTime?
-  fetchedCount          Int            @default(0)
-  parsedEventCount      Int            @default(0)
-  reservationEventCount Int            @default(0)
-  blockedEventCount     Int            @default(0)
-  cancelledEventCount   Int            @default(0)
-  unknownEventCount     Int            @default(0)
+  fetchedCount          Int                  @default(0)
+  parsedEventCount      Int                  @default(0)
+  reservationEventCount Int                  @default(0)
+  blockedEventCount     Int                  @default(0)
+  cancelledEventCount   Int                  @default(0)
+  unknownEventCount     Int                  @default(0)
   unknownEventDetails   Json?
-  skippedEventCount     Int            @default(0)
-  createdCount          Int            @default(0)
-  updatedCount          Int            @default(0)
-  cancelledCount        Int            @default(0)
+  skippedEventCount     Int                  @default(0)
+  createdCount          Int                  @default(0)
+  updatedCount          Int                  @default(0)
+  cancelledCount        Int                  @default(0)
   errorMessage          String?
-  retryCount            Int            @default(0)
+  retryCount            Int                  @default(0)
   httpStatus            Int?
   errorCode             String?
   errorDetails          String?
   durationMs            Int?
-  createdAt             DateTime       @default(now())
-  calendarSource        CalendarSource @relation(fields: [calendarSourceId], references: [id], onDelete: Restrict)
-  syncRun               SyncRun?       @relation(fields: [syncRunId], references: [id], onDelete: SetNull)
+  createdAt             DateTime             @default(now())
+  calendarSource        CalendarSource       @relation(fields: [calendarSourceId], references: [id], onDelete: Restrict)
+  syncRun               SyncRun?             @relation(fields: [syncRunId], references: [id], onDelete: SetNull)
 
   @@index([calendarSourceId, createdAt])
   @@index([syncRunId, createdAt])
