@@ -1,7 +1,8 @@
 import type { NextConfig } from "next";
+import { APP_BASE_PATH } from "./src/lib/base-path";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  basePath: APP_BASE_PATH,
 };
 
 export default nextConfig;

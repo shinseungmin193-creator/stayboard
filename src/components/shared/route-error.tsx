@@ -5,6 +5,7 @@ import { AlertTriangle, ChevronDown, RefreshCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { APP_ERROR_MESSAGES, UNKNOWN_ERROR_RESPONSE, isAppErrorCode, type AppErrorResponse, type DeveloperErrorDetails } from "@/lib/app-error";
+import { withBasePath } from "@/lib/base-path";
 
 type ErrorPayload = AppErrorResponse & { details?: DeveloperErrorDetails };
 
@@ -13,7 +14,7 @@ export function RouteError({ error, retry }: { error: Error & { digest?: string 
   const [isPending, startTransition] = useTransition();
   useEffect(() => {
     const controller = new AbortController();
-    void fetch("/api/error-logs", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ digest: error.digest, message: error.message, stack: error.stack, apiRoute: window.location.pathname }), signal: controller.signal })
+    void fetch(withBasePath("/api/error-logs"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ digest: error.digest, message: error.message, stack: error.stack, apiRoute: window.location.pathname }), signal: controller.signal })
       .then(async (response) => { const value = await response.json() as Partial<ErrorPayload>; if (typeof value.status === "number" && isAppErrorCode(value.errorCode)) setPayload({ status: value.status, errorCode: value.errorCode, message: value.message ?? APP_ERROR_MESSAGES[value.errorCode], details: value.details }); })
       .catch(() => undefined);
     return () => controller.abort();

@@ -1,8 +1,10 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { AUTH_COOKIE_PATH } from "@/features/auth/domain/cookie-policy";
 import { isNextAuthSessionCookie, NEXTAUTH_SESSION_COOKIE_NAMES } from "@/features/auth/domain/session-cookie";
+import { withBasePath } from "@/lib/base-path";
 
 export function GET(request: NextRequest) {
-  const redirectUrl = new URL("/login", request.url);
+  const redirectUrl = new URL(withBasePath("/login"), request.url);
   redirectUrl.searchParams.set("sessionReset", "1");
   const response = NextResponse.redirect(redirectUrl);
   const cookieNames = new Set([
@@ -16,7 +18,7 @@ export function GET(request: NextRequest) {
       value: "",
       expires: new Date(0),
       maxAge: 0,
-      path: "/",
+      path: AUTH_COOKIE_PATH,
       httpOnly: true,
       sameSite: "lax",
       secure: cookieName.startsWith("__Secure-"),

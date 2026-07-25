@@ -3,7 +3,9 @@ import assert from "node:assert/strict";
 import { loginSchema, signupSchema } from "../auth.schemas";
 import { authenticateLoginAttempt, type LoginUserRecord } from "../domain/authenticate-login";
 import { requireNextAuthSecret } from "../domain/auth-secret";
+import { usesSecureAuthCookies } from "../domain/cookie-policy";
 import { isNextAuthSessionCookie } from "../domain/session-cookie";
+import { normalizeBasePath } from "../../../lib/base-path";
 
 const activeUser: LoginUserRecord = { id: "user-a", email: "user@example.com", name: "User", passwordHash: "stored-hash", isActive: true };
 
@@ -50,9 +52,25 @@ test("NextAuth secret은 고정된 32자 이상의 값만 허용한다", () => {
   assert.equal(requireNextAuthSecret(secret), secret);
 });
 
-test("기본 및 분할된 NextAuth 세션 쿠키만 복구 대상으로 판별한다", () => {
-  assert.equal(isNextAuthSessionCookie("next-auth.session-token"), true);
-  assert.equal(isNextAuthSessionCookie("next-auth.session-token.0"), true);
-  assert.equal(isNextAuthSessionCookie("__Secure-next-auth.session-token.1"), true);
-  assert.equal(isNextAuthSessionCookie("next-auth.csrf-token"), false);
+test("StayBoard 전용 및 분할된 NextAuth 세션 쿠키만 복구 대상으로 판별한다", () => {
+  assert.equal(isNextAuthSessionCookie("stayboard.session-token"), true);
+  assert.equal(isNextAuthSessionCookie("stayboard.session-token.0"), true);
+  assert.equal(isNextAuthSessionCookie("__Secure-stayboard.session-token.1"), true);
+  assert.equal(isNextAuthSessionCookie("next-auth.session-token"), false);
+  assert.equal(isNextAuthSessionCookie("stayboard.csrf-token"), false);
+});
+
+test("하위 배포 경로는 정규화하고 잘못된 형식은 거부한다", () => {
+  assert.equal(normalizeBasePath(undefined), "");
+  assert.equal(normalizeBasePath("/"), "");
+  assert.equal(normalizeBasePath(" /stayboard "), "/stayboard");
+  assert.throws(() => normalizeBasePath("stayboard"), /NEXT_PUBLIC_BASE_PATH/);
+  assert.throws(() => normalizeBasePath("/stayboard/"), /NEXT_PUBLIC_BASE_PATH/);
+  assert.throws(() => normalizeBasePath("/stayboard?mode=1"), /NEXT_PUBLIC_BASE_PATH/);
+});
+
+test("인증 쿠키 보안 여부는 공개 인증 URL의 프로토콜을 따른다", () => {
+  assert.equal(usesSecureAuthCookies("https://example.com/stayboard/api/auth"), true);
+  assert.equal(usesSecureAuthCookies("http://127.0.0.1:3004/api/auth"), false);
+  assert.equal(usesSecureAuthCookies("invalid"), false);
 });

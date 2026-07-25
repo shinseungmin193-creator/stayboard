@@ -5,9 +5,12 @@ import { loginSchema } from "./auth.schemas";
 import { verifyPassword } from "./server/password";
 import { authenticateLoginAttempt } from "./domain/authenticate-login";
 import { requireNextAuthSecret } from "./domain/auth-secret";
+import { stayboardAuthCookies } from "./domain/cookie-policy";
+import { withBasePath } from "@/lib/base-path";
 
 export const authOptions: NextAuthOptions = {
   secret: requireNextAuthSecret(process.env.NEXTAUTH_SECRET),
+  cookies: stayboardAuthCookies,
   providers: [
     CredentialsProvider({
       name: "아이디 또는 이메일",
@@ -36,7 +39,7 @@ export const authOptions: NextAuthOptions = {
     }),
   ],
   session: { strategy: "jwt", maxAge: 8 * 60 * 60 },
-  pages: { signIn: "/login" },
+  pages: { signIn: withBasePath("/login") },
   callbacks: {
     async jwt({ token, user }) {
       if (user?.id) token.sub = user.id;
