@@ -3,4 +3,4 @@ export interface PropertyListItem {
   timezone: string; isActive: boolean; totalRooms: number; activeRooms: number;
 }
 
-export interface PropertyOption { id: string; name: string; isActive: boolean }
+export interface PropertyOption { id: string; companyId: string; name: string; isActive: boolean }

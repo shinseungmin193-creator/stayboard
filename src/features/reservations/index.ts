@@ -1,2 +1,3 @@
 export { listReservations } from "./reservation.repository";
-export type { ReservationFilters, ReservationListItem } from "./reservation.types";
+export { getReservationDisplayLabel, getReservationDisplayName } from "./reservation-display";
+export type { ReservationDateField, ReservationFilters, ReservationListItem } from "./reservation.types";

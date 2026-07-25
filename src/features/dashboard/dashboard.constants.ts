@@ -1,0 +1,2 @@
+export const DASHBOARD_RECENT_SYNC_FAILURE_HOURS = 24;
+export const DASHBOARD_TIMEZONE = "Asia/Tokyo";

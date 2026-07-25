@@ -1,0 +1,27 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "CommonJS",
+    "moduleResolution": "Node",
+    "esModuleInterop": true,
+    "strict": true,
+    "skipLibCheck": true,
+    "rootDir": ".",
+    "outDir": ".cleanup-scripts",
+    "baseUrl": ".",
+    "paths": { "@/*": ["src/*"] }
+  },
+  "include": [
+    "scripts/cleanup-non-reservation-calendar-events.ts",
+    "src/features/calendar-sync/domain/calendar-event.ts",
+    "src/features/calendar-sync/domain/classify-calendar-events.ts",
+    "src/features/calendar-sync/domain/normalized-reservation.ts",
+    "src/features/calendar-sync/infrastructure/ics-parser.ts",
+    "src/features/calendar-sync/lib/normalize-calendar-text.ts",
+    "src/features/calendar-sync/providers/**/*.ts",
+    "src/providers/calendar/constants.ts",
+    "src/providers/calendar/types.ts",
+    "src/lib/generated/prisma/enums.ts"
+  ]
+}

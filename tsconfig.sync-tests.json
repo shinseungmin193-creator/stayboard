@@ -1,4 +1,18 @@
 {
   "compilerOptions": { "target": "ES2022", "module": "CommonJS", "moduleResolution": "Node", "esModuleInterop": true, "strict": true, "skipLibCheck": true, "rootDir": "src", "outDir": ".sync-tests", "baseUrl": ".", "paths": { "@/*": ["src/*"] } },
-  "include": ["src/features/calendar-sync/domain/**/*.ts", "src/features/calendar-sync/infrastructure/ics-parser.ts", "src/features/calendar-sync/providers/reservation-normalizer.ts", "src/features/calendar-sync/providers/airbnb-normalizer.ts", "src/features/calendar-sync/providers/booking-normalizer.ts", "src/features/calendar-sync/providers/agoda-normalizer.ts", "src/features/calendar-sync/tests/**/*.ts", "src/providers/calendar/types.ts", "src/lib/generated/prisma/enums.ts"]
+  "include": [
+    "src/features/access-control/domain/**/*.ts", "src/features/access-control/tests/**/*.ts",
+    "src/features/auth/auth.schemas.ts", "src/features/auth/domain/**/*.ts", "src/features/auth/tests/**/*.ts",
+    "src/features/user-management/domain/**/*.ts", "src/features/user-management/tests/**/*.ts",
+    "src/features/calendar-sync/calendar-sync.constants.ts", "src/features/calendar-sync/domain/**/*.ts", "src/features/calendar-sync/infrastructure/ics-parser.ts", "src/features/calendar-sync/providers/reservation-normalizer.ts", "src/features/calendar-sync/providers/airbnb-normalizer.ts", "src/features/calendar-sync/providers/booking-normalizer.ts", "src/features/calendar-sync/providers/agoda-normalizer.ts", "src/features/calendar-sync/tests/**/*.ts",
+    "src/features/calendar-connections/lib/**/*.ts", "src/features/calendar-connections/types/**/*.ts", "src/features/calendar-connections/tests/**/*.ts", "src/features/calendar-sources/calendar-source-url.ts",
+    "src/features/dashboard/dashboard.constants.ts", "src/features/dashboard/dashboard-time.ts", "src/features/dashboard/dashboard-cleaning.ts", "src/features/dashboard/tests/**/*.ts",
+    "src/features/developer-settings/domain/**/*.ts", "src/features/developer-settings/storage/**/*.ts", "src/features/developer-settings/tests/**/*.ts",
+    "src/features/sidebar-preferences/domain/**/*.ts", "src/features/sidebar-preferences/tests/**/*.ts",
+    "src/features/reservation-conflicts/domain/**/*.ts", "src/features/reservation-conflicts/tests/**/*.ts",
+    "src/features/room-overview/domain/**/*.ts", "src/features/room-overview/tests/**/*.ts",
+    "src/features/statistics/occupancy/domain/**/*.ts", "src/features/statistics/occupancy/tests/**/*.ts",
+    "src/features/rooms/create-room-registration.ts", "src/features/rooms/room-calendar-draft.ts", "src/features/rooms/room-display.ts", "src/features/rooms/tests/**/*.ts",
+    "src/features/reservations/reservation-display.ts", "src/features/reservations/reservation.constants.ts", "src/features/reservations/reservation-query.ts", "src/features/reservations/reservation.types.ts", "src/features/reservations/tests/**/*.ts", "src/features/calendar-sources/calendar-source.types.ts", "src/providers/calendar/constants.ts", "src/providers/calendar/http-policy.ts", "src/providers/calendar/types.ts", "src/lib/concurrency.ts", "src/lib/generated/prisma/enums.ts"
+  ]
 }

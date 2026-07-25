@@ -1,16 +1,146 @@
 import "server-only";
+import { randomUUID } from "node:crypto";
 import { prisma } from "@/lib/prisma";
+import { findCalendarSourceSyncStates } from "@/features/calendar-sources/calendar-source.repository";
 import type { RoomListItem } from "./room.types";
+import type { RoomRegistrationInput } from "./create-room-registration";
+import type { RoomOperationalStatus } from "@/lib/generated/prisma/enums";
+import type { RoomWithCalendarSourcesAtomicInput } from "./update-room-with-calendar-sources";
+import { formatRoomDisplayName } from "./room-display";
 
-export async function listRooms(propertyId?: string): Promise<RoomListItem[]> {
+type RoomWriteInput = { propertyId: string; name: string; capacity: number };
+const internalRoomCode = () => `room_${randomUUID()}`;
+const summarizeSyncError = (value: string | null | undefined) => value
+  ? value.replace(/https?:\/\/\S+/gi, "[URL 숨김]").slice(0, 180)
+  : null;
+
+export async function listRooms(propertyId?: string, companyIds?: readonly string[]): Promise<RoomListItem[]> {
   const rooms = await prisma.room.findMany({
-    where: propertyId ? { propertyId } : undefined,
-    select: { id: true, propertyId: true, name: true, code: true, capacity: true, sortOrder: true, isActive: true, property: { select: { name: true, isActive: true } }, _count: { select: { calendarSources: true } } },
-    orderBy: [{ isActive: "desc" }, { property: { name: "asc" } }, { sortOrder: "asc" }, { code: "asc" }, { name: "asc" }],
+    where: { propertyId, property: companyIds ? { companyId: { in: [...companyIds] } } : undefined },
+    select: {
+      id: true,
+      propertyId: true,
+      name: true,
+      capacity: true,
+      isActive: true,
+      property: { select: { name: true, isActive: true } },
+      calendarSources: {
+        select: {
+          id: true,
+          provider: true,
+          name: true,
+          calendarUrl: true,
+          isActive: true,
+          lastSyncedAt: true,
+        },
+        orderBy: [{ provider: "asc" }, { name: "asc" }, { id: "asc" }],
+      },
+      _count: { select: { calendarSources: true } },
+    },
+    orderBy: [{ isActive: "desc" }, { property: { name: "asc" } }, { sortOrder: "asc" }, { name: "asc" }],
   });
-  return rooms.map(({ property, _count, ...room }) => ({ ...room, propertyName: property.name, propertyIsActive: property.isActive, calendarSourceCount: _count.calendarSources }));
+  const syncStates = await findCalendarSourceSyncStates(rooms.flatMap((room) => room.calendarSources.map((source) => source.id)));
+  const syncStateBySourceId = new Map(syncStates.map((state) => [state.sourceId, state]));
+  return rooms.map(({ property, _count, calendarSources, ...room }) => ({
+    ...room,
+    name: formatRoomDisplayName(room),
+    propertyName: property.name,
+    propertyIsActive: property.isActive,
+    calendarSourceCount: _count.calendarSources,
+    calendarSources: calendarSources.map((source) => {
+      const syncState = syncStateBySourceId.get(source.id);
+      return {
+        ...source,
+        latestSyncStatus: syncState?.latestSyncStatus ?? null,
+        latestSyncStartedAt: syncState?.latestSyncStartedAt ?? null,
+        latestSyncCompletedAt: syncState?.latestSyncCompletedAt ?? null,
+        latestFetchedCount: syncState?.latestFetchedCount ?? 0,
+        latestErrorSummary: summarizeSyncError(syncState?.latestFailedErrorMessage ?? syncState?.latestErrorMessage),
+      };
+    }),
+  }));
 }
-export function createRoom(data: { propertyId: string; name: string; code: string; capacity: number; sortOrder: number }) { return prisma.room.create({ data, select: { id: true } }); }
-export function updateRoom(id: string, data: { propertyId: string; name: string; code: string; capacity: number; sortOrder: number }) { return prisma.room.update({ where: { id }, data, select: { id: true } }); }
-export function roomExists(id: string) { return prisma.room.findUnique({ where: { id }, select: { id: true, isActive: true } }); }
+export function createRoom(data: RoomWriteInput) {
+  return prisma.$transaction(async (tx) => {
+    const lastRoom = await tx.room.findFirst({ where: { propertyId: data.propertyId }, select: { sortOrder: true }, orderBy: { sortOrder: "desc" } });
+    return tx.room.create({ data: { ...data, code: internalRoomCode(), sortOrder: (lastRoom?.sortOrder ?? -1) + 1 }, select: { id: true } });
+  });
+}
+export function createRoomWithCalendarSources(room: RoomRegistrationInput["room"], calendars: RoomRegistrationInput["calendars"]) {
+  return prisma.$transaction(async (tx) => {
+    const lastRoom = await tx.room.findFirst({ where: { propertyId: room.propertyId }, select: { sortOrder: true }, orderBy: { sortOrder: "desc" } });
+    const created = await tx.room.create({ data: { ...room, code: internalRoomCode(), sortOrder: (lastRoom?.sortOrder ?? -1) + 1 }, select: { id: true } });
+    if (calendars.length) await tx.calendarSource.createMany({ data: calendars.map((calendar) => ({ roomId: created.id, provider: calendar.provider, name: calendar.name, calendarUrl: calendar.calendarUrl, isActive: true })) });
+    return created;
+  });
+}
+export function updateRoom(id: string, data: RoomWriteInput) {
+  return prisma.$transaction(async (tx) => {
+    const current = await tx.room.findUniqueOrThrow({ where: { id }, select: { propertyId: true, code: true } });
+    let code: string | undefined;
+    if (current.propertyId !== data.propertyId) {
+      const duplicate = await tx.room.findUnique({ where: { propertyId_code: { propertyId: data.propertyId, code: current.code } }, select: { id: true } });
+      if (duplicate) code = internalRoomCode();
+    }
+    return tx.room.update({ where: { id }, data: { ...data, code }, select: { id: true } });
+  });
+}
+export function findRoomWithCalendarSourcesForUpdate(id: string) {
+  return prisma.room.findUnique({
+    where: { id },
+    select: {
+      id: true,
+      calendarSources: {
+        select: { id: true, provider: true, name: true, calendarUrl: true, isActive: true },
+        orderBy: [{ provider: "asc" }, { name: "asc" }, { id: "asc" }],
+      },
+    },
+  }).then((room) => room ? { id: room.id, sources: room.calendarSources } : null);
+}
+export function updateRoomWithCalendarSourcesAtomically(input: RoomWithCalendarSourcesAtomicInput) {
+  return prisma.$transaction(async (tx) => {
+    const current = await tx.room.findUniqueOrThrow({
+      where: { id: input.room.id },
+      select: { propertyId: true, code: true },
+    });
+    let code: string | undefined;
+    if (current.propertyId !== input.room.propertyId) {
+      const duplicate = await tx.room.findUnique({
+        where: { propertyId_code: { propertyId: input.room.propertyId, code: current.code } },
+        select: { id: true },
+      });
+      if (duplicate) code = internalRoomCode();
+    }
+    await tx.room.update({
+      where: { id: input.room.id },
+      data: {
+        propertyId: input.room.propertyId,
+        name: input.room.name,
+        capacity: input.room.capacity,
+        code,
+      },
+      select: { id: true },
+    });
+    for (const source of input.sourceUpdates) {
+      const updated = await tx.calendarSource.updateMany({
+        where: { id: source.id, roomId: input.room.id },
+        data: {
+          name: source.name,
+          calendarUrl: source.calendarUrl,
+          isActive: source.isActive,
+        },
+      });
+      if (updated.count !== 1) throw new Error("CALENDAR_SOURCE_WRITE_CONFLICT");
+    }
+    if (input.sourceCreates.length) {
+      await tx.calendarSource.createMany({
+        data: input.sourceCreates.map((source) => ({ ...source, roomId: input.room.id })),
+      });
+    }
+    return { id: input.room.id };
+  });
+}
+export function roomExists(id: string) { return prisma.room.findUnique({ where: { id }, select: { id: true, isActive: true, property: { select: { companyId: true } } } }); }
 export function setRoomActive(id: string, isActive: boolean) { return prisma.room.update({ where: { id }, data: { isActive }, select: { id: true, isActive: true } }); }
+export function findRoomForOperationalStatus(id: string) { return prisma.room.findUnique({ where: { id }, select: { id: true, property: { select: { companyId: true } } } }); }
+export function updateRoomOperationalStatusRecord(id: string, operationalStatus: RoomOperationalStatus, operationalStatusUpdatedAt: Date) { return prisma.room.update({ where: { id }, data: { operationalStatus, operationalStatusUpdatedAt }, select: { id: true, operationalStatus: true, operationalStatusUpdatedAt: true } }); }

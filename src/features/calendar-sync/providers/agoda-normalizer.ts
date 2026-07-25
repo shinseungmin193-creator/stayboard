@@ -1,3 +1,4 @@
 import type { ReservationNormalizer } from "./reservation-normalizer";
 import { normalizeCommon } from "./reservation-normalizer";
-export class AgodaReservationNormalizer implements ReservationNormalizer { readonly provider = "AGODA" as const; normalize = normalizeCommon; }
+import { classifyAgodaEvent } from "./agoda-event-classifier";
+export class AgodaReservationNormalizer implements ReservationNormalizer { readonly provider = "AGODA" as const; classifyEvent = classifyAgodaEvent; normalize = normalizeCommon; }

@@ -1,3 +1,4 @@
 import type { ReservationNormalizer } from "./reservation-normalizer";
 import { normalizeCommon } from "./reservation-normalizer";
-export class BookingReservationNormalizer implements ReservationNormalizer { readonly provider = "BOOKING" as const; normalize = normalizeCommon; }
+import { classifyBookingEvent } from "./booking-event-classifier";
+export class BookingReservationNormalizer implements ReservationNormalizer { readonly provider = "BOOKING" as const; classifyEvent = classifyBookingEvent; normalize = normalizeCommon; }

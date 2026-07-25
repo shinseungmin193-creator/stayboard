@@ -1,0 +1,145 @@
+.overviewLayout {
+  display: grid;
+  gap: 1rem;
+}
+
+.roomGrid {
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 270px), 1fr));
+}
+
+@media (min-width: 80rem) {
+  .overviewLayout {
+    gap: 0.5rem;
+  }
+
+  .overviewLayout[data-schedule-visible="true"] {
+    grid-template-columns: minmax(0, 1fr) var(--room-schedule-panel-width, 300px);
+  }
+
+  :global([data-room-overview-settings][data-show-property="false"] [data-room-overview-property]),
+  :global([data-room-overview-settings][data-show-providers="false"] [data-room-overview-providers]),
+  :global([data-room-overview-settings][data-show-guest="false"] [data-room-overview-guest-name]),
+  :global([data-room-overview-settings][data-show-stay-dates="false"] [data-room-overview-stay-date]),
+  :global([data-room-overview-settings][data-show-night-count="false"] [data-room-overview-night-count]),
+  :global([data-room-overview-settings][data-show-next-reservation="false"] [data-room-overview-next-reservation]),
+  :global([data-room-overview-settings][data-show-sync-warnings="false"] [data-room-overview-sync-warning]),
+  :global([data-room-overview-settings][data-show-no-conflict="false"] [data-room-overview-no-conflict]),
+  :global([data-room-overview-settings][data-show-footer="false"] [data-room-overview-footer]) {
+    display: none;
+  }
+}
+
+.roomCard {
+  border: 1px solid var(--border);
+  background:
+    linear-gradient(
+      180deg,
+      rgb(var(--room-status-rgb) / 0.14) 0%,
+      rgb(var(--room-status-rgb) / 0.065) 32%,
+      transparent 63%
+    ),
+    var(--card);
+  box-shadow:
+    0 5px 18px rgb(15 23 42 / 0.08),
+    inset 0 1px 0 rgb(255 255 255 / 0.65);
+  transition: transform 150ms ease, border-color 150ms ease, box-shadow 150ms ease;
+}
+
+:global(.dark) .roomCard {
+  background:
+    linear-gradient(
+      180deg,
+      rgb(var(--room-status-rgb) / 0.2) 0%,
+      rgb(var(--room-status-rgb) / 0.085) 32%,
+      transparent 63%
+    ),
+    var(--card);
+  box-shadow:
+    0 8px 24px rgb(0 0 0 / 0.22),
+    inset 0 1px 0 rgb(255 255 255 / 0.035);
+}
+
+.statusHeader {
+  color: var(--room-status-foreground);
+  background: linear-gradient(
+    100deg,
+    var(--room-status-strong) 0%,
+    var(--room-status-medium) 62%,
+    var(--room-status-soft) 100%
+  );
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.14);
+}
+
+.statusChip {
+  border-color: rgb(var(--room-status-rgb) / 0.26);
+  background: rgb(var(--room-status-rgb) / 0.065);
+  transition: border-color 150ms ease, background-color 150ms ease;
+}
+
+.statusChip:hover {
+  border-color: rgb(var(--room-status-rgb) / 0.42);
+  background: rgb(var(--room-status-rgb) / 0.11);
+}
+
+.statusChip[data-active="true"] {
+  border-color: rgb(var(--room-status-rgb) / 0.62);
+  background: rgb(var(--room-status-rgb) / 0.16);
+  box-shadow: inset 0 0 0 1px rgb(var(--room-status-rgb) / 0.1);
+}
+
+:global(.dark) .statusChip {
+  border-color: rgb(var(--room-status-rgb) / 0.32);
+  background: rgb(var(--room-status-rgb) / 0.1);
+}
+
+:global(.dark) .statusChip:hover {
+  background: rgb(var(--room-status-rgb) / 0.15);
+}
+
+:global(.dark) .statusChip[data-active="true"] {
+  border-color: rgb(var(--room-status-rgb) / 0.7);
+  background: rgb(var(--room-status-rgb) / 0.2);
+}
+
+.providerBadge {
+  border-color: rgb(var(--room-status-rgb) / 0.18);
+  background: color-mix(in srgb, var(--muted) 72%, transparent);
+}
+
+.providerBadge[data-current-provider="true"] {
+  border-color: rgb(var(--room-status-rgb) / 0.48);
+  background: rgb(var(--room-status-rgb) / 0.13);
+  color: var(--foreground);
+}
+
+.actionBar > * + * {
+  border-left: 1px solid var(--border);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .roomCard:hover {
+    transform: translateY(-2px);
+    border-color: rgb(var(--room-status-rgb) / 0.32);
+    box-shadow:
+      0 9px 24px rgb(15 23 42 / 0.12),
+      inset 0 1px 0 rgb(255 255 255 / 0.68);
+  }
+
+  :global(.dark) .roomCard:hover {
+    border-color: rgb(var(--room-status-rgb) / 0.38);
+    box-shadow:
+      0 12px 28px rgb(0 0 0 / 0.28),
+      inset 0 1px 0 rgb(255 255 255 / 0.045);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .roomCard,
+  .statusChip {
+    transition: none;
+  }
+
+  .roomCard:hover {
+    transform: none;
+  }
+}

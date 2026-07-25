@@ -8,18 +8,27 @@
     "start": "next start -p 3004",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
-    "test:sync": "tsc -p tsconfig.sync-tests.json && node --test .sync-tests/features/calendar-sync/tests/sync-engine.test.js"
+    "test:sync": "tsc -p tsconfig.sync-tests.json && node --test .sync-tests/features/calendar-sync/tests/event-classification.test.js .sync-tests/features/calendar-sync/tests/sync-engine.test.js .sync-tests/features/calendar-sync/tests/sync-safety.test.js .sync-tests/features/calendar-sync/tests/concurrency.test.js .sync-tests/features/calendar-connections/tests/room-calendar-summary.test.js .sync-tests/features/developer-settings/tests/developer-settings.test.js .sync-tests/features/sidebar-preferences/tests/sidebar-preference.test.js .sync-tests/features/reservation-conflicts/tests/reservation-conflicts.test.js .sync-tests/features/reservations/tests/reservation-display.test.js .sync-tests/features/reservations/tests/reservation-filter.test.js .sync-tests/features/room-overview/tests/room-overview.test.js .sync-tests/features/statistics/occupancy/tests/occupancy.test.js .sync-tests/features/rooms/tests/room-display.test.js .sync-tests/features/rooms/tests/room-registration.test.js .sync-tests/features/rooms/tests/room-operational-status.test.js .sync-tests/features/rooms/tests/room-calendar-update.test.js",
+    "test:dashboard": "tsc -p tsconfig.sync-tests.json && node --test .sync-tests/features/dashboard/tests/dashboard-cleaning.test.js",
+    "test:auth": "tsc -p tsconfig.sync-tests.json && node --test .sync-tests/features/access-control/tests/access-control.test.js .sync-tests/features/auth/tests/auth.test.js .sync-tests/features/user-management/tests/account-policy.test.js",
+    "cleanup:calendar-events": "tsc -p tsconfig.cleanup.json && node .cleanup-scripts/scripts/cleanup-non-reservation-calendar-events.js",
+    "seed:initial-developer": "tsx --env-file-if-exists=.env --env-file-if-exists=.env.local scripts/seed-initial-developer.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",
+    "@dnd-kit/core": "^6.3.1",
+    "@dnd-kit/sortable": "^10.0.0",
+    "@dnd-kit/utilities": "^3.2.2",
     "@prisma/adapter-pg": "^7.8.0",
     "@prisma/client": "^7.8.0",
+    "bcryptjs": "^3.0.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "date-fns": "^4.4.0",
     "ical.js": "^2.2.1",
     "lucide-react": "^1.25.0",
     "next": "^16.2.10",
+    "next-auth": "^4.24.15",
     "next-themes": "^0.4.6",
     "pg": "^8.22.0",
     "prisma": "^7.8.0",
@@ -38,6 +47,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.2.10",
     "tailwindcss": "^4",
+    "tsx": "^4.23.1",
     "typescript": "^5"
   }
 }

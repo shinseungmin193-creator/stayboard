@@ -1,0 +1,22 @@
+import type { ReservationStatus } from "@/lib/generated/prisma/enums";
+import { DASHBOARD_TIMEZONE } from "../../../dashboard/dashboard.constants";
+
+export const OCCUPANCY_LEVEL_THRESHOLDS = { high: 80, medium: 50 } as const;
+export const MAX_OCCUPANCY_PERCENT = 100;
+export interface OccupancyPeriod { start: Date; endExclusive: Date; startLabel: string; endLabel: string; nightCount: number }
+export interface OccupancyReservation { status: ReservationStatus; startDate: Date; endDate: Date }
+export interface OccupancyRoom { id: string; propertyId: string; propertyName: string; name: string; sortOrder: number; activeConflictCount: number; reservations: OccupancyReservation[] }
+export interface RoomOccupancyMetric { roomId: string; propertyName: string; roomName: string; sortOrder: number; occupancyPercent: number; occupiedNights: number; sellableNights: number; blockedNights: number; activeConflictCount: number; hasOverlapAnomaly: boolean }
+export interface OverallOccupancyMetric { occupancyPercent: number; occupiedNights: number; sellableNights: number; blockedNights: number; roomCount: number; activeConflictCount: number; hasOverlapAnomaly: boolean; rooms: RoomOccupancyMetric[] }
+const datePartsFormatter = new Intl.DateTimeFormat("en-CA", { timeZone: DASHBOARD_TIMEZONE, year: "numeric", month: "2-digit", day: "2-digit" });
+const MS_PER_CALENDAR_DAY = 86_400_000;
+function civilDayOrdinal(date: Date) { const parts = datePartsFormatter.formatToParts(date); const number = (type: Intl.DateTimeFormatPartTypes) => Number(parts.find((item) => item.type === type)?.value); return Math.floor(Date.UTC(number("year"), number("month") - 1, number("day")) / MS_PER_CALENDAR_DAY); }
+function addRange(target: Set<number>, start: number, endExclusive: number) { for (let day = start; day < endExclusive; day += 1) target.add(day); }
+function percent(numerator: number, denominator: number) { return denominator > 0 ? Math.min(MAX_OCCUPANCY_PERCENT, numerator / denominator * MAX_OCCUPANCY_PERCENT) : 0; }
+export function calculateOccupancyMetrics(rooms: OccupancyRoom[], period: OccupancyPeriod): OverallOccupancyMetric {
+  const periodStart = civilDayOrdinal(period.start); const periodEnd = civilDayOrdinal(period.endExclusive);
+  const metrics = rooms.map((room): RoomOccupancyMetric => { const occupied = new Set<number>(); const blocked = new Set<number>(); for (const reservation of room.reservations) { if (!Number.isFinite(reservation.startDate.getTime()) || !Number.isFinite(reservation.endDate.getTime()) || reservation.startDate >= reservation.endDate || reservation.status === "CANCELLED") continue; const start = Math.max(periodStart, civilDayOrdinal(reservation.startDate)); const end = Math.min(periodEnd, civilDayOrdinal(reservation.endDate)); if (start >= end) continue; addRange(reservation.status === "BLOCKED" ? blocked : occupied, start, end); } const hasOverlapAnomaly = [...blocked].some((day) => occupied.has(day)); for (const day of occupied) blocked.delete(day); const sellableNights = Math.max(0, period.nightCount - blocked.size); return { roomId: room.id, propertyName: room.propertyName, roomName: room.name, sortOrder: room.sortOrder, occupancyPercent: percent(occupied.size, sellableNights), occupiedNights: Math.min(occupied.size, sellableNights), sellableNights, blockedNights: blocked.size, activeConflictCount: room.activeConflictCount, hasOverlapAnomaly }; }).sort((a, b) => b.occupancyPercent - a.occupancyPercent || a.propertyName.localeCompare(b.propertyName, "ko") || a.sortOrder - b.sortOrder || a.roomName.localeCompare(b.roomName, "ko", { numeric: true }));
+  const totals = metrics.reduce((sum, room) => ({ occupied: sum.occupied + room.occupiedNights, sellable: sum.sellable + room.sellableNights, blocked: sum.blocked + room.blockedNights, conflicts: sum.conflicts + room.activeConflictCount }), { occupied: 0, sellable: 0, blocked: 0, conflicts: 0 });
+  return { occupancyPercent: percent(totals.occupied, totals.sellable), occupiedNights: totals.occupied, sellableNights: totals.sellable, blockedNights: totals.blocked, roomCount: metrics.length, activeConflictCount: totals.conflicts, hasOverlapAnomaly: metrics.some((room) => room.hasOverlapAnomaly), rooms: metrics };
+}
+export function getOccupancyLevel(value: number) { return value >= OCCUPANCY_LEVEL_THRESHOLDS.high ? "HIGH" : value >= OCCUPANCY_LEVEL_THRESHOLDS.medium ? "MEDIUM" : "LOW"; }

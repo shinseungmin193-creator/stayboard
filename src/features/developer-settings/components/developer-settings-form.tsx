@@ -1,0 +1,38 @@
+"use client";
+
+import Link from "next/link";
+import { RotateCcw } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ROOM_DENSITIES, ROOM_OVERVIEW_LIMITS, type DeveloperSettings, type RoomDensity } from "../domain/developer-settings";
+import { useDeveloperSettings } from "./developer-settings-provider";
+import { RESERVATION_CONFLICT_UI } from "@/features/reservation-conflicts/reservation-conflict.labels";
+import { SidebarMenuOrderCard } from "@/features/sidebar-preferences/components/sidebar-menu-order-card";
+
+const densityLabels: Record<RoomDensity, string> = { comfortable: "여유롭게", default: "기본", compact: "조밀하게", "ultra-compact": "매우 조밀하게" };
+
+function Toggle({ label, checked, onChange, disabled = false, description }: { label: string; checked: boolean; onChange(value: boolean): void; disabled?: boolean; description?: string }) {
+  return <label className="flex items-start justify-between gap-4 rounded-lg border p-3"><span><span className="block text-sm font-medium">{label}</span>{description && <span className="mt-1 block text-xs text-muted-foreground">{description}</span>}</span><input type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} disabled={disabled} className="mt-1 size-4 accent-primary" /></label>;
+}
+
+function NumberControl({ field, label, value, onChange }: { field: keyof typeof ROOM_OVERVIEW_LIMITS; label: string; value: number; onChange(value: number): void }) {
+  const limit = ROOM_OVERVIEW_LIMITS[field];
+  return <label className="space-y-2 rounded-lg border p-3"><span className="flex items-center justify-between gap-3 text-sm font-medium"><span>{label}</span><output>{value}px</output></span><input type="range" min={limit.min} max={limit.max} step={limit.step} value={value} onChange={(event) => onChange(Number(event.target.value))} className="w-full accent-primary" /><span className="flex justify-between text-[10px] text-muted-foreground"><span>{limit.min}</span><span>{limit.max}</span></span></label>;
+}
+
+export function DeveloperSettingsForm() {
+  const { settings, hydrated, updateSettings, applyPreset, resetSection, resetAll } = useDeveloperSettings();
+  const updateRoom = (patch: Partial<DeveloperSettings["roomOverview"]>) => updateSettings((current) => ({ ...current, roomOverview: { ...current.roomOverview, ...patch } }));
+  const updateDebug = (patch: Partial<DeveloperSettings["debug"]>) => updateSettings((current) => ({ ...current, debug: { ...current.debug, ...patch } }));
+  return <div className="space-y-4" aria-busy={!hydrated}>
+    <SidebarMenuOrderCard />
+    <Card><CardHeader className="flex-row items-center justify-between"><CardTitle className="text-base">UI 프리셋</CardTitle><Button type="button" variant="ghost" size="sm" onClick={() => resetSection("roomOverview")}><RotateCcw />Section 기본값</Button></CardHeader><CardContent className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">{ROOM_DENSITIES.map((density) => <Button key={density} type="button" variant={settings.roomOverview.density === density ? "default" : "outline"} onClick={() => applyPreset(density)}>{densityLabels[density]}</Button>)}</CardContent></Card>
+    <Card><CardHeader><CardTitle className="text-base">객실 카드</CardTitle></CardHeader><CardContent className="grid gap-3 md:grid-cols-2 xl:grid-cols-4"><NumberControl field="cardMinWidth" label="카드 최소 너비" value={settings.roomOverview.cardMinWidth} onChange={(value) => updateRoom({ cardMinWidth: value })} /><NumberControl field="cardMinHeight" label="카드 최소 높이" value={settings.roomOverview.cardMinHeight} onChange={(value) => updateRoom({ cardMinHeight: value })} /><NumberControl field="gridGap" label="Grid 간격" value={settings.roomOverview.gridGap} onChange={(value) => updateRoom({ gridGap: value })} /><NumberControl field="bodyPadding" label="본문 여백" value={settings.roomOverview.bodyPadding} onChange={(value) => updateRoom({ bodyPadding: value })} /><NumberControl field="statusBarHeight" label="상태바 높이" value={settings.roomOverview.statusBarHeight} onChange={(value) => updateRoom({ statusBarHeight: value })} /><NumberControl field="propertyFontSize" label="숙소명 크기" value={settings.roomOverview.propertyFontSize} onChange={(value) => updateRoom({ propertyFontSize: value })} /><NumberControl field="roomFontSize" label="객실명 크기" value={settings.roomOverview.roomFontSize} onChange={(value) => updateRoom({ roomFontSize: value })} /><NumberControl field="schedulePanelWidth" label="일정 패널 너비" value={settings.roomOverview.schedulePanelWidth} onChange={(value) => updateRoom({ schedulePanelWidth: value })} /><label className="space-y-2 rounded-lg border p-3"><span className="block text-sm font-medium">Provider Badge</span><select value={settings.roomOverview.providerBadgeSize} onChange={(event) => updateRoom({ providerBadgeSize: event.target.value as "sm" | "md" })} className="h-8 w-full rounded-md border bg-background px-2 text-sm"><option value="sm">작게</option><option value="md">보통</option></select></label></CardContent></Card>
+    <Card><CardHeader><CardTitle className="text-base">표시 항목</CardTitle></CardHeader><CardContent className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">{([
+      ["showPropertyName", "숙소명"], ["showProviderBadges", "Provider Badge"], ["showGuestName", "Guest명"], ["showStayDates", "체크인·체크아웃"], ["showNightCount", "숙박 수"], ["showNextReservation", "다음 예약"], ["showSyncWarnings", "동기화 실패 경고"], ["showNoConflictText", `${RESERVATION_CONFLICT_UI.noneLabel} 문구`], ["showFooterActions", "Footer Action"], ["schedulePanelVisible", "오른쪽 운영 일정 패널"],
+    ] as const).map(([key, label]) => <Toggle key={key} label={label} checked={settings.roomOverview[key]} onChange={(value) => updateRoom({ [key]: value })} />)}</CardContent></Card>
+    <Card><CardHeader className="flex-row items-center justify-between"><CardTitle className="text-base">디버그</CardTitle><Button type="button" variant="ghost" size="sm" onClick={() => resetSection("debug")}><RotateCcw />Section 기본값</Button></CardHeader><CardContent className="space-y-3"><Toggle label="Debug Mode" checked={settings.debug.enabled} onChange={(enabled) => updateDebug({ enabled })} description="객실 카드의 운영 정보와 분리된 디버그 영역을 활성화합니다." /><div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">{([ ["showRoomId", "Room ID"], ["showReservationId", "Reservation ID"], ["showCalendarSourceId", "CalendarSource ID"], ["showInternalStatus", "내부 상태 enum"], ["showProviderRawValue", "Provider 원본값"], ["showRenderReferenceTime", "렌더링 기준 시각"], ["showReservationCount", "조회된 예약 수"] ] as const).map(([key, label]) => <Toggle key={key} label={label} checked={settings.debug[key]} disabled={!settings.debug.enabled} onChange={(value) => updateDebug({ [key]: value })} />)}</div></CardContent></Card>
+    <Card><CardHeader><CardTitle className="text-base">기능 플래그</CardTitle></CardHeader><CardContent className="grid gap-3 md:grid-cols-3"><Toggle label="객실 상세 패널" checked={false} disabled onChange={() => undefined} description="준비 중" /><Toggle label="카드 Popover" checked={false} disabled onChange={() => undefined} description="준비 중" /><Toggle label="실험적 필터 UI" checked={false} disabled onChange={() => undefined} description="준비 중" /></CardContent></Card>
+    <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-card p-3"><p className="text-xs text-muted-foreground">변경은 이 브라우저에 즉시 저장되며 Company 운영 데이터에는 영향을 주지 않습니다.</p><div className="flex gap-2"><Button nativeButton={false} render={<Link href="/room-overview" />} variant="outline">객실 현황에서 확인</Button><Button type="button" variant="destructive" onClick={resetAll}><RotateCcw />현재 설정 기본값 복원</Button></div></div>
+  </div>;
+}

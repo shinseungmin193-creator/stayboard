@@ -2,12 +2,12 @@ import "server-only";
 import { prisma } from "@/lib/prisma";
 import type { CompanyListItem, CompanyOption } from "./company.types";
 
-export async function listCompanyOptions(): Promise<CompanyOption[]> {
-  return prisma.company.findMany({ select: { id: true, name: true, isActive: true }, orderBy: [{ isActive: "desc" }, { name: "asc" }] });
+export async function listCompanyOptions(companyIds?: readonly string[]): Promise<CompanyOption[]> {
+  return prisma.company.findMany({ where: companyIds ? { id: { in: [...companyIds] } } : undefined, select: { id: true, name: true, isActive: true }, orderBy: [{ isActive: "desc" }, { name: "asc" }] });
 }
 
-export async function listCompanies(): Promise<CompanyListItem[]> {
-  const companies = await prisma.company.findMany({ select: { id: true, name: true, isActive: true, _count: { select: { properties: true } } }, orderBy: [{ isActive: "desc" }, { name: "asc" }] });
+export async function listCompanies(companyIds?: readonly string[]): Promise<CompanyListItem[]> {
+  const companies = await prisma.company.findMany({ where: companyIds ? { id: { in: [...companyIds] } } : undefined, select: { id: true, name: true, isActive: true, _count: { select: { properties: true } } }, orderBy: [{ isActive: "desc" }, { name: "asc" }] });
   return companies.map(({ _count, ...company }) => ({ ...company, propertyCount: _count.properties }));
 }
 

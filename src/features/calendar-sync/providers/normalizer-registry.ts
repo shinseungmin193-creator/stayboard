@@ -1,4 +1,4 @@
-import type { CalendarProviderType } from "@/providers/calendar";
+import type { CalendarProviderType } from "@/providers/calendar/types";
 import type { ReservationNormalizer } from "./reservation-normalizer";
 import { AirbnbReservationNormalizer } from "./airbnb-normalizer";
 import { BookingReservationNormalizer } from "./booking-normalizer";
