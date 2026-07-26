@@ -23,8 +23,8 @@ export async function AppShell({ children }: Readonly<{ children: React.ReactNod
             companyName={accessContext?.activeCompanyName}
           />
           <div className="lg:pl-60">
-            <header className="sticky top-0 z-20 flex h-14 items-center justify-between border-b bg-background/95 px-4 backdrop-blur lg:h-16 lg:px-7">
-              <span className="font-bold tracking-tight lg:hidden">StayBoard</span>
+            <header className="sticky top-0 z-20 flex h-[calc(3.5rem+env(safe-area-inset-top))] items-end justify-between border-b bg-background/95 px-4 pb-2 backdrop-blur lg:h-16 lg:items-center lg:px-7 lg:pb-0">
+              <span className="min-w-0 truncate font-bold tracking-tight lg:hidden">StayBoard</span>
               <div className="hidden text-sm text-muted-foreground lg:block">운영 현황</div>
               <div className="flex min-w-0 items-center gap-1">
                 {accessContext ? (
@@ -37,17 +37,17 @@ export async function AppShell({ children }: Readonly<{ children: React.ReactNod
                     <AccountLogoutButton />
                   </>
                 ) : (
-                  <AuthTrigger size="sm" variant="ghost">로그인</AuthTrigger>
+                  <AuthTrigger size="sm" variant="ghost" className="hidden lg:inline-flex">로그인</AuthTrigger>
                 )}
                 <ThemeToggle />
               </div>
             </header>
             {!accessContext && <DemoModeBanner />}
-            <main className="mx-auto max-w-[1500px] p-4 pb-24 sm:p-6 sm:pb-24 lg:p-7 lg:pb-7">
+            <main className="mx-auto min-w-0 max-w-[1500px] overflow-x-clip p-3 pb-[calc(5.5rem+env(safe-area-inset-bottom))] sm:p-6 sm:pb-24 lg:p-7 lg:pb-7">
               {children}
             </main>
           </div>
-          <MobileNavigation role={accessContext?.role ?? null} />
+          <MobileNavigation role={accessContext?.role ?? null} userName={accessContext?.name} companyName={accessContext?.activeCompanyName} />
         </div>
       </SidebarPreferenceProvider>
     </AuthDialogProvider>

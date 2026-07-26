@@ -32,5 +32,5 @@ export default async function DashboardPage() {
   const propertyAction = canManageProperties
     ? <Button nativeButton={false} render={<Link href="/properties" />} className="w-full sm:w-auto">숙소 등록 시작 <ArrowRight /></Button>
     : !context ? <AuthTrigger mode="signup" className="w-full sm:w-auto">무료로 숙소 운영 시작 <ArrowRight /></AuthTrigger> : undefined;
-  return <div className="space-y-5"><PageHeader eyebrow="OVERVIEW" title="대시보드" description="오늘의 예약과 운영 현황을 확인하세요." action={propertyAction} /><section aria-label="오늘의 운영 현황" className="grid grid-cols-1 gap-3 lg:grid-cols-3"><StatCard data={statistics[0]} /><StatCard data={statistics[1]} /><StatCard data={statistics[2]} /><DashboardCleaningCard data={priorityCleaning} /><DashboardCleaningCard data={flexibleCleaning} /><StatCard data={statistics[3]} /></section></div>;
+  return <div className="space-y-5"><PageHeader eyebrow="OVERVIEW" title="대시보드" description="오늘의 예약과 운영 현황을 확인하세요." action={propertyAction} /><section aria-label="오늘의 운영 현황" className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-3"><StatCard data={statistics[0]} /><StatCard data={statistics[1]} /><StatCard data={statistics[2]} /><DashboardCleaningCard data={priorityCleaning} /><DashboardCleaningCard data={flexibleCleaning} /><StatCard data={statistics[3]} /></section></div>;
 }
