@@ -90,14 +90,14 @@ export function createCalendarSource(data: { roomId: string; provider: CalendarP
 export function updateCalendarSource(id: string, data: { roomId: string; provider: CalendarProviderType; name: string; calendarUrl: string; isActive: boolean }) { return prisma.calendarSource.update({ where: { id }, data, select: { id: true } }); }
 export function setCalendarSourceActive(id: string, isActive: boolean) { return prisma.calendarSource.update({ where: { id }, data: { isActive }, select: { id: true, isActive: true } }); }
 export function listActiveCalendarSourceIdsForSync(filters: CalendarSourceFilters, take: number, accessScope?: AccessScope) { if (filters.isActive === false) return Promise.resolve([]); return prisma.calendarSource.findMany({ where: { isActive: true, roomId: filters.roomId, provider: filters.provider ?? { in: [...CALENDAR_PROVIDER_TYPES] }, room: { ...(roomScopeWhere(accessScope) ?? {}), propertyId: filters.propertyId, property: filters.companyIds ? { companyId: { in: [...filters.companyIds] } } : undefined } }, select: { id: true, roomId: true, provider: true }, orderBy: { id: "asc" }, take }); }
-export function listActiveCalendarSourceIdsForRooms(roomIds: readonly string[], take: number, companyIds?: readonly string[]) {
+export function listActiveCalendarSourceIdsForRooms(roomIds: readonly string[], take: number, companyIds?: readonly string[], provider?: CalendarProviderType) {
   const uniqueRoomIds = [...new Set(roomIds)];
   if (!uniqueRoomIds.length) return Promise.resolve([]);
   return prisma.calendarSource.findMany({
     where: {
       isActive: true,
       roomId: { in: uniqueRoomIds },
-      provider: { in: [...CALENDAR_PROVIDER_TYPES] },
+      provider: provider ?? { in: [...CALENDAR_PROVIDER_TYPES] },
       room: { property: companyIds ? { companyId: { in: [...companyIds] } } : undefined },
     },
     select: { id: true, roomId: true, provider: true },

@@ -3,12 +3,13 @@
 import { revalidatePath } from "next/cache";
 import { authorizeAccess, companyScopeIds, FORBIDDEN_ACTION_RESULT, isAccessControlError, PERMISSIONS, requireCalendarSourceAccess, requirePropertyAccess, requireRoomAccess } from "@/features/access-control";
 import { listActiveCalendarSourceIdsForOverview, listActiveCalendarSourceIdsForRooms, listActiveCalendarSourceIdsForSync } from "@/features/calendar-sources";
+import { listRoomCalendarSummaries } from "@/features/calendar-connections/application/list-room-calendar-summaries";
 import type { ActionResult } from "@/lib/action-result";
 import { logServerError } from "@/lib/prisma-errors";
 import { syncCalendarSources, type BulkCalendarSyncResult } from "./application/sync-calendar-sources";
 import { syncCalendarSource } from "./application/sync-calendar-source";
 import { CALENDAR_SYNC_BULK_MAX_SOURCES } from "./calendar-sync.constants";
-import { bulkSyncCalendarSourcesSchema, roomOverviewSyncSchema, syncCalendarSourceSchema } from "./calendar-sync.schemas";
+import { bulkSyncCalendarSourcesSchema, roomCalendarFilteredSyncSchema, roomOverviewSyncSchema, syncCalendarSourceSchema } from "./calendar-sync.schemas";
 import { summarizeError } from "./domain/sync-error";
 import type { CalendarSyncResult } from "./domain/sync-result";
 import { findCalendarSourceForSync } from "./infrastructure/reservation-sync.repository";
@@ -81,21 +82,29 @@ export async function syncFilteredCalendarSourcesAction(_state: ActionResult<Bul
 }
 
 export async function syncRoomCalendarSourcesAction(_state: ActionResult<BulkSyncResult>, formData: FormData): Promise<ActionResult<BulkSyncResult>> {
-  const roomIds = [...new Set(formData.getAll("roomIds").flatMap((value) => typeof value === "string" && value.trim() ? [value.trim()] : []))];
-  if (!roomIds.length) return { success: false, status: 400, errorCode: "VALIDATION_ERROR", message: "동기화할 객실을 선택해 주세요." };
+  const parsed = roomCalendarFilteredSyncSchema.safeParse({ propertyId: formData.get("propertyId"), roomId: formData.get("roomId"), provider: formData.get("provider"), status: formData.get("status") });
+  if (!parsed.success) return { success: false, status: 400, errorCode: "VALIDATION_ERROR", message: "동기화 필터가 올바르지 않습니다." };
   const access = await authorizeAccess(PERMISSIONS.SYNC_RUN);
   if (!access.allowed) return accessFailure(access.reason);
   try {
-    for (const roomId of roomIds) await requireRoomAccess(roomId, PERMISSIONS.SYNC_RUN);
+    if (parsed.data.propertyId) await requirePropertyAccess(parsed.data.propertyId, PERMISSIONS.SYNC_RUN);
+    if (parsed.data.roomId) await requireRoomAccess(parsed.data.roomId, PERMISSIONS.SYNC_RUN);
   } catch (error) {
     if (isAccessControlError(error)) return FORBIDDEN_ACTION_RESULT;
     throw error;
   }
-  const sources = await listActiveCalendarSourceIdsForRooms(roomIds, CALENDAR_SYNC_BULK_MAX_SOURCES + 1, companyScopeIds(access.context));
-  if (sources.length > CALENDAR_SYNC_BULK_MAX_SOURCES) return tooManySources();
-  const data = await syncCalendarSources(sources, "syncRoomCalendarSources", access.context.userId);
-  revalidateSyncViews();
-  return { success: true, data, message: data.targetCount ? "선택한 객실의 활성 연결 동기화를 완료했습니다." : "동기화할 활성 캘린더 연결이 없습니다." };
+  try {
+    const summaries = await listRoomCalendarSummaries({ ...parsed.data, companyIds: companyScopeIds(access.context), canViewTechnicalDetails: false });
+    const roomIds = summaries.map((room) => room.roomId);
+    const sources = await listActiveCalendarSourceIdsForRooms(roomIds, CALENDAR_SYNC_BULK_MAX_SOURCES + 1, companyScopeIds(access.context), parsed.data.provider);
+    if (sources.length > CALENDAR_SYNC_BULK_MAX_SOURCES) return tooManySources();
+    const data = await syncCalendarSources(sources, "syncRoomCalendarSources", access.context.userId, "MANUAL", roomIds);
+    revalidateSyncViews();
+    return { success: true, data, message: data.targetRoomCount ? "현재 필터의 모든 객실 동기화를 완료했습니다." : "현재 필터에 해당하는 객실이 없습니다." };
+  } catch (error) {
+    logServerError("syncRoomCalendarSources", error);
+    return { success: false, status: 500, errorCode: "UNKNOWN_ERROR", message: "객실 동기화 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요." };
+  }
 }
 
 export async function syncRoomOverviewCalendarSourcesAction(input: { propertyId?: string }): Promise<ActionResult<BulkSyncResult>> {

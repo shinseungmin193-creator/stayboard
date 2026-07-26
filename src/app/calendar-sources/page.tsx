@@ -75,7 +75,7 @@ export default async function CalendarSourcesPage({ searchParams }: { searchPara
         eyebrow="INTEGRATIONS"
         title="캘린더 연결"
         description="객실별 OTA 연결 상태를 한 행에서 확인하고 세부 연결을 관리합니다."
-        action={<div className="flex flex-wrap items-start gap-2"><RoomCalendarSync roomIds={summaries.map((room) => room.roomId)} /><CalendarSourceForm rooms={rooms} /></div>}
+        action={<div className="flex flex-wrap items-start gap-2"><RoomCalendarSync filters={filters} /><CalendarSourceForm rooms={rooms} /></div>}
       />
       <RoomCalendarFilterBar filters={filters} rooms={rooms} />
       <p className="text-xs leading-5 text-muted-foreground">Provider 필터는 해당 연결이 있는 객실을 찾으며, 상세 화면에서는 그 객실의 모든 OTA 연결을 함께 보여줍니다. 연결 테스트 결과는 현재 세션에서 즉시 확인할 수 있고 별도 저장되지는 않습니다.</p>
