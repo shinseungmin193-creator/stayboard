@@ -10,6 +10,8 @@ import { propertyActiveSchema, propertyInputSchema, propertyUpdateSchema } from 
 
 function fields(formData: FormData) { return { companyId: formData.get("companyId"), name: formData.get("name"), address: formData.get("address"), timezone: formData.get("timezone") || "Asia/Tokyo" }; }
 function validationFailure(error: { flatten(): { fieldErrors: Record<string, string[]> } }): ActionResult { return { success: false, message: "입력 내용을 확인해 주세요.", fieldErrors: error.flatten().fieldErrors }; }
+const PROPERTY_DATA_PATHS = ["/", "/properties", "/rooms", "/calendar-sources", "/room-overview", "/room-status"] as const;
+function revalidatePropertyData() { for (const path of PROPERTY_DATA_PATHS) revalidatePath(path); }
 
 export async function createPropertyAction(_state: ActionResult, formData: FormData): Promise<ActionResult> {
   const parsed = propertyInputSchema.safeParse(fields(formData));
@@ -21,7 +23,7 @@ export async function createPropertyAction(_state: ActionResult, formData: FormD
     if (!company) return { success: false, message: "선택한 회사가 존재하지 않습니다." };
     if (!company.isActive) return { success: false, message: "비활성 회사에는 새 숙소를 등록할 수 없습니다." };
     await createProperty(parsed.data);
-    revalidatePath("/properties"); revalidatePath("/rooms");
+    revalidatePropertyData();
     return { success: true, message: "숙소를 등록했습니다." };
   } catch (error) {
     if (isPrismaUniqueError(error)) return { success: false, message: "같은 회사에 동일한 숙소명이 이미 있습니다." };
@@ -40,7 +42,7 @@ export async function updatePropertyAction(_state: ActionResult, formData: FormD
     const company = await findCompany(data.companyId);
     if (!company) return { success: false, message: "선택한 회사가 존재하지 않습니다." };
     await updateProperty(id, data);
-    revalidatePath("/properties"); revalidatePath("/rooms");
+    revalidatePropertyData();
     return { success: true, message: "숙소 정보를 수정했습니다." };
   } catch (error) {
     if (isAccessControlError(error)) return FORBIDDEN_ACTION_RESULT;
@@ -59,7 +61,7 @@ export async function setPropertyActiveAction(_state: ActionResult, formData: Fo
     if (!current) return { success: false, message: "숙소를 찾을 수 없습니다." };
     if (current.isActive === parsed.data.isActive) return { success: true, message: "이미 요청한 상태입니다." };
     await setPropertyActive(parsed.data.id, parsed.data.isActive);
-    revalidatePath("/properties"); revalidatePath("/rooms");
+    revalidatePropertyData();
     return { success: true, message: parsed.data.isActive ? "숙소를 활성화했습니다." : "숙소를 비활성화했습니다. 기존 객실과 예약 데이터는 유지됩니다." };
   } catch (error) {
     if (isAccessControlError(error)) return FORBIDDEN_ACTION_RESULT;
