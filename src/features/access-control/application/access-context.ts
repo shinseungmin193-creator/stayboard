@@ -26,7 +26,8 @@ const accessContextProvider: AccessContextProvider = {
 
     const membership = user.memberships.find((item) => item.companyId === requestedCompanyId) ?? user.memberships[0];
     if (!membership) return null;
-    const propertyIds = user.assignments.flatMap((item) => item.propertyId && item.property?.companyId === membership.companyId ? [item.propertyId] : []);
+    const membershipPropertyIds = membership.propertyAccesses.map((item) => item.propertyId);
+    const propertyIds = membershipPropertyIds.length ? membershipPropertyIds : user.assignments.flatMap((item) => item.propertyId && item.property?.companyId === membership.companyId ? [item.propertyId] : []);
     const roomIds = user.assignments.flatMap((item) => item.roomId && item.room?.property.companyId === membership.companyId ? [item.roomId] : []);
     return {
       userId: user.id,

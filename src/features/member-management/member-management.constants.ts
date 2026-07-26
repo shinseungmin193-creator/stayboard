@@ -1,0 +1,3 @@
+export const INVITATION_EXPIRATION_DAYS = 7;
+export const MEMBER_PAGE_SIZE = 25;
+export const INVITATION_TOKEN_BYTES = 32;

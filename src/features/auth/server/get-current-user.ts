@@ -19,8 +19,8 @@ export const getCurrentUser = cache(async () => {
       systemRole: true,
       isActive: true,
       memberships: {
-        where: { company: { isActive: true } },
-        select: { companyId: true, role: true, company: { select: { name: true } } },
+        where: { status: "ACTIVE", company: { isActive: true } },
+        select: { id: true, companyId: true, role: true, status: true, company: { select: { name: true } }, propertyAccesses: { select: { propertyId: true } } },
         orderBy: { createdAt: "asc" },
       },
       assignments: {

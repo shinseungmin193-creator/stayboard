@@ -62,6 +62,18 @@ enum CompanyMemberRole {
   STAFF
 }
 
+enum MembershipStatus {
+  INVITED
+  ACTIVE
+  DISABLED
+}
+
+enum InvitationMailStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
 model Company {
   id          String              @id @default(cuid())
   name        String
@@ -71,6 +83,7 @@ model Company {
   properties  Property[]
   settings    CompanySettings?
   memberships CompanyMembership[]
+  invitations CompanyInvitation[]
 
   @@index([isActive, name])
 }
@@ -125,6 +138,7 @@ model Property {
   rooms            Room[]
   reservations     Reservation[]
   staffAssignments StaffAssignment[]
+  propertyAccesses PropertyAccess[]
 
   @@unique([companyId, name])
   @@index([companyId, isActive])
@@ -172,6 +186,7 @@ model User {
   auditLogsAsActor  AuditLog[]          @relation("AuditActor")
   auditLogsAsTarget AuditLog[]          @relation("AuditTarget")
   syncRuns          SyncRun[]
+  invitationsSent   CompanyInvitation[] @relation("InvitationSender")
 
   @@index([isActive, name])
 }
@@ -181,14 +196,56 @@ model CompanyMembership {
   userId    String
   companyId String
   role      CompanyMemberRole
+  status    MembershipStatus @default(ACTIVE)
+  disabledAt DateTime?
   createdAt DateTime          @default(now())
   updatedAt DateTime          @updatedAt
   user      User              @relation(fields: [userId], references: [id], onDelete: Cascade)
   company   Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  propertyAccesses PropertyAccess[]
 
   @@unique([userId, companyId])
   @@index([companyId, role])
+  @@index([companyId, status, role])
   @@index([userId])
+}
+
+model PropertyAccess {
+  id           String @id @default(cuid())
+  membershipId String
+  propertyId   String
+  createdAt    DateTime @default(now())
+  membership   CompanyMembership @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+  property     Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@unique([membershipId, propertyId])
+  @@index([propertyId])
+}
+
+model CompanyInvitation {
+  id              String @id @default(cuid())
+  companyId       String
+  email           String
+  displayName     String?
+  role            CompanyMemberRole
+  propertyIds     Json @default("[]")
+  message         String?
+  tokenHash       String @unique
+  expiresAt       DateTime
+  acceptedAt      DateTime?
+  cancelledAt     DateTime?
+  invitedById     String
+  mailStatus      InvitationMailStatus @default(PENDING)
+  mailError       String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  company         Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  invitedBy       User @relation("InvitationSender", fields: [invitedById], references: [id], onDelete: Restrict)
+
+  @@index([companyId, email])
+  @@index([companyId, createdAt])
+  @@index([email])
+  @@index([expiresAt])
 }
 
 model StaffAssignment {
