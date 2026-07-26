@@ -2,15 +2,14 @@
 
 import { useState, useTransition } from "react";
 import { signIn } from "next-auth/react";
-import { useRouter } from "next/navigation";
 import { LoaderCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { withBasePath } from "@/lib/base-path";
 import { signupAction } from "../auth.actions";
 
 export function SignupForm({ onSuccess }: { onSuccess?: () => void }) {
-  const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState<string>();
   const [errors, setErrors] = useState<Record<string, string[]>>({});
@@ -30,8 +29,7 @@ export function SignupForm({ onSuccess }: { onSuccess?: () => void }) {
         return;
       }
       onSuccess?.();
-      router.push("/properties?welcome=1");
-      router.refresh();
+      window.location.replace(withBasePath("/properties?welcome=1"));
     });
   };
   const field = (name: string) => errors[name]?.[0];
