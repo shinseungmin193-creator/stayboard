@@ -6,6 +6,7 @@ import { PageHeader } from "@/components/shared/page-header";
 import { ROOM_OVERVIEW_STATUS_META, ROOM_OVERVIEW_STATUS_PRIORITY, type RoomOverviewStatus } from "../domain/room-overview";
 import { getRoomOverviewStatusStyle, type RoomOverviewVisualStatus } from "../room-overview-visuals";
 import { RoomOverviewRefresh } from "./room-overview-refresh";
+import { RoomOverviewSync } from "./room-overview-sync";
 import { cn } from "@/lib/utils";
 import { ROOM_OPERATIONAL_STATUS_META } from "@/features/rooms/room-operational-status";
 import styles from "./room-overview-visuals.module.css";
@@ -20,6 +21,7 @@ interface ToolbarProps {
   filters: { propertyId?: string; query?: string; status?: RoomOverviewStatus; operationalStatus?: RoomOperationalStatus; provider?: CalendarProviderType; syncStatus?: SyncStatus };
   summary: { total: number; statuses: Record<RoomOverviewStatus, number>; operationalStatuses: Record<RoomOperationalStatus, number> };
   currentParams: Array<[string, string]>;
+  canSync: boolean;
 }
 
 interface SummaryChipProps {
@@ -66,7 +68,7 @@ export function RoomOverviewToolbar(props: ToolbarProps) {
 
   return <>
     <div className="space-y-4 xl:hidden">
-      <PageHeader eyebrow="ROOM OPERATIONS" title="객실 현황" description="현재 투숙·체크인·체크아웃과 운영 위험을 객실별로 확인합니다." action={<RoomOverviewRefresh />} />
+      <PageHeader eyebrow="ROOM OPERATIONS" title="객실 현황" description="현재 투숙·체크인·체크아웃과 운영 위험을 객실별로 확인합니다." action={<div className="flex flex-wrap justify-end gap-2">{props.canSync && <RoomOverviewSync propertyId={props.filters.propertyId} />}<RoomOverviewRefresh /></div>} />
       <section aria-label="객실 상태 요약" className="flex flex-wrap gap-2">{mobileSummary.map((item) => <SummaryChip key={item.label} {...item} mobile />)}</section>
       <form method="get" className="grid gap-2 rounded-xl border bg-card p-3 lg:grid-cols-[minmax(140px,1fr)_minmax(180px,1.4fr)_repeat(3,minmax(130px,1fr))_auto]"><FilterFields properties={props.properties} filters={props.filters} /><Button type="submit" variant="outline">필터 적용</Button></form>
     </div>
@@ -77,7 +79,7 @@ export function RoomOverviewToolbar(props: ToolbarProps) {
         {compactStatuses.map((item) => <SummaryChip key={item.status} href={statusHref(item.status)} label={item.label} value={props.summary.statuses[item.status]} status={item.status} active={props.filters.status === item.status} />)}
         <span className="ml-1 border-l pl-2 text-[10px] text-muted-foreground">운영 작업</span>
         {(["CLEANING_REQUIRED", "INSPECTION_REQUIRED"] as const).map((status) => <SummaryChip key={status} href={operationalHref(status)} label={ROOM_OPERATIONAL_STATUS_META[status].label} value={props.summary.operationalStatuses[status]} status={status} active={props.filters.operationalStatus === status} />)}
-        <div className="ml-auto"><RoomOverviewRefresh compact /></div>
+        <div className="ml-auto flex items-center gap-2">{props.canSync && <RoomOverviewSync propertyId={props.filters.propertyId} compact />}<RoomOverviewRefresh compact /></div>
       </div>
       <form method="get" className="grid h-11 grid-cols-[140px_minmax(140px,200px)_120px_120px_120px_140px_auto] items-center gap-2 px-3"><FilterFields properties={props.properties} filters={props.filters} showOperational /><Button type="submit" size="sm" variant="outline">필터 적용</Button></form>
     </section>

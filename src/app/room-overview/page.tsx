@@ -49,7 +49,7 @@ export default async function RoomOverviewPage({ searchParams }: { searchParams:
   return (
     <RoomOverviewDeveloperSettingsBoundary enabled={Boolean(developerSettingsAccess?.allowed)}>
       <div className="space-y-4 xl:space-y-2">
-        <RoomOverviewToolbar properties={properties} filters={filters} summary={result.summary} currentParams={currentParams} />
+        <RoomOverviewToolbar properties={properties} filters={filters} summary={result.summary} currentParams={currentParams} canSync={hasPermission(context?.role, PERMISSIONS.SYNC_RUN)} />
         <RoomOverviewSettingsLayout
           schedulePanel={<RoomOverviewSchedule schedule={result.operationalSchedule} conflicts={result.conflicts} />}
         >

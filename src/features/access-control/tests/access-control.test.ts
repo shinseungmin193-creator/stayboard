@@ -13,6 +13,7 @@ test("ADMIN은 관리자 설정을 허용하고 개발자 설정을 거부한다
 test("STAFF는 객실 조회와 운영 상태 변경만 허용된 관리 권한을 가진다", () => {
   assert.equal(hasPermission("STAFF", PERMISSIONS.ROOM_READ), true);
   assert.equal(hasPermission("STAFF", PERMISSIONS.ROOM_OPERATIONAL_STATUS_UPDATE), true);
+  assert.equal(hasPermission("STAFF", PERMISSIONS.SYNC_RUN), true);
   assert.equal(hasPermission("STAFF", PERMISSIONS.ROOM_MANAGE), false);
   assert.equal(hasPermission("STAFF", PERMISSIONS.CALENDAR_SOURCE_MANAGE), false);
   assert.equal(hasPermission("STAFF", PERMISSIONS.ADMIN_SETTINGS_READ), false);
