@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { loginSchema, signupSchema } from "../auth.schemas";
 import { authenticateLoginAttempt, type LoginUserRecord } from "../domain/authenticate-login";
+import { safeInternalAuthPath } from "../domain/auth-navigation";
 import { requireNextAuthSecret } from "../domain/auth-secret";
 import { usesSecureAuthCookies } from "../domain/cookie-policy";
 import { isNextAuthSessionCookie } from "../domain/session-cookie";
@@ -67,6 +68,14 @@ test("하위 배포 경로는 정규화하고 잘못된 형식은 거부한다",
   assert.throws(() => normalizeBasePath("stayboard"), /NEXT_PUBLIC_BASE_PATH/);
   assert.throws(() => normalizeBasePath("/stayboard/"), /NEXT_PUBLIC_BASE_PATH/);
   assert.throws(() => normalizeBasePath("/stayboard?mode=1"), /NEXT_PUBLIC_BASE_PATH/);
+});
+
+test("로그인 완료 이동은 내부 경로만 허용한다", () => {
+  assert.equal(safeInternalAuthPath("/room-overview"), "/room-overview");
+  assert.equal(safeInternalAuthPath("/properties?welcome=1"), "/properties?welcome=1");
+  assert.equal(safeInternalAuthPath("https://example.com"), "/");
+  assert.equal(safeInternalAuthPath("//example.com"), "/");
+  assert.equal(safeInternalAuthPath(undefined), "/");
 });
 
 test("인증 쿠키 보안 여부는 공개 인증 URL의 프로토콜을 따른다", () => {
