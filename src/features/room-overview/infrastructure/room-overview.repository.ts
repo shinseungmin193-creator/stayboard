@@ -14,7 +14,7 @@ export function findRoomOverviewData(input: { propertyId?: string; operationalSt
       property: { select: { name: true } },
       reservations: {
         where: { status: { in: [...ACTIVE_OTA_RESERVATION_STATUSES] }, provider: { in: [...CALENDAR_PROVIDER_TYPES] }, endDate: { gt: input.from }, startDate: { lt: input.toExclusive } },
-        select: { id: true, guestName: true, provider: true, status: true, startDate: true, endDate: true },
+        select: { id: true, providerReservationId: true, calendarSourceId: true, guestName: true, provider: true, status: true, startDate: true, endDate: true },
         orderBy: [{ startDate: "asc" }, { endDate: "asc" }],
       },
       conflicts: { where: { status: "ACTIVE", reservationA: { status: { in: [...ACTIVE_OTA_RESERVATION_STATUSES] }, provider: { in: [...CALENDAR_PROVIDER_TYPES] } }, reservationB: { status: { in: [...ACTIVE_OTA_RESERVATION_STATUSES] }, provider: { in: [...CALENDAR_PROVIDER_TYPES] } } }, select: { id: true } },

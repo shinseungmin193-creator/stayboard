@@ -1,4 +1,4 @@
-import type { CalendarParseIssue, ParsedCalendarEvent } from "./calendar-event";
+import type { ParsedCalendarEvent } from "./calendar-event";
 import type { NormalizedReservation } from "./normalized-reservation";
 import type { ReservationNormalizer } from "../providers/reservation-normalizer";
 import { CALENDAR_EVENT_DIAGNOSTIC_LIMIT, createCalendarEventDiagnostic, safeCalendarStatus, safeCalendarSummaryPreview, type CalendarEventDiagnostic } from "./calendar-sync-diagnostics";
@@ -41,10 +41,6 @@ export interface ClassifiedCalendarEvents extends CalendarEventClassificationCou
 }
 
 const UNKNOWN_EVENT_SAMPLE_LIMIT = 20;
-
-export function canCancelMissingReservations(issues: readonly CalendarParseIssue[], unknownEventCount: number): boolean {
-  return unknownEventCount === 0 && issues.every((issue) => issue.reason === "DUPLICATE_UID");
-}
 
 export function classifyCalendarEvents(
   events: readonly ParsedCalendarEvent[],

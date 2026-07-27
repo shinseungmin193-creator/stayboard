@@ -2,7 +2,7 @@ import "server-only";
 import type { CalendarProviderType } from "@/providers/calendar";
 import type { Prisma } from "@/lib/generated/prisma/client";
 import { calendarProviderRegistry } from "@/providers/calendar";
-import { canCancelMissingReservations, classifyCalendarEvents, EMPTY_CALENDAR_EVENT_CLASSIFICATION_COUNTS } from "../domain/classify-calendar-events";
+import { classifyCalendarEvents, EMPTY_CALENDAR_EVENT_CLASSIFICATION_COUNTS } from "../domain/classify-calendar-events";
 import type { CalendarSyncResult } from "../domain/sync-result";
 import { withCalendarSourceAdvisoryLock } from "../infrastructure/calendar-sync-lock";
 import { IcsDocumentParseError, parseIcsCalendar } from "../infrastructure/ics-parser";
@@ -54,8 +54,16 @@ export async function syncCalendarSource(calendarSourceId: string, signal?: Abor
       fetchedCount = parsed.totalEventCount;
       const failedEventCount = countFailedCalendarEvents(parsed.issues);
       const classified = classifyCalendarEvents(parsed.events, normalizer, parsed.excludedCount, failedEventCount);
-      const { reservations, blockedUids, unknownUids, unknownEvents, eventDiagnostics: classifiedDiagnostics, eventDiagnosticTruncatedCount, ...classificationCounts } = classified;
-      eventCounts = classificationCounts;
+      const { reservations, unknownEvents, eventDiagnostics: classifiedDiagnostics, eventDiagnosticTruncatedCount } = classified;
+      eventCounts = {
+        parsedEventCount: classified.parsedEventCount,
+        reservationEventCount: classified.reservationEventCount,
+        blockedEventCount: classified.blockedEventCount,
+        cancelledEventCount: classified.cancelledEventCount,
+        unknownEventCount: classified.unknownEventCount,
+        failedEventCount: classified.failedEventCount,
+        skippedEventCount: classified.skippedEventCount,
+      };
       unknownEventDetails = unknownEvents.map((event) => ({ calendarSourceId: source.id, provider: providerType, ...event }));
       eventDiagnostics = createCalendarSyncDiagnosticPayload({ events: classifiedDiagnostics, eventDiagnosticTruncatedCount, issues: parsed.issues, counts: eventCounts });
       const completedAt = new Date();
@@ -66,11 +74,8 @@ export async function syncCalendarSource(calendarSourceId: string, signal?: Abor
         roomId: source.roomId,
         provider: source.provider,
         reservations,
-        blockedUids,
-        unknownUids,
         unknownEventDetails,
         eventDiagnostics: eventDiagnostics as unknown as Prisma.InputJsonValue,
-        allowMissingCancellation: canCancelMissingReservations(parsed.issues, eventCounts.unknownEventCount),
         eventCounts,
         fetchedCount,
         syncStartedAt: startedAt,

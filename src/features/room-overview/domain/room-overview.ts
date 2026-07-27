@@ -16,6 +16,8 @@ export const ROOM_OVERVIEW_STATUS_META = {
 
 export interface RoomOverviewReservation {
   id: string;
+  providerReservationId?: string | null;
+  calendarSourceId?: string;
   guestName: string | null;
   provider: CalendarProviderType;
   status: ReservationStatus;

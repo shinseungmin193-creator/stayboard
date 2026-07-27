@@ -10,6 +10,8 @@ import { RoomOverviewCard } from "@/features/room-overview/components/room-overv
 import { RoomOverviewSchedule } from "@/features/room-overview/components/room-overview-schedule";
 import { RoomOverviewSettingsLayout } from "@/features/room-overview/components/room-overview-settings-layout";
 import { RoomOverviewToolbar } from "@/features/room-overview/components/room-overview-toolbar";
+import { MobileRoomStatusWorkspace } from "@/features/room-overview/components/mobile-room-status-workspace";
+import { MOBILE_ROOM_OTA_FILTERS, MOBILE_ROOM_STATUS_FILTERS, MOBILE_ROOM_SYNC_FILTERS, parseCalendarRangeDays, parseRoomOverviewDateKey, roomOverviewDateInstant, roomOverviewDateKey, type MobileRoomFilters } from "@/features/room-overview/domain/room-overview-mobile";
 import styles from "@/features/room-overview/components/room-overview-visuals.module.css";
 import { isCalendarProviderType } from "@/providers/calendar";
 
@@ -35,6 +37,10 @@ export default async function RoomOverviewPage({ searchParams }: { searchParams:
   const rawProvider = value("provider");
   const rawSyncStatus = value("syncStatus");
   const rawOperationalStatus = value("operationalStatus");
+  const today = roomOverviewDateKey();
+  const selectedDate = parseRoomOverviewDateKey(value("date"), today);
+  const calendarRange = parseCalendarRangeDays(value("range"));
+  const selectedDateInstant = roomOverviewDateInstant(selectedDate);
   const filters = {
     propertyId,
     query: value("query"),
@@ -43,18 +49,31 @@ export default async function RoomOverviewPage({ searchParams }: { searchParams:
     provider: rawProvider && isCalendarProviderType(rawProvider) ? rawProvider : undefined,
     syncStatus: syncStatuses.includes(rawSyncStatus as SyncStatus) ? rawSyncStatus as SyncStatus : undefined,
   };
-  const result = context ? await listRoomOverview({ ...filters, companyIds: companyScopeIds(context), accessScope: context.scope }) : getDemoRoomOverview(filters);
+  const result = context ? await listRoomOverview({ ...filters, companyIds: companyScopeIds(context), accessScope: context.scope }, selectedDateInstant, calendarRange) : getDemoRoomOverview(filters, selectedDateInstant);
   const currentParams = Object.entries(params).flatMap(([key, item]) => typeof item === "string" && item ? [[key, item] as [string, string]] : []);
+  const rawMobileStatus = value("mobileStatus");
+  const rawOta = value("ota");
+  const rawSyncError = value("syncError");
+  const mobileFilters: MobileRoomFilters = {
+    query: value("query") ?? "",
+    status: MOBILE_ROOM_STATUS_FILTERS.includes(rawMobileStatus as MobileRoomFilters["status"]) ? rawMobileStatus as MobileRoomFilters["status"] : "ALL",
+    ota: MOBILE_ROOM_OTA_FILTERS.includes(rawOta as MobileRoomFilters["ota"]) ? rawOta as MobileRoomFilters["ota"] : "ALL",
+    sync: MOBILE_ROOM_SYNC_FILTERS.includes(rawSyncError as MobileRoomFilters["sync"]) ? rawSyncError as MobileRoomFilters["sync"] : "ALL",
+  };
+  const canSync = hasPermission(context?.role, PERMISSIONS.SYNC_RUN);
 
   return (
     <RoomOverviewDeveloperSettingsBoundary enabled={Boolean(developerSettingsAccess?.allowed)}>
       <div className="space-y-4 xl:space-y-2">
-        <RoomOverviewToolbar properties={properties} filters={filters} summary={result.summary} currentParams={currentParams} canSync={hasPermission(context?.role, PERMISSIONS.SYNC_RUN)} />
-        <RoomOverviewSettingsLayout
-          schedulePanel={<RoomOverviewSchedule schedule={result.operationalSchedule} conflicts={result.conflicts} />}
-        >
-          <section className="min-w-0" aria-label="객실 카드 목록">{result.cards.length ? <div className={`grid items-start gap-2 ${styles.roomGrid}`}>{result.cards.map((card) => <RoomOverviewCard key={card.id} card={card} canUpdateOperationalStatus={hasPermission(context?.role, PERMISSIONS.ROOM_OPERATIONAL_STATUS_UPDATE)} />)}</div> : <div className="flex min-h-80 items-center rounded-xl border bg-card"><EmptyState icon={BedDouble} title="조건에 맞는 객실이 없습니다" description="숙소와 필터 조건을 변경해 보세요." /></div>}</section>
-        </RoomOverviewSettingsLayout>
+        <MobileRoomStatusWorkspace key={propertyId ?? "all-properties"} rooms={result.allCards} properties={properties} selectedDate={selectedDate} today={today} propertyId={propertyId} queryView={value("view")} calendarRange={calendarRange} hasCalendarRangeQuery={Boolean(value("range"))} initialFilters={mobileFilters} canSync={canSync} />
+        <div className="hidden xl:block">
+          <RoomOverviewToolbar properties={properties} filters={filters} summary={result.summary} currentParams={currentParams} canSync={canSync} />
+          <RoomOverviewSettingsLayout
+            schedulePanel={<RoomOverviewSchedule schedule={result.operationalSchedule} conflicts={result.conflicts} />}
+          >
+            <section className="min-w-0" aria-label="객실 카드 목록">{result.cards.length ? <div className={`grid items-start gap-2 ${styles.roomGrid}`}>{result.cards.map((card) => <RoomOverviewCard key={card.id} card={card} canUpdateOperationalStatus={hasPermission(context?.role, PERMISSIONS.ROOM_OPERATIONAL_STATUS_UPDATE)} />)}</div> : <div className="flex min-h-80 items-center rounded-xl border bg-card"><EmptyState icon={BedDouble} title="조건에 맞는 객실이 없습니다" description="숙소와 필터 조건을 변경해 보세요." /></div>}</section>
+          </RoomOverviewSettingsLayout>
+        </div>
       </div>
     </RoomOverviewDeveloperSettingsBoundary>
   );

@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { canCancelMissingReservations, classifyCalendarEvents } from "../domain/classify-calendar-events";
+import { classifyCalendarEvents } from "../domain/classify-calendar-events";
 import { classifyReservations } from "../domain/classify-reservations";
 import type { ExistingReservation, NormalizedReservation } from "../domain/normalized-reservation";
 import { parseIcsCalendar, IcsDocumentParseError } from "../infrastructure/ics-parser";
@@ -52,7 +52,7 @@ test("Booking.com 실제형 fixture의 마스킹 예약·차단·취소·UNKNOWN
   assert.deepEqual({ reservation: result.reservationEventCount, blocked: result.blockedEventCount, cancelled: result.cancelledEventCount, unknown: result.unknownEventCount }, { reservation: 2, blocked: 1, cancelled: 1, unknown: 1 });
   assert.equal(getDashboardDateInput(result.reservations[0].startDate), "2026-07-26");
   assert.equal(getDashboardDateInput(result.reservations[0].endDate), "2026-07-28");
-  const persistence = classifyReservations([], result.reservations, new Date("2026-07-25T00:00:00.000Z"));
+  const persistence = classifyReservations([], result.reservations);
   assert.equal(persistence.create.length, 2);
   assert.equal(getCalendarProviderLabel("BOOKING"), "Booking.com");
 });
@@ -62,7 +62,7 @@ test("Booking UID 중복은 새 예약을 만들지 않고 기존 예약을 upda
   const normalizer = new BookingReservationNormalizer();
   const incoming = classifyCalendarEvents(parseIcsCalendar(content).events, normalizer).reservations[0];
   const current = existing({ id: "booking-existing", rawUid: incoming.rawUid, providerReservationId: incoming.providerReservationId, startDate: incoming.startDate, endDate: incoming.endDate, summary: "Old summary", status: "CANCELLED" });
-  const result = classifyReservations([current], [incoming], new Date("2026-07-25T00:00:00.000Z"));
+  const result = classifyReservations([current], [incoming]);
   assert.equal(result.create.length, 0);
   assert.equal(result.update.length, 1);
   assert.equal(result.update[0].reservation.status, "CONFIRMED");
@@ -76,6 +76,16 @@ test("Agoda는 명확한 상태·도메인 신호만 예약으로 인정한다",
   assert.equal(normalizer.classifyEvent(parsedEvent({ summary: "Calendar-blocked", status: "CONFIRMED" })), "BLOCKED");
   assert.equal(normalizer.classifyEvent(parsedEvent({ summary: "Agoda reservation", status: "CANCELLED" })), "CANCELLED");
   assert.equal(normalizer.classifyEvent(parsedEvent({ summary: "Unverified event" })), "UNKNOWN");
+});
+
+test("SUMMARY 또는 DESCRIPTION의 취소 문구만으로 CANCELLED로 분류하지 않는다", () => {
+  const airbnb = new AirbnbReservationNormalizer();
+  const booking = new BookingReservationNormalizer();
+  const agoda = new AgodaReservationNormalizer();
+  assert.notEqual(airbnb.classifyEvent(parsedEvent({ summary: "Cancelled" })), "CANCELLED");
+  assert.equal(airbnb.classifyEvent(parsedEvent({ summary: "Reserved", description: "Reservation cancelled" })), "RESERVATION");
+  assert.equal(booking.classifyEvent(parsedEvent({ uid: "cancelled@booking.com", summary: "Booking cancelled" })), "RESERVATION");
+  assert.equal(agoda.classifyEvent(parsedEvent({ uid: "cancelled@agoda.com", summary: "Agoda cancelled" })), "RESERVATION");
 });
 
 test("SUMMARY가 없는 이벤트는 UNKNOWN이며 자동 저장하지 않는다", () => {
@@ -126,19 +136,15 @@ test("분류 결과는 예약만 저장 대상으로 만들고 차단·미분류
   assert.equal(result.reservations[1].status, "CANCELLED");
 });
 
-test("기존에 CONFIRMED로 잘못 저장된 BLOCKED UID만 취소하고 UNKNOWN UID는 보호한다", () => {
+test("BLOCKED·UNKNOWN·누락 UID는 명시적 STATUS:CANCELLED 없이 기존 예약을 변경하지 않는다", () => {
   const blocked = existing({ id: "blocked", rawUid: "blocked", providerReservationId: "blocked", status: "CONFIRMED", summary: "CLOSED - Not available" });
   const unknown = existing({ id: "unknown", rawUid: "unknown", providerReservationId: "unknown" });
   const missing = existing({ id: "missing", rawUid: "missing", providerReservationId: "missing" });
-  const result = classifyReservations([blocked, unknown, missing], [], new Date(), { blockedUids: new Set(["blocked"]), protectedUids: new Set(["unknown"]), allowMissingCancellation: false });
-  assert.deepEqual(result.cancelIds, ["blocked"]);
+  const result = classifyReservations([blocked, unknown, missing], []);
+  assert.deepEqual(result, { create: [], update: [], unchanged: [] });
 });
 
-test("미분류 또는 불완전 파싱이 있으면 누락 예약 자동 취소를 중단한다", () => {
-  assert.equal(canCancelMissingReservations([], 0), true);
-  assert.equal(canCancelMissingReservations([{ eventIndex: 1, reason: "DUPLICATE_UID" }], 0), true);
-  assert.equal(canCancelMissingReservations([], 1), false);
-  assert.equal(canCancelMissingReservations([{ eventIndex: 1, reason: "MISSING_UID" }], 0), false);
+test("캘린더 전체 파싱 실패 시 동기화가 중단되어 기존 예약을 보존한다", () => {
   assert.throws(() => parseIcsCalendar("not-an-ics"), IcsDocumentParseError);
   const invalidOnly = ics("BEGIN:VEVENT\r\nUID:invalid\r\nDTSTART;VALUE=DATE:20260722\r\nDTEND;VALUE=DATE:20260721\r\nEND:VEVENT\r\n");
   assert.throws(() => parseIcsCalendar(invalidOnly), (error) => {

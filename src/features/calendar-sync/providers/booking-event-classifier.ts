@@ -14,11 +14,10 @@ const BOOKING_EXPLICIT_BLOCKED_SUMMARIES = new Set([
   "owner block",
   "owner blocked",
 ]);
-const BOOKING_CANCELLED_SIGNALS = new Set(["cancelled", "canceled", "booking cancelled", "booking canceled"]);
 const BOOKING_RESERVATION_SUMMARIES = new Set(["reserved", "reservation", "booking", "booking reservation"]);
 
 export function classifyBookingEvent(event: ParsedCalendarEvent) {
-  if (isCancelledCalendarEvent(event, BOOKING_CANCELLED_SIGNALS)) return "CANCELLED" as const;
+  if (isCancelledCalendarEvent(event)) return "CANCELLED" as const;
   if (matchesCalendarText(event.summary, BOOKING_EXPLICIT_BLOCKED_SUMMARIES)) return "BLOCKED" as const;
 
   const organizer = calendarProperty(event, "organizer");

@@ -2,6 +2,10 @@ import "server-only";
 
 import { addDays, differenceInCalendarDays } from "date-fns";
 import type { ConflictFilters, ConflictListItem } from "@/features/reservation-conflicts/reservation-conflict.types";
+import type { ReservationFilters, ReservationListItem } from "@/features/reservations";
+import { getReservationDisplayStatus } from "@/features/reservations";
+import { RESERVATION_PAGE_SIZE } from "@/features/reservations/reservation.constants";
+import { isActiveReservationListItem } from "@/features/reservations/reservation-list-policy";
 import type { RoomStatusRoom } from "@/features/room-status/room-status.types";
 import type { OccupancyPeriod, OccupancyRoom } from "@/features/statistics/occupancy/domain/occupancy";
 import { calculateOccupancyMetrics } from "@/features/statistics/occupancy/domain/occupancy";
@@ -74,6 +78,73 @@ export function getDemoConflicts(filters: ConflictFilters) {
   const item: ConflictListItem = { id: "demo-conflict-1", status: "ACTIVE", overlapStart: reservations[1].startDate, overlapEnd: reservations[0].endDate, detectedAt: fixture.start, roomName: "201호", propertyName: DEMO_PROPERTY.name, reservationA: reservations[0], reservationB: reservations[1] };
   const visible = filters.status === "ACTIVE" && item.overlapStart < filters.toExclusive && item.overlapEnd > filters.from && (!filters.propertyId || filters.propertyId === DEMO_PROPERTY.id) && (!filters.roomId || filters.roomId === "demo-room-201") && (!filters.provider || item.reservationA.provider === filters.provider || item.reservationB.provider === filters.provider);
   return { items: visible ? [item] : [], totalCount: visible ? 1 : 0, totalPages: 1, page: 1 };
+}
+
+export function getDemoReservations(filters: ReservationFilters) {
+  const fixture = createDemoFixtures(filters.businessDate);
+  const roomById = new Map(fixture.rooms.map((room) => [room.id, room]));
+  const items: ReservationListItem[] = fixture.reservations.map((reservation, index) => {
+    const room = roomById.get(reservation.roomId)!;
+    const conflictReservations = reservation.roomId === "demo-room-201"
+      ? fixture.reservations.filter((item) => item.roomId === reservation.roomId && item.id !== reservation.id)
+      : [];
+    return {
+      id: reservation.id,
+      guestName: reservation.guestName,
+      providerReservationId: `DEMO-${reservation.provider}-${index + 1}`,
+      summary: reservation.summary,
+      description: null,
+      startDate: reservation.startDate,
+      endDate: reservation.endDate,
+      provider: reservation.provider,
+      status: reservation.status,
+      propertyId: DEMO_PROPERTY.id,
+      propertyName: DEMO_PROPERTY.name,
+      roomId: reservation.roomId,
+      roomName: room.name,
+      calendarSourceName: reservation.calendarSourceName,
+      latestSyncStatus: "SUCCESS",
+      latestSyncCompletedAt: addDays(fixture.start, -1),
+      providerCreatedAt: addDays(reservation.startDate, -14),
+      providerUpdatedAt: addDays(reservation.startDate, -3),
+      createdAt: addDays(reservation.startDate, -14),
+      updatedAt: addDays(reservation.startDate, -3),
+      activeConflictCount: conflictReservations.length,
+      activeConflicts: conflictReservations.map((other) => ({
+        id: other.id,
+        guestName: other.guestName,
+        startDate: other.startDate,
+        endDate: other.endDate,
+        provider: other.provider,
+        status: other.status,
+        calendarSourceName: other.calendarSourceName,
+      })),
+    };
+  });
+  const search = filters.search?.trim().toLocaleLowerCase("ko");
+  const visible = items.filter((item) => {
+    if (filters.propertyId && item.propertyId !== filters.propertyId) return false;
+    if (filters.roomId && item.roomId !== filters.roomId) return false;
+    if (filters.providers?.length && !filters.providers.includes(item.provider)) return false;
+    if (!isActiveReservationListItem({ reservationStatus: item.status, endDate: item.endDate, businessDate: filters.businessDate })) return false;
+    const displayStatus = getReservationDisplayStatus({ reservationStatus: item.status, startDate: item.startDate, endDate: item.endDate, businessDate: filters.businessDate });
+    if (filters.displayStatuses?.length && !filters.displayStatuses.some((status) => status === displayStatus)) return false;
+    if (filters.hasConflict !== undefined && Boolean(item.activeConflictCount) !== filters.hasConflict) return false;
+    if (filters.dateField === "checkIn" && !(item.startDate >= filters.from && item.startDate < filters.toExclusive)) return false;
+    if (filters.dateField === "checkOut" && !(item.endDate >= filters.from && item.endDate < filters.toExclusive)) return false;
+    if ((!filters.dateField || filters.dateField === "stay") && !(item.startDate < filters.toExclusive && item.endDate >= filters.from)) return false;
+    if (search && !`${item.id} ${item.guestName ?? ""} ${item.providerReservationId ?? ""} ${item.roomName} ${item.propertyName}`.toLocaleLowerCase("ko").includes(search)) return false;
+    return true;
+  });
+  const totalCount = visible.length;
+  const totalPages = Math.max(1, Math.ceil(totalCount / RESERVATION_PAGE_SIZE));
+  const page = Math.min(filters.page, totalPages);
+  return {
+    items: visible.slice((page - 1) * RESERVATION_PAGE_SIZE, page * RESERVATION_PAGE_SIZE),
+    totalCount,
+    totalPages,
+    page,
+  };
 }
 
 export function getDemoOccupancyData(period: OccupancyPeriod, query?: string) {

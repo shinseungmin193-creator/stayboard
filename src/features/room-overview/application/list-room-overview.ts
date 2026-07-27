@@ -5,15 +5,19 @@ import { buildRoomOperationalSchedule, calculateRoomOverviewStatus, isValidReser
 import { findRoomOverviewData, findUpcomingRoomOverviewConflicts } from "../infrastructure/room-overview.repository";
 import { formatRoomDisplayName } from "@/features/rooms/room-display";
 import type { AccessScope } from "@/features/access-control";
+import type { CalendarRangeDays } from "../domain/room-overview-mobile";
 
 export interface RoomOverviewFilters { propertyId?: string; query?: string; status?: RoomOverviewStatus; operationalStatus?: RoomOperationalStatus; provider?: CalendarProviderType; syncStatus?: SyncStatus; companyIds?: readonly string[]; accessScope?: AccessScope }
 
-export async function listRoomOverview(filters: RoomOverviewFilters, now = new Date()) {
+export async function listRoomOverview(filters: RoomOverviewFilters, now = new Date(), calendarRangeDays: CalendarRangeDays = 7) {
   const { start: todayStart, end: todayEnd } = getDashboardTodayRange(now);
   const rangeEnd = addDays(todayEnd, 7);
+  const calendarStart = addDays(todayStart, -Math.floor(calendarRangeDays / 2));
+  const calendarEnd = addDays(calendarStart, calendarRangeDays);
+  const queryEnd = calendarEnd > rangeEnd ? calendarEnd : rangeEnd;
   const [rows, conflicts] = await Promise.all([
-    findRoomOverviewData({ propertyId: filters.propertyId, operationalStatus: filters.operationalStatus, companyIds: filters.companyIds, accessScope: filters.accessScope, from: todayStart, toExclusive: rangeEnd }),
-    findUpcomingRoomOverviewConflicts({ propertyId: filters.propertyId, companyIds: filters.companyIds, accessScope: filters.accessScope, from: todayStart, toExclusive: rangeEnd }),
+    findRoomOverviewData({ propertyId: filters.propertyId, operationalStatus: filters.operationalStatus, companyIds: filters.companyIds, accessScope: filters.accessScope, from: calendarStart, toExclusive: queryEnd }),
+    findUpcomingRoomOverviewConflicts({ propertyId: filters.propertyId, companyIds: filters.companyIds, accessScope: filters.accessScope, from: calendarStart, toExclusive: queryEnd }),
   ]);
 
   const cards = sortRoomOverviewCards(rows.map((row): RoomOverviewCard => {
@@ -48,5 +52,5 @@ export async function listRoomOverview(filters: RoomOverviewFilters, now = new D
 
   const scheduleReservations = cards.flatMap((card) => card.reservations.filter((item) => item.status !== "CANCELLED" && item.status !== "BLOCKED" && isValidReservation(item)).map((item) => ({ ...item, roomId: card.id, roomName: card.name, hasConflict: card.activeConflictCount > 0 })));
   const operationalSchedule = buildRoomOperationalSchedule(scheduleReservations, todayStart, todayEnd, rangeEnd);
-  return { cards: filteredCards, allCards: cards, summary: summarizeRoomOverview(cards), todayStart, todayEnd, rangeEnd, operationalSchedule, conflicts };
+  return { cards: filteredCards, allCards: cards, summary: summarizeRoomOverview(cards), todayStart, todayEnd, rangeEnd, calendarStart, calendarEnd, operationalSchedule, conflicts };
 }

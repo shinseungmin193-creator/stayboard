@@ -1,21 +1,42 @@
+"use client";
+
 import { differenceInCalendarDays } from "date-fns";
-import { CalendarRange, TriangleAlert } from "lucide-react";
-import type { ReservationListItem } from "../reservation.types";
-import { getReservationDisplayName } from "../reservation-display";
-import { getCalendarProviderLabel } from "@/providers/calendar/types";
-import { EmptyState } from "@/components/shared/empty-state";
+import { AlertTriangle, ChevronRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { formatReservationConflictCount, RESERVATION_CONFLICT_UI } from "@/features/reservation-conflicts/reservation-conflict.labels";
+import { cn } from "@/lib/utils";
+import type { ReservationViewModel } from "../reservation-view-model";
+import { getReservationDisplayName } from "../reservation-display";
+import { getProviderVisual } from "../provider-visuals";
+import { CompactReservationCard } from "./compact-reservation-card";
+import { ReservationStatusBadge } from "./reservation-status-badge";
 
-const formatter = new Intl.DateTimeFormat("ko-KR", { month: "2-digit", day: "2-digit", year: "numeric", timeZone: "Asia/Tokyo" });
-function ConflictDetails({ reservation }: { reservation: ReservationListItem }) {
-  if (!reservation.activeConflictCount) return null;
-  return <details className="relative"><summary className="list-none cursor-pointer"><Badge className="gap-1 bg-amber-500/15 text-amber-800 dark:text-amber-300" variant="outline"><TriangleAlert className="size-3" />{formatReservationConflictCount(reservation.activeConflictCount)}</Badge></summary><div className="mt-2 min-w-64 space-y-2 rounded-lg border bg-popover p-3 text-xs shadow-sm">{reservation.activeConflicts.map((other) => <div key={other.id} className="border-b pb-2 last:border-0 last:pb-0"><p className="font-medium">{getReservationDisplayName(other)} · {getCalendarProviderLabel(other.provider) ?? "예약"}</p><p className="text-muted-foreground">{formatter.format(other.startDate)} → {formatter.format(other.endDate)} · {differenceInCalendarDays(other.endDate, other.startDate)}박</p><p className="text-muted-foreground">{other.calendarSourceName} · {other.status}</p></div>)}{reservation.activeConflicts.length < reservation.activeConflictCount && <p className="text-muted-foreground">나머지 항목은 {RESERVATION_CONFLICT_UI.label} 전용 화면에서 확인하세요.</p>}</div></details>;
-}
+const dateFormatter = new Intl.DateTimeFormat("ko-KR", { timeZone: "Asia/Tokyo", year: "numeric", month: "2-digit", day: "2-digit" });
 
-export function ReservationList({ reservations }: { reservations: ReservationListItem[] }) {
-  if (!reservations.length) return <Card><CardContent className="flex min-h-72 items-center"><EmptyState icon={CalendarRange} title="조건에 맞는 예약이 없습니다" description="캘린더 연결을 동기화하거나 필터 기간을 변경해 보세요." /></CardContent></Card>;
-  return <><div className="grid gap-3 md:hidden">{reservations.map((reservation) => <Card key={reservation.id}><CardContent className="space-y-3 p-4"><div className="flex justify-between"><div><p className="font-semibold">{reservation.roomName}</p><p className="text-xs text-muted-foreground">{reservation.propertyName}</p></div><Badge variant={reservation.status === "CANCELLED" ? "outline" : "secondary"}>{reservation.status}</Badge></div><p className="text-sm">{formatter.format(reservation.startDate)} → {formatter.format(reservation.endDate)} · {differenceInCalendarDays(reservation.endDate, reservation.startDate)}박</p><div className="flex justify-between text-xs text-muted-foreground"><span>예약자: {getReservationDisplayName(reservation)}</span><Badge variant="outline">{getCalendarProviderLabel(reservation.provider) ?? "예약"}</Badge></div><ConflictDetails reservation={reservation} /></CardContent></Card>)}</div><Card className="hidden md:block"><Table><TableHeader><TableRow><TableHead>체크인</TableHead><TableHead>체크아웃</TableHead><TableHead>숙박</TableHead><TableHead>예약자</TableHead><TableHead>숙소 / 객실</TableHead><TableHead>OTA</TableHead><TableHead>상태</TableHead><TableHead>{RESERVATION_CONFLICT_UI.label}</TableHead></TableRow></TableHeader><TableBody>{reservations.map((reservation) => <TableRow key={reservation.id}><TableCell>{formatter.format(reservation.startDate)}</TableCell><TableCell>{formatter.format(reservation.endDate)}</TableCell><TableCell>{differenceInCalendarDays(reservation.endDate, reservation.startDate)}박</TableCell><TableCell>{getReservationDisplayName(reservation)}</TableCell><TableCell><p className="font-medium">{reservation.propertyName}</p><p className="text-xs text-muted-foreground">{reservation.roomName}</p></TableCell><TableCell><Badge variant="outline">{getCalendarProviderLabel(reservation.provider) ?? "예약"}</Badge></TableCell><TableCell><Badge variant={reservation.status === "CANCELLED" ? "outline" : "secondary"}>{reservation.status}</Badge></TableCell><TableCell><ConflictDetails reservation={reservation} /></TableCell></TableRow>)}</TableBody></Table></Card></>;
+export function ReservationList({ reservations, onSelect }: { reservations: ReservationViewModel[]; onSelect: (reservation: ReservationViewModel) => void }) {
+  return (
+    <>
+      <div className="grid gap-2 md:hidden">{reservations.map((reservation) => <CompactReservationCard key={reservation.id} reservation={reservation} onSelect={onSelect} />)}</div>
+      <div className="hidden overflow-hidden rounded-xl border bg-card md:block">
+        <div className="grid grid-cols-[minmax(8rem,1fr)_minmax(11rem,1.5fr)_minmax(11rem,1.5fr)_minmax(8rem,1fr)_7rem_2rem] gap-3 border-b bg-muted/45 px-4 py-2 text-xs font-semibold text-muted-foreground">
+          <span>상태 · 객실</span><span>숙소</span><span>숙박 기간</span><span>예약자</span><span>OTA</span><span className="sr-only">상세</span>
+        </div>
+        <div className="divide-y">
+          {reservations.map((reservation) => {
+            const provider = getProviderVisual(reservation.provider);
+            const nights = Math.max(1, differenceInCalendarDays(new Date(reservation.endDate), new Date(reservation.startDate)));
+            return (
+              <button key={reservation.id} type="button" onClick={() => onSelect(reservation)} className="grid min-h-14 w-full grid-cols-[minmax(8rem,1fr)_minmax(11rem,1.5fr)_minmax(11rem,1.5fr)_minmax(8rem,1fr)_7rem_2rem] items-center gap-3 px-4 py-2 text-left text-sm transition hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring">
+                <span className="flex min-w-0 items-center gap-2"><ReservationStatusBadge status={reservation.displayStatus} /><strong className="truncate">{reservation.roomName}</strong>{reservation.activeConflictCount > 0 && <AlertTriangle className="size-4 shrink-0 text-destructive" />}</span>
+                <span className="truncate text-muted-foreground">{reservation.propertyName}</span>
+                <span className="tabular-nums">{dateFormatter.format(new Date(reservation.startDate))} → {dateFormatter.format(new Date(reservation.endDate))} <span className="text-xs text-muted-foreground">· {nights}박</span></span>
+                <span className="truncate">{getReservationDisplayName(reservation)}</span>
+                <Badge variant="outline" className={cn("h-5", provider.className)}>{provider.shortLabel}</Badge>
+                <ChevronRight className="size-4 text-muted-foreground" />
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </>
+  );
 }

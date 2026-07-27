@@ -5,9 +5,8 @@ const CANCELLED_STATUSES = new Set(["cancelled", "canceled"]);
 
 export type CalendarEventClassifier = (event: ParsedCalendarEvent) => CalendarEventClassification;
 
-export function isCancelledCalendarEvent(event: ParsedCalendarEvent, providerSignals: ReadonlySet<string>): boolean {
-  if (CANCELLED_STATUSES.has(normalizeCalendarText(event.status))) return true;
-  return providerSignals.has(normalizeCalendarText(event.summary)) || providerSignals.has(normalizeCalendarText(event.description));
+export function isCancelledCalendarEvent(event: ParsedCalendarEvent): boolean {
+  return CANCELLED_STATUSES.has(normalizeCalendarText(event.status));
 }
 
 export function matchesCalendarText(value: string | null, patterns: ReadonlySet<string>): boolean {

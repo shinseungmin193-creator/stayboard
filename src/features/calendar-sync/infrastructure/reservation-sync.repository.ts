@@ -1,6 +1,6 @@
 import "server-only";
 import { detectRoomReservationConflicts } from "@/features/reservation-conflicts/infrastructure/reservation-conflict.repository";
-import type { CalendarProviderType, ReservationStatus } from "@/lib/generated/prisma/enums";
+import type { CalendarProviderType } from "@/lib/generated/prisma/enums";
 import type { Prisma } from "@/lib/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { CALENDAR_SYNC_STALE_MESSAGE, CALENDAR_SYNC_STALE_RUNNING_MS } from "../calendar-sync.constants";
@@ -35,11 +35,8 @@ interface PersistReservationSyncInput {
   roomId: string;
   provider: CalendarProviderType;
   reservations: NormalizedReservation[];
-  blockedUids: string[];
-  unknownUids: string[];
   unknownEventDetails: Prisma.InputJsonValue;
   eventDiagnostics: Prisma.InputJsonValue;
-  allowMissingCancellation: boolean;
   eventCounts: CalendarEventClassificationCounts;
   fetchedCount: number;
   syncStartedAt: Date;
@@ -53,18 +50,15 @@ export async function persistReservationSync(input: PersistReservationSyncInput)
     const activeExistingCount = existing.filter((reservation) => reservation.status !== "CANCELLED").length;
     if (shouldProtectEmptyCalendar(input.fetchedCount, activeExistingCount)) throw new EmptyCalendarProtectionError();
 
-    const classification = classifyReservations(existing, input.reservations, input.syncStartedAt, {
-      blockedUids: new Set(input.blockedUids),
-      protectedUids: new Set(input.unknownUids),
-      allowMissingCancellation: input.allowMissingCancellation,
-    });
+    const classification = classifyReservations(existing, input.reservations);
+    const statusById = new Map(existing.map((reservation) => [reservation.id, reservation.status]));
+    const explicitCancelledCount = classification.update.filter((item) => item.reservation.status === "CANCELLED" && statusById.get(item.id) !== "CANCELLED").length;
     const created = classification.create.length ? await tx.reservation.createMany({ data: classification.create.map((reservation) => ({ ...persistenceData(reservation), rawUid: reservation.rawUid, calendarSourceId: input.calendarSourceId, propertyId: input.propertyId, roomId: input.roomId, provider: input.provider })), skipDuplicates: true }) : { count: 0 };
     for (const item of classification.update) await tx.reservation.update({ where: { id: item.id }, data: persistenceData(item.reservation) });
-    const cancelled = classification.cancelIds.length ? await tx.reservation.updateMany({ where: { id: { in: classification.cancelIds }, status: { not: "CANCELLED" as ReservationStatus } }, data: { status: "CANCELLED" } }) : { count: 0 };
     const conflicts = await detectRoomReservationConflicts(tx, input.roomId);
-    await tx.syncLog.update({ where: { id: input.syncLogId }, data: { status: "SUCCESS", completedAt: input.completedAt, durationMs: input.completedAt.getTime() - input.syncStartedAt.getTime(), fetchedCount: input.fetchedCount, ...input.eventCounts, unknownEventDetails: input.unknownEventDetails, eventDiagnostics: input.eventDiagnostics, createdCount: created.count, updatedCount: classification.update.length, cancelledCount: cancelled.count, errorCode: null, errorMessage: null, errorDetails: null } });
+    await tx.syncLog.update({ where: { id: input.syncLogId }, data: { status: "SUCCESS", completedAt: input.completedAt, durationMs: input.completedAt.getTime() - input.syncStartedAt.getTime(), fetchedCount: input.fetchedCount, ...input.eventCounts, unknownEventDetails: input.unknownEventDetails, eventDiagnostics: input.eventDiagnostics, createdCount: created.count, updatedCount: classification.update.length, cancelledCount: explicitCancelledCount, errorCode: null, errorMessage: null, errorDetails: null } });
     await tx.calendarSource.update({ where: { id: input.calendarSourceId }, data: { lastSyncedAt: input.completedAt } });
-    return { createdCount: created.count, updatedCount: classification.update.length, unchangedCount: classification.unchanged.length, cancelledCount: cancelled.count, ...conflicts };
+    return { createdCount: created.count, updatedCount: classification.update.length, unchangedCount: classification.unchanged.length, cancelledCount: explicitCancelledCount, ...conflicts };
   });
 }
 

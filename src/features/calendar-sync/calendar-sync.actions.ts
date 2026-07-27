@@ -9,7 +9,7 @@ import { logServerError } from "@/lib/prisma-errors";
 import { syncCalendarSources, type BulkCalendarSyncResult } from "./application/sync-calendar-sources";
 import { syncCalendarSource } from "./application/sync-calendar-source";
 import { CALENDAR_SYNC_BULK_MAX_SOURCES } from "./calendar-sync.constants";
-import { bulkSyncCalendarSourcesSchema, roomCalendarFilteredSyncSchema, roomOverviewSyncSchema, syncCalendarSourceSchema } from "./calendar-sync.schemas";
+import { bulkSyncCalendarSourcesSchema, roomCalendarFilteredSyncSchema, roomOverviewSyncSchema, selectedRoomCalendarSyncSchema, syncCalendarSourceSchema } from "./calendar-sync.schemas";
 import { summarizeError } from "./domain/sync-error";
 import type { CalendarSyncResult } from "./domain/sync-result";
 import { findCalendarSourceForSync } from "./infrastructure/reservation-sync.repository";
@@ -22,6 +22,7 @@ function revalidateSyncViews() {
   revalidatePath("/reservations");
   revalidatePath("/reservation-conflicts");
   revalidatePath("/room-overview");
+  revalidatePath("/room-status");
   revalidatePath("/");
 }
 
@@ -128,5 +129,30 @@ export async function syncRoomOverviewCalendarSourcesAction(input: { propertyId?
     if (isAccessControlError(error)) return accessFailure(error instanceof Error && "reason" in error ? error.reason as "UNAUTHENTICATED" | "FORBIDDEN" | "COMPANY_SCOPE" : "FORBIDDEN");
     logServerError("syncRoomOverviewCalendarSources", error);
     return { success: false, status: 500, errorCode: "UNKNOWN_ERROR", message: "전체 동기화 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요." };
+  }
+}
+
+export async function syncSelectedRoomCalendarSourcesAction(input: { roomIds: string[] }): Promise<ActionResult<BulkSyncResult>> {
+  const parsed = selectedRoomCalendarSyncSchema.safeParse(input);
+  if (!parsed.success) return { success: false, status: 400, errorCode: "VALIDATION_ERROR", message: "동기화할 객실 범위가 올바르지 않습니다." };
+  const access = await authorizeAccess(PERMISSIONS.SYNC_RUN);
+  if (!access.allowed) return accessFailure(access.reason);
+  const roomIds = [...new Set(parsed.data.roomIds)];
+
+  try {
+    for (const roomId of roomIds) await requireRoomAccess(roomId, PERMISSIONS.SYNC_RUN);
+    const sources = await listActiveCalendarSourceIdsForRooms(
+      roomIds,
+      CALENDAR_SYNC_BULK_MAX_SOURCES + 1,
+      companyScopeIds(access.context),
+    );
+    if (sources.length > CALENDAR_SYNC_BULK_MAX_SOURCES) return tooManySources();
+    const data = await syncCalendarSources(sources, "syncSelectedRoomCalendarSources", access.context.userId, "MANUAL", roomIds);
+    revalidateSyncViews();
+    return { success: true, data, message: data.totalSources ? "선택한 객실 동기화를 완료했습니다." : "선택한 객실에 활성 캘린더 연결이 없습니다." };
+  } catch (error) {
+    if (isAccessControlError(error)) return accessFailure(error instanceof Error && "reason" in error ? error.reason as "UNAUTHENTICATED" | "FORBIDDEN" | "COMPANY_SCOPE" : "FORBIDDEN");
+    logServerError("syncSelectedRoomCalendarSources", error);
+    return { success: false, status: 500, errorCode: "UNKNOWN_ERROR", message: "선택한 객실 동기화 중 오류가 발생했습니다." };
   }
 }

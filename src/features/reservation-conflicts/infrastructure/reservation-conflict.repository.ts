@@ -8,7 +8,7 @@ import { CALENDAR_PROVIDER_TYPES } from "@/providers/calendar";
 
 export async function detectRoomReservationConflicts(tx: Prisma.TransactionClient, roomId: string): Promise<ConflictRecalculationResult> {
   const [reservations, existing] = await Promise.all([
-    tx.reservation.findMany({ where: { roomId, status: { in: [...ACTIVE_OTA_RESERVATION_STATUSES] }, provider: { in: [...CALENDAR_PROVIDER_TYPES] } }, select: { id: true, roomId: true, startDate: true, endDate: true, status: true }, orderBy: [{ startDate: "asc" }, { endDate: "asc" }, { id: "asc" }] }),
+    tx.reservation.findMany({ where: { roomId, calendarSource: { is: { isActive: true } }, status: { in: [...ACTIVE_OTA_RESERVATION_STATUSES] }, provider: { in: [...CALENDAR_PROVIDER_TYPES] } }, select: { id: true, roomId: true, startDate: true, endDate: true, status: true }, orderBy: [{ startDate: "asc" }, { endDate: "asc" }, { id: "asc" }] }),
     tx.reservationConflict.findMany({ where: { roomId }, select: { id: true, roomId: true, reservationAId: true, reservationBId: true, status: true, overlapStart: true, overlapEnd: true } }),
   ]);
   const detected = findReservationConflictPairs(reservations);

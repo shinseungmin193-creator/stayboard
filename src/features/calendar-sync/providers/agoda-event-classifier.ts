@@ -16,10 +16,8 @@ const AGODA_BLOCKED_SUMMARIES = new Set([
   "owner block",
   "owner blocked",
 ]);
-const AGODA_CANCELLED_SIGNALS = new Set(["cancelled", "canceled", "agoda cancelled", "agoda canceled"]);
-
 export function classifyAgodaEvent(event: ParsedCalendarEvent) {
-  if (isCancelledCalendarEvent(event, AGODA_CANCELLED_SIGNALS)) return "CANCELLED" as const;
+  if (isCancelledCalendarEvent(event)) return "CANCELLED" as const;
   if (matchesCalendarText(event.summary, AGODA_BLOCKED_SUMMARIES)) return "BLOCKED" as const;
 
   const organizer = calendarProperty(event, "organizer");

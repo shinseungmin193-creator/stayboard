@@ -13,11 +13,10 @@ const AIRBNB_BLOCKED_SUMMARIES = new Set([
   "maintenance",
   "calendar blocked",
 ]);
-const AIRBNB_CANCELLED_SIGNALS = new Set(["cancelled", "canceled", "reservation cancelled", "reservation canceled"]);
 const AIRBNB_RESERVATION_SUMMARIES = new Set(["reserved"]);
 
 export function classifyAirbnbEvent(event: ParsedCalendarEvent) {
-  if (isCancelledCalendarEvent(event, AIRBNB_CANCELLED_SIGNALS)) return "CANCELLED" as const;
+  if (isCancelledCalendarEvent(event)) return "CANCELLED" as const;
   if (matchesCalendarText(event.summary, AIRBNB_BLOCKED_SUMMARIES)) return "BLOCKED" as const;
   const description = normalizeCalendarText(event.description);
   if (matchesCalendarText(event.summary, AIRBNB_RESERVATION_SUMMARIES)) return "RESERVATION" as const;
