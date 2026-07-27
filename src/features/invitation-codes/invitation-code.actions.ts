@@ -1,11 +1,13 @@
 "use server";
 
+import "server-only";
 import { revalidatePath } from "next/cache";
 import { getCurrentAccessContext, hasPermission, PERMISSIONS } from "@/features/access-control";
 import type { ActionResult } from "@/lib/action-result";
 import { Prisma } from "@/lib/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
-import { generateInvitationCode, hashInvitationCode, invitationCodeUnavailableReason } from "./invitation-code.service";
+import { generateInvitationCode, hashInvitationCode } from "./invitation-code.service";
+import { invitationCodeUnavailableReason } from "./invitation-code.policy";
 import { invitationCodeActionSchema, invitationCodeVerifySchema } from "./invitation-code.schemas";
 
 export type InvitationCodeActionResult = ActionResult<{ code?: string; codeId?: string }>;

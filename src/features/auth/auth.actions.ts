@@ -5,7 +5,8 @@ import { prisma } from "@/lib/prisma";
 import type { ActionResult } from "@/lib/action-result";
 import { signupSchema } from "./auth.schemas";
 import { hashPassword } from "./server/password";
-import { hashInvitationCode, invitationCodeUnavailableReason } from "@/features/invitation-codes/invitation-code.service";
+import { hashInvitationCode } from "@/features/invitation-codes/invitation-code.service";
+import { invitationCodeUnavailableReason } from "@/features/invitation-codes/invitation-code.policy";
 import { consumeInvitationCode } from "@/features/invitation-codes/invitation-code.consume";
 
 export async function signupAction(formData: FormData): Promise<ActionResult<{ email: string }>> {

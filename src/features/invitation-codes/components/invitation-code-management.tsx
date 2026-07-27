@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { ActionResult } from "@/lib/action-result";
 import type { InvitationCodeActionResult } from "../invitation-code.actions";
-import { maskInvitationCode } from "../invitation-code.service";
+import { maskInvitationCodePrefix as maskInvitationCode } from "../invitation-code.view-model";
 import type { InvitationCodeListItem } from "../invitation-code.types";
 
 type InvitationAction = (state: InvitationCodeActionResult, formData: FormData) => Promise<InvitationCodeActionResult>;

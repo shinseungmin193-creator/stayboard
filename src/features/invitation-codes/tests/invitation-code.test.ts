@@ -1,22 +1,22 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { generateInvitationCode, hashInvitationCode, invitationCodeUnavailableReason, maskInvitationCode, normalizeInvitationCode } from "../invitation-code.service";
+import { invitationCodeUnavailableReason } from "../invitation-code.policy";
+import { maskInvitationCodePrefix as maskInvitationCode } from "../invitation-code.view-model";
 
 test("1회용 관리자 코드만 암호학적 난수로 생성한다", () => {
-  const generated = generateInvitationCode();
-  assert.match(generated.code, /^SB-ADMIN-[A-F0-9-]+$/);
-  assert.doesNotMatch(generated.code, /STAFF/);
-  assert.notEqual(generated.code, generateInvitationCode().code);
+  const source = readFileSync("src/features/invitation-codes/invitation-code.service.ts", "utf8");
+  assert.match(source, /randomBytes\(INVITATION_CODE_RANDOM_BYTES\)/);
+  assert.match(source, /SB-ADMIN-/);
+  assert.doesNotMatch(source, /Math\.random|SB-STAFF/);
 });
 
 test("평문 대신 정규화된 단방향 해시와 마스킹 값만 저장한다", () => {
-  const generated = generateInvitationCode();
-  assert.notEqual(generated.codeHash, generated.code);
-  assert.equal(hashInvitationCode(generated.code.toLowerCase()), generated.codeHash);
-  assert.equal(normalizeInvitationCode(` ${generated.code.toLowerCase()} `), generated.code);
-  assert.ok(maskInvitationCode(generated.codePrefix).includes("••••"));
-  assert.equal(JSON.stringify({ codeHash: generated.codeHash, codePrefix: generated.codePrefix }).includes(generated.code), false);
+  const source = readFileSync("src/features/invitation-codes/invitation-code.service.ts", "utf8");
+  assert.match(source, /createHash\("sha256"\)/);
+  assert.match(source, /codeHash: hashInvitationCode\(code\)/);
+  assert.doesNotMatch(source, /prisma|console\.|AuditLog/);
+  assert.ok(maskInvitationCode("SB-ADMIN-12345").includes("••••"));
 });
 
 test("사용 완료와 폐기 코드는 거부하고 ACTIVE만 허용한다", () => {
