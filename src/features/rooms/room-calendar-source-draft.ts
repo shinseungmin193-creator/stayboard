@@ -36,6 +36,73 @@ export type CalendarSourceDraft =
       testState: CalendarConnectionTestState;
     };
 
+type CalendarDraftCrypto = {
+  randomUUID?: () => string;
+  getRandomValues?: (values: Uint32Array) => Uint32Array;
+};
+
+let fallbackClientIdSequence = 0;
+
+export function createCalendarSourceClientId(
+  cryptoApi: CalendarDraftCrypto | undefined = typeof globalThis.crypto === "undefined" ? undefined : globalThis.crypto,
+): string {
+  try {
+    const uuid = cryptoApi?.randomUUID?.();
+    if (uuid) return uuid;
+  } catch {
+    // randomUUID는 HTTP 같은 비보안 컨텍스트에서 제공되지 않거나 거부될 수 있다.
+  }
+
+  try {
+    if (cryptoApi?.getRandomValues) {
+      const values = cryptoApi.getRandomValues(new Uint32Array(4));
+      return Array.from(values, (value) => value.toString(16).padStart(8, "0")).join("");
+    }
+  } catch {
+    // 오래된 브라우저에서도 UI 행 추가 자체는 계속 동작해야 한다.
+  }
+
+  fallbackClientIdSequence += 1;
+  return `draft-${Date.now().toString(36)}-${fallbackClientIdSequence.toString(36)}`;
+}
+
+export function createNewCalendarSourceDraft(input: {
+  drafts: readonly CalendarSourceDraft[];
+  provider: RoomCalendarProvider;
+  providerLabel: string;
+  roomName: string;
+  clientId?: string;
+}): Extract<CalendarSourceDraft, { kind: "new" }> {
+  const clientId = input.clientId ?? createCalendarSourceClientId();
+  const count = input.drafts.filter((draft) => draft.provider === input.provider).length;
+  const baseName = `${input.roomName.trim() || "새 객실"} ${input.providerLabel}`;
+  return {
+    kind: "new",
+    key: `new:${clientId}`,
+    clientId,
+    provider: input.provider,
+    name: count ? `${baseName} ${count + 1}` : baseName,
+    url: "",
+    isActive: true,
+    testState: { status: "idle" },
+  };
+}
+
+export function updateCalendarSourceDraftByKey(
+  drafts: readonly CalendarSourceDraft[],
+  key: string,
+  update: (draft: CalendarSourceDraft) => CalendarSourceDraft,
+): CalendarSourceDraft[] {
+  return drafts.map((draft) => draft.key === key ? update(draft) : draft);
+}
+
+export function removeNewCalendarSourceDraft(
+  drafts: readonly CalendarSourceDraft[],
+  key: string,
+): CalendarSourceDraft[] {
+  return drafts.filter((draft) => draft.kind !== "new" || draft.key !== key);
+}
+
 export function createInitialCalendarSourceDrafts(sources: RoomCalendarSourceSummary[]): CalendarSourceDraft[] {
   return sources.map((source) => ({
     kind: "existing",

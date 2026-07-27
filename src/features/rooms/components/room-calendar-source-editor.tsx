@@ -1,10 +1,16 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { type Dispatch, type SetStateAction, useState, useTransition } from "react";
 import { CheckCircle2, Circle, LoaderCircle, Plus, RotateCcw, Trash2, XCircle } from "lucide-react";
 import { testRoomCalendarUrlAction } from "../room.actions";
 import { ROOM_CALENDAR_PROVIDER_CONFIG, type RoomCalendarProvider } from "../room-calendar-draft";
-import type { CalendarSourceDraft } from "../room-calendar-source-draft";
+import {
+  createCalendarSourceClientId,
+  createNewCalendarSourceDraft,
+  removeNewCalendarSourceDraft,
+  updateCalendarSourceDraftByKey,
+  type CalendarSourceDraft,
+} from "../room-calendar-source-draft";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -44,7 +50,7 @@ function SourceRow({
 }: {
   draft: CalendarSourceDraft;
   supported: boolean;
-  onChange: (next: CalendarSourceDraft) => void;
+  onChange: (update: (current: CalendarSourceDraft) => CalendarSourceDraft) => void;
   onRequestDisconnect: () => void;
   onRemoveNew: () => void;
   errors?: string[];
@@ -55,21 +61,25 @@ function SourceRow({
   const testConnection = () => {
     if (!supported || !draft.url.trim() || testing) return;
     const testedUrl = draft.url.trim();
-    onChange({ ...draft, testState: { status: "testing" } });
+    onChange((current) => ({ ...current, testState: { status: "testing" } }));
     startTesting(async () => {
       const result = await testRoomCalendarUrlAction({ provider: draft.provider, calendarUrl: testedUrl });
       if (result.success) {
-        onChange({ ...draft, url: testedUrl, testState: { status: "success", testedUrl, result: result.data } });
+        onChange((current) => current.url.trim() === testedUrl
+          ? { ...current, url: testedUrl, testState: { status: "success", testedUrl, result: result.data } }
+          : { ...current, testState: { status: "idle" } });
       } else {
-        onChange({ ...draft, url: testedUrl, testState: { status: "failure", testedUrl, code: result.code, message: result.message } });
+        onChange((current) => current.url.trim() === testedUrl
+          ? { ...current, url: testedUrl, testState: { status: "failure", testedUrl, code: result.code, message: result.message } }
+          : { ...current, testState: { status: "idle" } });
       }
     });
   };
-  const resetUrl = () => onChange({
-    ...draft,
-    url: draft.kind === "existing" ? draft.originalUrl : "",
+  const resetUrl = () => onChange((current) => ({
+    ...current,
+    url: current.kind === "existing" ? current.originalUrl : "",
     testState: { status: "idle" },
-  });
+  }));
 
   return <div data-source-key={draft.key} className={cn("space-y-2 rounded-lg border bg-background/60 p-2.5", draft.kind === "existing" && draft.markedForDeletion && "opacity-70")}>
     <div className="flex flex-wrap items-center gap-2">
@@ -80,11 +90,34 @@ function SourceRow({
     <div className="grid min-w-0 gap-2 lg:grid-cols-[minmax(140px,0.7fr)_minmax(0,1.6fr)_92px_32px]">
       <div className="min-w-0 space-y-1">
         <Label htmlFor={`source-name-${draft.key}`} className="sr-only">연결 이름</Label>
-        <Input id={`source-name-${draft.key}`} value={draft.name} onChange={(event) => onChange({ ...draft, name: event.target.value })} placeholder="연결 이름" maxLength={100} disabled={disabled} />
+        <Input
+          id={`source-name-${draft.key}`}
+          value={draft.name}
+          onChange={(event) => {
+            const value = event.target.value;
+            onChange((current) => ({ ...current, name: value }));
+          }}
+          placeholder="연결 이름"
+          maxLength={100}
+          disabled={disabled}
+        />
       </div>
       <div className="min-w-0 space-y-1">
         <Label htmlFor={`source-url-${draft.key}`} className="sr-only">iCal URL</Label>
-        <Input id={`source-url-${draft.key}`} type="url" autoComplete="off" value={draft.url} onChange={(event) => onChange({ ...draft, url: event.target.value, testState: { status: "idle" } })} placeholder={supported ? "https://…" : "현재 연결 테스트 미지원"} maxLength={2000} disabled={!supported || disabled} className="min-w-0 font-mono text-xs" />
+        <Input
+          id={`source-url-${draft.key}`}
+          type="url"
+          autoComplete="off"
+          value={draft.url}
+          onChange={(event) => {
+            const value = event.target.value;
+            onChange((current) => ({ ...current, url: value, testState: { status: "idle" } }));
+          }}
+          placeholder={supported ? "https://…" : "현재 연결 테스트 미지원"}
+          maxLength={2000}
+          disabled={!supported || disabled}
+          className="min-w-0 font-mono text-xs"
+        />
       </div>
       <Button type="button" variant="secondary" size="sm" onClick={testConnection} disabled={!supported || !draft.url.trim() || disabled}>
         {testing ? <><LoaderCircle className="animate-spin" />테스트 중</> : "연결 테스트"}
@@ -100,10 +133,10 @@ function SourceRow({
         {errors?.map((error) => <p key={error} className="mt-1 text-destructive">{error}</p>)}
       </div>
       {draft.kind === "existing" ? draft.markedForDeletion
-        ? <Button type="button" variant="outline" size="xs" onClick={() => onChange({ ...draft, isActive: draft.originalIsActive, markedForDeletion: false })}>해제 취소</Button>
+        ? <Button type="button" variant="outline" size="xs" onClick={() => onChange((current) => current.kind === "existing" ? { ...current, isActive: current.originalIsActive, markedForDeletion: false } : current)}>해제 취소</Button>
         : draft.isActive
           ? <Button type="button" variant="destructive" size="xs" onClick={onRequestDisconnect}><Trash2 />연결 해제</Button>
-          : <Button type="button" variant="outline" size="xs" onClick={() => onChange({ ...draft, isActive: true })}>다시 연결</Button>
+          : <Button type="button" variant="outline" size="xs" onClick={() => onChange((current) => current.kind === "existing" ? { ...current, isActive: true } : current)}>다시 연결</Button>
         : <Button type="button" variant="ghost" size="xs" onClick={onRemoveNew}><Trash2 />행 삭제</Button>}
     </div>
   </div>;
@@ -117,32 +150,31 @@ export function RoomCalendarSourceEditor({
 }: {
   roomName: string;
   drafts: CalendarSourceDraft[];
-  onDraftsChange: (drafts: CalendarSourceDraft[]) => void;
+  onDraftsChange: Dispatch<SetStateAction<CalendarSourceDraft[]>>;
   sourceErrors?: Record<string, string[]>;
 }) {
   const [disconnectKey, setDisconnectKey] = useState<string | null>(null);
   const disconnectDraft = drafts.find(
     (draft): draft is Extract<CalendarSourceDraft, { kind: "existing" }> => draft.key === disconnectKey && draft.kind === "existing",
   );
-  const changeDraft = (next: CalendarSourceDraft) => onDraftsChange(drafts.map((draft) => draft.key === next.key ? next : draft));
+  const changeDraft = (key: string, update: (draft: CalendarSourceDraft) => CalendarSourceDraft) => {
+    onDraftsChange((current) => updateCalendarSourceDraftByKey(current, key, update));
+  };
   const addDraft = (provider: RoomCalendarProvider, label: string) => {
-    const clientId = crypto.randomUUID();
-    const count = drafts.filter((draft) => draft.provider === provider).length;
-    const baseName = `${roomName.trim() || "새 객실"} ${label}`;
-    onDraftsChange([...drafts, {
-      kind: "new",
-      key: `new:${clientId}`,
-      clientId,
+    const clientId = createCalendarSourceClientId();
+    onDraftsChange((current) => [...current, createNewCalendarSourceDraft({
+      drafts: current,
       provider,
-      name: count ? `${baseName} ${count + 1}` : baseName,
-      url: "",
-      isActive: true,
-      testState: { status: "idle" },
-    }]);
+      providerLabel: label,
+      roomName,
+      clientId,
+    })]);
   };
   const confirmDisconnect = () => {
     if (!disconnectDraft) return;
-    changeDraft({ ...disconnectDraft, isActive: false, markedForDeletion: true, testState: { status: "idle" } });
+    changeDraft(disconnectDraft.key, (current) => current.kind === "existing"
+      ? { ...current, isActive: false, markedForDeletion: true, testState: { status: "idle" } }
+      : current);
     setDisconnectKey(null);
   };
 
@@ -157,7 +189,7 @@ export function RoomCalendarSourceEditor({
             {!config.supported && <span className="text-[11px] text-muted-foreground">현재 연결 테스트 미지원</span>}
             <Button type="button" variant="ghost" size="xs" className="ml-auto" disabled={!config.supported} onClick={() => addDraft(config.provider, config.label)}><Plus />{config.label} 연결 추가</Button>
           </div>
-          {providerDrafts.length > 0 && <div className="mt-2 space-y-2">{providerDrafts.map((draft) => <SourceRow key={draft.key} draft={draft} supported={config.supported} onChange={changeDraft} onRequestDisconnect={() => setDisconnectKey(draft.key)} onRemoveNew={() => onDraftsChange(drafts.filter((item) => item.key !== draft.key))} errors={sourceErrors?.[draft.key]} />)}</div>}
+          {providerDrafts.length > 0 && <div className="mt-2 space-y-2">{providerDrafts.map((draft) => <SourceRow key={draft.key} draft={draft} supported={config.supported} onChange={(update) => changeDraft(draft.key, update)} onRequestDisconnect={() => setDisconnectKey(draft.key)} onRemoveNew={() => onDraftsChange((current) => removeNewCalendarSourceDraft(current, draft.key))} errors={sourceErrors?.[draft.key]} />)}</div>}
         </section>;
       })}
     </div>
