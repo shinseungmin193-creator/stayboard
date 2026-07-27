@@ -1,7 +1,7 @@
 import type { CompanyMemberRole } from "@/lib/generated/prisma/enums";
 import type { UserRole } from "@/features/access-control/domain/access-control";
 
-export type MemberManagementAction = "INVITE_MEMBER" | "CHANGE_ROLE" | "UPDATE_PROPERTY_ACCESS" | "DISABLE_MEMBER" | "REACTIVATE_MEMBER" | "CANCEL_INVITATION" | "RESEND_INVITATION";
+export type MemberManagementAction = "MANAGE_INVITATION_CODE" | "CHANGE_ROLE" | "UPDATE_PROPERTY_ACCESS" | "DISABLE_MEMBER" | "REACTIVATE_MEMBER";
 
 export class MemberPolicyError extends Error {
   constructor(message = "해당 사용자를 관리할 권한이 없습니다.") { super(message); this.name = "MemberPolicyError"; }

@@ -35,12 +35,12 @@ export async function listRoomStatusCalendar(input: {
       reservations: {
         where: {
           status: { in: [...ACTIVE_OTA_RESERVATION_STATUSES] },
-          provider: { in: [...CALENDAR_PROVIDER_TYPES] },
           startDate: { lt: input.toExclusive },
           endDate: { gt: input.from },
         },
         select: {
           id: true,
+          providerReservationId: true,
           guestName: true,
           summary: true,
           startDate: true,
@@ -48,8 +48,8 @@ export async function listRoomStatusCalendar(input: {
           provider: true,
           status: true,
           calendarSource: { select: { name: true } },
-          conflictsAsA: { where: { status: "ACTIVE", reservationB: { status: { in: [...ACTIVE_OTA_RESERVATION_STATUSES] }, provider: { in: [...CALENDAR_PROVIDER_TYPES] } } }, select: { id: true }, take: 1 },
-          conflictsAsB: { where: { status: "ACTIVE", reservationA: { status: { in: [...ACTIVE_OTA_RESERVATION_STATUSES] }, provider: { in: [...CALENDAR_PROVIDER_TYPES] } } }, select: { id: true }, take: 1 },
+          conflictsAsA: { where: { status: "ACTIVE", reservationB: { status: { in: [...ACTIVE_OTA_RESERVATION_STATUSES] } } }, select: { id: true }, take: 1 },
+          conflictsAsB: { where: { status: "ACTIVE", reservationA: { status: { in: [...ACTIVE_OTA_RESERVATION_STATUSES] } } }, select: { id: true }, take: 1 },
         },
         orderBy: [{ startDate: "asc" }, { endDate: "asc" }],
       },

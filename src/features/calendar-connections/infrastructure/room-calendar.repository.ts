@@ -4,10 +4,12 @@ import { prisma } from "@/lib/prisma";
 import type { RoomCalendarFilters } from "../types/room-calendar-summary";
 import { ACTIVE_OTA_RESERVATION_STATUSES } from "@/features/reservations/reservation.constants";
 import { CALENDAR_PROVIDER_TYPES } from "@/providers/calendar";
+import { roomScopeWhere } from "@/features/access-control/infrastructure/prisma-scope";
 
 export function findRoomCalendarRows(filters: RoomCalendarFilters) {
   return prisma.room.findMany({
     where: {
+      ...(roomScopeWhere(filters.accessScope) ?? {}),
       id: filters.roomId,
       propertyId: filters.propertyId,
       property: filters.companyIds ? { companyId: { in: [...filters.companyIds] } } : undefined,

@@ -1,25 +1,18 @@
 "use client";
 
 import { useEffect, useMemo, useRef } from "react";
-import { AlertTriangle, CalendarDays } from "lucide-react";
+import { CalendarDays } from "lucide-react";
 import { addDays, differenceInCalendarDays, format, isSameDay } from "date-fns";
 import type { RoomStatusRoom } from "@/features/room-status/room-status.types";
-import { getReservationDisplayLabel } from "@/features/reservations/reservation-display";
+import { ReservationBar } from "@/features/reservations/components/reservation-bar";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatRoomDisplayName } from "@/features/rooms/room-display";
-import { RESERVATION_CONFLICT_UI } from "@/features/reservation-conflicts/reservation-conflict.labels";
-import { CALENDAR_PROVIDER_LABELS, getCalendarProviderLabel, isCalendarProviderType } from "@/providers/calendar/types";
+import { CALENDAR_PROVIDER_LABELS, isCalendarProviderType } from "@/providers/calendar/types";
 
 const DAY_WIDTH = 64;
 const ROOM_WIDTH = 176;
-
-const providerStyle: Record<string, string> = {
-  AIRBNB: "border-rose-300 bg-rose-100 text-rose-950 dark:border-rose-900 dark:bg-rose-950 dark:text-rose-100",
-  BOOKING: "border-blue-300 bg-blue-100 text-blue-950 dark:border-blue-900 dark:bg-blue-950 dark:text-blue-100",
-  AGODA: "border-violet-300 bg-violet-100 text-violet-950 dark:border-violet-900 dark:bg-violet-950 dark:text-violet-100",
-};
 
 function dayStart(value: Date) {
   return new Date(value.getFullYear(), value.getMonth(), value.getDate());
@@ -107,25 +100,22 @@ export function MonthlyReservationCalendar({
                   {days.map((day) => <div key={day.toISOString()} className={cn("h-full shrink-0 border-r", (day.getDay() === 0 || day.getDay() === 6) && "bg-muted/25", isSameDay(day, todayDate) && "bg-primary/7")} style={{ width: DAY_WIDTH }} />)}
                 </div>
                 {room.reservations.map((reservation, index) => {
-                  const providerLabel = getCalendarProviderLabel(reservation.provider);
-                  if (!providerLabel) return null;
                   const reservationStart = dayStart(reservation.startDate);
                   const reservationEnd = dayStart(reservation.endDate);
                   const leftDays = Math.max(0, differenceInCalendarDays(reservationStart, start));
                   const endDays = Math.min(dayCount, differenceInCalendarDays(reservationEnd, start));
                   const widthDays = Math.max(1, endDays - leftDays);
                   if (endDays <= 0 || leftDays >= dayCount) return null;
-                  const label = getReservationDisplayLabel(reservation, "예약");
+                  const width = Math.max(24, widthDays * DAY_WIDTH - 8);
                   return (
-                    <div
+                    <ReservationBar
                       key={reservation.id}
-                      className={cn("absolute z-10 flex h-7 items-center gap-1 overflow-hidden rounded-md border px-2 text-[11px] font-medium shadow-sm", providerStyle[reservation.provider], reservation.hasActiveConflict && "border-destructive ring-2 ring-destructive/40")}
-                      style={{ left: leftDays * DAY_WIDTH + 4, top: 9 + (index % 2) * 34, width: Math.max(24, widthDays * DAY_WIDTH - 8) }}
-                      title={`${label} · ${format(reservation.startDate, "yyyy-MM-dd")} → ${format(reservation.endDate, "yyyy-MM-dd")} · ${providerLabel} · ${reservation.calendarSourceName}`}
-                    >
-                      {reservation.hasActiveConflict && <AlertTriangle className="size-3 shrink-0" aria-label={RESERVATION_CONFLICT_UI.label} />}
-                      <span className="truncate">{label}</span>
-                    </div>
+                      {...reservation}
+                      roomName={room.name}
+                      left={leftDays * DAY_WIDTH + 4}
+                      top={9 + (index % 2) * 34}
+                      width={width}
+                    />
                   );
                 })}
               </div>

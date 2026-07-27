@@ -2,6 +2,7 @@ import type { CalendarProviderType, ReservationStatus } from "@/lib/generated/pr
 
 export interface RoomStatusReservation {
   id: string;
+  providerReservationId: string | null;
   guestName: string | null;
   summary: string | null;
   startDate: Date;

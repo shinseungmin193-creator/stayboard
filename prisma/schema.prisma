@@ -68,12 +68,6 @@ enum MembershipStatus {
   DISABLED
 }
 
-enum InvitationMailStatus {
-  PENDING
-  SENT
-  FAILED
-}
-
 model Company {
   id          String              @id @default(cuid())
   name        String
@@ -83,7 +77,7 @@ model Company {
   properties  Property[]
   settings    CompanySettings?
   memberships CompanyMembership[]
-  invitations CompanyInvitation[]
+  invitationCodes InvitationCode[]
 
   @@index([isActive, name])
 }
@@ -186,7 +180,7 @@ model User {
   auditLogsAsActor  AuditLog[]          @relation("AuditActor")
   auditLogsAsTarget AuditLog[]          @relation("AuditTarget")
   syncRuns          SyncRun[]
-  invitationsSent   CompanyInvitation[] @relation("InvitationSender")
+  invitationCodesCreated InvitationCode[] @relation("InvitationCodeCreator")
 
   @@index([isActive, name])
 }
@@ -222,29 +216,23 @@ model PropertyAccess {
   @@index([propertyId])
 }
 
-model CompanyInvitation {
-  id              String @id @default(cuid())
-  companyId       String
-  email           String
-  displayName     String?
-  role            CompanyMemberRole
-  propertyIds     Json @default("[]")
-  message         String?
-  tokenHash       String @unique
-  expiresAt       DateTime
-  acceptedAt      DateTime?
-  cancelledAt     DateTime?
-  invitedById     String
-  mailStatus      InvitationMailStatus @default(PENDING)
-  mailError       String?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  company         Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  invitedBy       User @relation("InvitationSender", fields: [invitedById], references: [id], onDelete: Restrict)
+model InvitationCode {
+  id          String @id @default(cuid())
+  companyId   String
+  role        CompanyMemberRole
+  codeHash    String @unique
+  codePrefix  String
+  isActive    Boolean @default(true)
+  expiresAt   DateTime?
+  maxUses     Int? @default(1)
+  usedCount   Int @default(0)
+  createdById String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  company     Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  createdBy   User @relation("InvitationCodeCreator", fields: [createdById], references: [id], onDelete: Restrict)
 
-  @@index([companyId, email])
-  @@index([companyId, createdAt])
-  @@index([email])
+  @@index([companyId, role, isActive])
   @@index([expiresAt])
 }
 

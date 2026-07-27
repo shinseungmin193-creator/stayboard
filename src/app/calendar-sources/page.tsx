@@ -11,6 +11,7 @@ import {
   type RoomCalendarFilters as RoomCalendarFilterValues,
   type RoomCalendarStatus,
 } from "@/features/calendar-connections";
+import { normalizeRoomCalendarSelection } from "@/features/calendar-connections/lib/normalize-room-calendar-filters";
 import { PageHeader } from "@/components/shared/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -55,19 +56,20 @@ export default async function CalendarSourcesPage({ searchParams }: { searchPara
       <div className="flex justify-between text-xs text-muted-foreground"><span>{result.page} / {result.totalPages} 페이지 · {result.totalCount}건</span><div className="flex gap-2"><Button nativeButton={false} render={<Link href={pageHref(Math.max(1, result.page - 1))} />} size="sm" variant="outline" disabled={result.page <= 1}>이전</Button><Button nativeButton={false} render={<Link href={pageHref(Math.min(result.totalPages, result.page + 1))} />} size="sm" variant="outline" disabled={result.page >= result.totalPages}>다음</Button></div></div>
     </div>;
   }
+  const companyIds = companyScopeIds(access.context);
+  const rooms = await listCalendarRoomOptions(companyIds, access.context.scope);
+  const selection = normalizeRoomCalendarSelection(rooms, value("propertyId"), value("roomId"));
   const filters: RoomCalendarFilterValues = {
-    propertyId: value("propertyId"),
-    roomId: value("roomId"),
+    propertyId: selection.propertyId,
+    roomId: selection.roomId,
     provider: providers.includes(providerValue as typeof providers[number]) ? providerValue as CalendarProviderType : undefined,
     status: statuses.includes(statusValue as typeof statuses[number]) ? statusValue as RoomCalendarStatus : undefined,
-    companyIds: companyScopeIds(access.context),
+    companyIds,
+    accessScope: access.context.scope,
     canViewTechnicalDetails: access.context.role === "DEVELOPER",
   };
 
-  const [summaries, rooms] = await Promise.all([
-    listRoomCalendarSummaries(filters),
-    listCalendarRoomOptions(filters.companyIds),
-  ]);
+  const summaries = await listRoomCalendarSummaries(filters);
 
   return (
     <div className="space-y-5">
@@ -77,7 +79,7 @@ export default async function CalendarSourcesPage({ searchParams }: { searchPara
         description="객실별 OTA 연결 상태를 한 행에서 확인하고 세부 연결을 관리합니다."
         action={<div className="flex flex-wrap items-start gap-2"><RoomCalendarSync filters={filters} /><CalendarSourceForm rooms={rooms} /></div>}
       />
-      <RoomCalendarFilterBar filters={filters} rooms={rooms} />
+      <RoomCalendarFilterBar key={[filters.propertyId, filters.roomId, filters.provider, filters.status].join(":")} filters={filters} rooms={rooms} />
       <p className="text-xs leading-5 text-muted-foreground">Provider 필터는 해당 연결이 있는 객실을 찾으며, 상세 화면에서는 그 객실의 모든 OTA 연결을 함께 보여줍니다. 연결 테스트 결과는 현재 세션에서 즉시 확인할 수 있고 별도 저장되지는 않습니다.</p>
       <RoomCalendarList summaries={summaries} rooms={rooms} />
     </div>

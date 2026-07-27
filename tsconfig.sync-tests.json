@@ -4,7 +4,7 @@
     "src/features/access-control/domain/**/*.ts", "src/features/access-control/tests/**/*.ts",
     "src/features/auth/auth.schemas.ts", "src/features/auth/domain/**/*.ts", "src/features/auth/tests/**/*.ts", "src/lib/base-path.ts",
     "src/features/user-management/domain/**/*.ts", "src/features/user-management/tests/**/*.ts",
-    "src/features/member-management/domain/**/*.ts", "src/features/member-management/invitation-token.ts", "src/features/member-management/tests/**/*.ts",
+    "src/features/member-management/domain/**/*.ts", "src/features/member-management/tests/**/*.ts", "src/features/invitation-codes/invitation-code.constants.ts", "src/features/invitation-codes/invitation-code.service.ts", "src/features/invitation-codes/tests/**/*.ts",
     "src/features/calendar-sync/calendar-sync.constants.ts", "src/features/calendar-sync/domain/**/*.ts", "src/features/calendar-sync/infrastructure/ics-parser.ts", "src/features/calendar-sync/providers/reservation-normalizer.ts", "src/features/calendar-sync/providers/airbnb-normalizer.ts", "src/features/calendar-sync/providers/booking-normalizer.ts", "src/features/calendar-sync/providers/agoda-normalizer.ts", "src/features/calendar-sync/tests/**/*.ts",
     "src/features/calendar-connections/lib/**/*.ts", "src/features/calendar-connections/types/**/*.ts", "src/features/calendar-connections/tests/**/*.ts", "src/features/calendar-sources/calendar-source-url.ts",
     "src/features/dashboard/dashboard.constants.ts", "src/features/dashboard/dashboard-time.ts", "src/features/dashboard/dashboard-cleaning.ts", "src/features/dashboard/tests/**/*.ts",

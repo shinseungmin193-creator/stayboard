@@ -11,7 +11,7 @@ import { normalizeBasePath, resolveBasePath } from "../../../lib/base-path";
 const activeUser: LoginUserRecord = { id: "user-a", email: "user@example.com", name: "User", passwordHash: "stored-hash", isActive: true };
 
 test("공개 회원가입 입력은 역할을 받지 않고 회사 관리자 생성 필드만 검증한다", () => {
-  const result = signupSchema.safeParse({ name: "Demo Admin", email: "ADMIN@EXAMPLE.COM", password: "password123", passwordConfirm: "password123", companyName: "Demo Company", role: "DEVELOPER" });
+  const result = signupSchema.safeParse({ signupType: "new-company", name: "Demo Admin", email: "ADMIN@EXAMPLE.COM", password: "password123", passwordConfirm: "password123", companyName: "Demo Company", role: "DEVELOPER" });
   assert.equal(result.success, true);
   if (result.success) {
     assert.equal(result.data.email, "admin@example.com");
@@ -21,7 +21,7 @@ test("공개 회원가입 입력은 역할을 받지 않고 회사 관리자 생
 
 test("짧은 비밀번호와 불일치 확인을 차단한다", () => {
   assert.equal(loginSchema.safeParse({ identifier: "user@example.com", password: "short" }).success, false);
-  assert.equal(signupSchema.safeParse({ name: "User", email: "user@example.com", password: "password123", passwordConfirm: "different", companyName: "Company" }).success, false);
+  assert.equal(signupSchema.safeParse({ signupType: "new-company", name: "User", email: "user@example.com", password: "password123", passwordConfirm: "different", companyName: "Company" }).success, false);
 });
 
 test("로그인 식별자는 사용자명과 이메일을 동일하게 정규화한다", () => {

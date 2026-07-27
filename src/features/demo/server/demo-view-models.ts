@@ -65,7 +65,7 @@ export function getDemoDashboardData(now = new Date()) {
 
 export function getDemoRoomStatusData(now = new Date()): RoomStatusRoom[] {
   const fixture = createDemoFixtures(now);
-  return fixture.rooms.map((room) => ({ id: room.id, name: room.name, propertyId: room.propertyId, propertyName: DEMO_PROPERTY.name, sources: [{ id: `${room.id}-airbnb`, name: `${room.name} Airbnb`, provider: "AIRBNB" }], reservations: fixture.reservations.filter((item) => item.roomId === room.id).map((item) => ({ ...item, hasActiveConflict: room.id === "demo-room-201" })) }));
+  return fixture.rooms.map((room) => ({ id: room.id, name: room.name, propertyId: room.propertyId, propertyName: DEMO_PROPERTY.name, sources: [{ id: `${room.id}-airbnb`, name: `${room.name} Airbnb`, provider: "AIRBNB" }], reservations: fixture.reservations.filter((item) => item.roomId === room.id).map((item) => ({ ...item, providerReservationId: null, hasActiveConflict: room.id === "demo-room-201" })) }));
 }
 
 export function getDemoConflicts(filters: ConflictFilters) {

@@ -1,4 +1,5 @@
 import type { CalendarProviderType, SyncExecutionMode, SyncStatus } from "@/lib/generated/prisma/enums";
+import type { AccessScope } from "@/features/access-control/domain/access-control";
 
 export type RoomCalendarStatus = "HEALTHY" | "PARTIAL_FAILURE" | "FAILED" | "SYNCING" | "NOT_SYNCED" | "DISABLED";
 export const ROOM_CALENDAR_STATUS_META = {
@@ -25,4 +26,4 @@ export interface RoomCalendarSummary {
   latestRun: { id: string; targetCount: number; successCount: number; failedCount: number; startedAt: Date; finishedAt: Date | null } | null; history: SyncRunHistoryItem[]; failureSummaries: Array<{ provider: CalendarProviderType; message: string }>;
 }
 
-export interface RoomCalendarFilters { propertyId?: string; roomId?: string; provider?: CalendarProviderType; status?: RoomCalendarStatus; companyIds?: readonly string[]; canViewTechnicalDetails?: boolean }
+export interface RoomCalendarFilters { propertyId?: string; roomId?: string; provider?: CalendarProviderType; status?: RoomCalendarStatus; companyIds?: readonly string[]; accessScope?: AccessScope; canViewTechnicalDetails?: boolean }

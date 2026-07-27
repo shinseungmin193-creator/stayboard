@@ -27,6 +27,7 @@
 *.pem
 *.dump
 *.sql
+!prisma/migrations/**/migration.sql
 backups/
 
 # debug
