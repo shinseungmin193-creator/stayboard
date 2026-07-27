@@ -30,17 +30,18 @@ export async function signupAction(formData: FormData): Promise<ActionResult<{ e
         await tx.auditLog.create({ data: { actorUserId: user.id, targetUserId: user.id, action: "PUBLIC_SIGNUP", details: { companyId: company.id } } });
         return;
       }
-      const invitation = await tx.invitationCode.findUnique({ where: { codeHash: hashInvitationCode(parsed.data.invitationCode!) }, select: { id: true, companyId: true, role: true, isActive: true, expiresAt: true, maxUses: true, usedCount: true, company: { select: { isActive: true } } } });
-      if (!invitation || !invitation.company.isActive || invitationCodeUnavailableReason(invitation)) throw new Error("INVITATION_CODE_UNAVAILABLE");
-      const consumed = await consumeInvitationCode(tx, invitation.id); if (!consumed) throw new Error("INVITATION_CODE_UNAVAILABLE");
-      await tx.companyMembership.create({ data: { userId: user.id, companyId: consumed.companyId, role: consumed.role, status: "ACTIVE" } });
-      await tx.auditLog.create({ data: { actorUserId: user.id, targetUserId: user.id, action: "INVITATION_CODE_USED", details: { companyId: consumed.companyId, role: consumed.role, invitationCodeId: consumed.id } } });
+      const invitation = await tx.invitationCode.findUnique({ where: { codeHash: hashInvitationCode(parsed.data.invitationCode!) }, select: { id: true, status: true, role: true, company: { select: { isActive: true } } } });
+      if (!invitation || invitation.role !== "ADMIN" || !invitation.company.isActive || invitationCodeUnavailableReason(invitation)) throw new Error("INVITATION_CODE_UNAVAILABLE");
+      const consumed = await consumeInvitationCode(tx, invitation.id, user.id); if (!consumed) throw new Error("INVITATION_CODE_UNAVAILABLE");
+      await tx.companyMembership.create({ data: { userId: user.id, companyId: consumed.companyId, role: "ADMIN", status: "ACTIVE" } });
+      await tx.auditLog.create({ data: { actorUserId: user.id, targetUserId: user.id, action: "INVITATION_CODE_USED", details: { companyId: consumed.companyId, role: "ADMIN", invitationCodeId: consumed.id } } });
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
-    return { success: true, message: parsed.data.signupType === "new-company" ? "계정과 회사가 생성되었습니다." : "초대코드로 회사에 가입했습니다.", data: { email: parsed.data.email } };
+    return { success: true, message: parsed.data.signupType === "new-company" ? "계정과 회사가 생성되었습니다." : "관리자 초대코드로 회사에 가입했습니다.", data: { email: parsed.data.email } };
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
       return { success: false, message: "이미 사용 중인 이메일입니다.", fieldErrors: { email: ["이미 사용 중인 이메일입니다."] } };
     }
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2034") return { success: false, message: "이 초대코드가 다른 가입 요청에서 먼저 사용되었습니다.", fieldErrors: { invitationCode: ["새 관리자 초대코드를 발행받아 주세요."] } };
     if (error instanceof Error && error.message === "INVITATION_CODE_UNAVAILABLE") return { success: false, message: "유효하지 않거나 사용할 수 없는 초대코드입니다.", fieldErrors: { invitationCode: ["초대코드를 다시 확인해 주세요."] } };
     if (process.env.NODE_ENV === "development") console.error("[signup]", error instanceof Error ? error.name : "UnknownError");
     return { success: false, message: "회원가입을 완료하지 못했습니다." };

@@ -68,6 +68,12 @@ enum MembershipStatus {
   DISABLED
 }
 
+enum InvitationCodeStatus {
+  ACTIVE
+  USED
+  REVOKED
+}
+
 model Company {
   id          String              @id @default(cuid())
   name        String
@@ -181,6 +187,7 @@ model User {
   auditLogsAsTarget AuditLog[]          @relation("AuditTarget")
   syncRuns          SyncRun[]
   invitationCodesCreated InvitationCode[] @relation("InvitationCodeCreator")
+  invitationCodesUsed    InvitationCode[] @relation("InvitationCodeUser")
 
   @@index([isActive, name])
 }
@@ -217,23 +224,24 @@ model PropertyAccess {
 }
 
 model InvitationCode {
-  id          String @id @default(cuid())
+  id          String               @id @default(cuid())
   companyId   String
-  role        CompanyMemberRole
-  codeHash    String @unique
+  role        CompanyMemberRole    @default(ADMIN)
+  codeHash    String               @unique
   codePrefix  String
-  isActive    Boolean @default(true)
-  expiresAt   DateTime?
-  maxUses     Int? @default(1)
-  usedCount   Int @default(0)
+  status      InvitationCodeStatus @default(ACTIVE)
   createdById String
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  company     Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  createdBy   User @relation("InvitationCodeCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  createdAt   DateTime             @default(now())
+  usedAt      DateTime?
+  usedById    String?
+  revokedAt   DateTime?
+  updatedAt   DateTime             @updatedAt
+  company     Company              @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  createdBy   User                 @relation("InvitationCodeCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  usedBy      User?                @relation("InvitationCodeUser", fields: [usedById], references: [id], onDelete: SetNull)
 
-  @@index([companyId, role, isActive])
-  @@index([expiresAt])
+  @@index([companyId, status, createdAt])
+  @@index([usedById])
 }
 
 model StaffAssignment {
