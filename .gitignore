@@ -25,6 +25,9 @@
 # misc
 .DS_Store
 *.pem
+*.dump
+*.sql
+backups/
 
 # debug
 npm-debug.log*
