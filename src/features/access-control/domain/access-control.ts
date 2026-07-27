@@ -75,12 +75,17 @@ export interface AccessContext {
   userId: string;
   email?: string;
   name?: string;
+  actualRole: UserRole;
+  previewRole: UserRole | null;
+  effectiveRole: UserRole;
+  /** @deprecated 권한 호환 필드이며 effectiveRole과 항상 같습니다. */
   role: UserRole;
   systemRole: "DEVELOPER" | "NONE";
   companyRole: "ADMIN" | "STAFF" | null;
   activeCompanyId?: string | null;
   activeCompanyName?: string | null;
   availableCompanies?: readonly { id: string; name: string }[];
+  previewScopeLabel?: string | null;
   scope: AccessScope;
   source: "session" | "development-bootstrap";
 }

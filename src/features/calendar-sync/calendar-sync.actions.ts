@@ -53,7 +53,7 @@ export async function syncCalendarSourceAction(_state: ActionResult<CalendarSync
       throw error;
     }
     revalidateSyncViews();
-    return { success: true, data, message: "예약 동기화를 완료했습니다." };
+    return { success: true, data, message: data.warning ? "동기화가 완료됐지만 확인이 필요한 이벤트가 있습니다." : "예약 동기화를 완료했습니다." };
   } catch (error) {
     if (isAccessControlError(error)) return accessFailure("reason" in error ? error.reason : "FORBIDDEN");
     if (error instanceof Error && (error.name === "CalendarSyncError" || error.name === "CalendarSyncAlreadyRunningError")) return { success: false, message: error.message };

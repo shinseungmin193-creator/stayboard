@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { Prisma } from "@/lib/generated/prisma/client";
-import { getCurrentAccessContext, hasPermission, PERMISSIONS, type AccessContext, type UserRole } from "@/features/access-control";
+import { getCurrentAccessContext, getRolePreviewWriteBlock, hasPermission, PERMISSIONS, type AccessContext, type UserRole } from "@/features/access-control";
 import { prisma } from "@/lib/prisma";
 import type { ActionResult } from "@/lib/action-result";
 import { hashPassword } from "@/features/auth/server/password";
@@ -13,6 +13,7 @@ const forbidden = (): ActionResult => ({ success: false, message: "이 계정을
 
 async function actorContext() {
   const context = await getCurrentAccessContext();
+  if (getRolePreviewWriteBlock(context)) return context;
   return context && hasPermission(context.role, PERMISSIONS.USER_MANAGE) ? context : null;
 }
 
@@ -35,6 +36,8 @@ async function validateAssignments(companyId: string, propertyIds: string[], roo
 export async function createManagedUserAction(_state: ActionResult, formData: FormData): Promise<ActionResult> {
   const context = await actorContext();
   if (!context) return forbidden();
+  const previewBlock = getRolePreviewWriteBlock(context);
+  if (previewBlock) return previewBlock;
   const parsed = createManagedUserSchema.safeParse({ name: formData.get("name"), email: formData.get("email"), password: formData.get("password"), role: formData.get("role"), isActive: formData.get("isActive") ?? "false", companyId: formData.get("companyId") || undefined, propertyIds: formData.getAll("propertyIds"), roomIds: formData.getAll("roomIds") });
   if (!parsed.success) return { success: false, message: "입력 내용을 확인해 주세요.", fieldErrors: parsed.error.flatten().fieldErrors };
   if (!canCreateUserRole(context.role, parsed.data.role)) return forbidden();
@@ -61,6 +64,7 @@ export async function createManagedUserAction(_state: ActionResult, formData: Fo
 export async function setManagedUserActiveAction(_state: ActionResult, formData: FormData): Promise<ActionResult> {
   const context = await actorContext(); const parsed = managedUserActiveSchema.safeParse({ userId: formData.get("userId"), isActive: formData.get("isActive") });
   if (!context || !parsed.success) return forbidden();
+  const previewBlock = getRolePreviewWriteBlock(context); if (previewBlock) return previewBlock;
   const target = await targetInfo(parsed.data.userId, context);
   if (!target || !canManageTarget({ actorRole: context.role, actorUserId: context.userId, targetUserId: target.id, targetRole: target.targetRole, sameCompany: target.sameCompany })) return forbidden();
   const activeDeveloperCount = target.targetRole === "DEVELOPER" ? await prisma.user.count({ where: { systemRole: "DEVELOPER", isActive: true } }) : 0;
@@ -72,6 +76,7 @@ export async function setManagedUserActiveAction(_state: ActionResult, formData:
 export async function resetManagedUserPasswordAction(_state: ActionResult, formData: FormData): Promise<ActionResult> {
   const context = await actorContext(); const parsed = resetManagedUserPasswordSchema.safeParse({ userId: formData.get("userId"), password: formData.get("password") });
   if (!context || !parsed.success) return parsed.success ? forbidden() : { success: false, message: "비밀번호는 8자 이상이어야 합니다." };
+  const previewBlock = getRolePreviewWriteBlock(context); if (previewBlock) return previewBlock;
   const target = await targetInfo(parsed.data.userId, context);
   if (!target || !canManageTarget({ actorRole: context.role, actorUserId: context.userId, targetUserId: target.id, targetRole: target.targetRole, sameCompany: target.sameCompany })) return forbidden();
   const passwordHash = await hashPassword(parsed.data.password);
@@ -81,7 +86,9 @@ export async function resetManagedUserPasswordAction(_state: ActionResult, formD
 
 export async function updateManagedUserRoleAction(_state: ActionResult, formData: FormData): Promise<ActionResult> {
   const context = await actorContext(); const parsed = managedUserRoleSchema.safeParse({ userId: formData.get("userId"), role: formData.get("role"), companyId: formData.get("companyId") || undefined });
-  if (!context || !parsed.success || !canAssignRole(context.role, parsed.success ? parsed.data.role : "DEVELOPER")) return forbidden();
+  if (!context || !parsed.success) return forbidden();
+  const previewBlock = getRolePreviewWriteBlock(context); if (previewBlock) return previewBlock;
+  if (!canAssignRole(context.role, parsed.data.role)) return forbidden();
   const target = await targetInfo(parsed.data.userId, context);
   if (!target || !canManageTarget({ actorRole: context.role, actorUserId: context.userId, targetUserId: target.id, targetRole: target.targetRole, sameCompany: target.sameCompany })) return forbidden();
   const activeDeveloperCount = target.targetRole === "DEVELOPER" ? await prisma.user.count({ where: { systemRole: "DEVELOPER", isActive: true } }) : 0;
@@ -100,7 +107,9 @@ export async function updateManagedUserRoleAction(_state: ActionResult, formData
 
 export async function updateStaffAssignmentsAction(_state: ActionResult, formData: FormData): Promise<ActionResult> {
   const context = await actorContext(); const parsed = staffAssignmentsSchema.safeParse({ userId: formData.get("userId"), companyId: formData.get("companyId"), propertyIds: formData.getAll("propertyIds"), roomIds: formData.getAll("roomIds") });
-  if (!context || !parsed.success || (context.role !== "DEVELOPER" && parsed.data.companyId !== context.activeCompanyId)) return forbidden();
+  if (!context || !parsed.success) return forbidden();
+  const previewBlock = getRolePreviewWriteBlock(context); if (previewBlock) return previewBlock;
+  if (context.role !== "DEVELOPER" && parsed.data.companyId !== context.activeCompanyId) return forbidden();
   const target = await targetInfo(parsed.data.userId, context);
   if (!target || target.targetRole !== "STAFF" || !canManageTarget({ actorRole: context.role, actorUserId: context.userId, targetUserId: target.id, targetRole: target.targetRole, sameCompany: target.sameCompany })) return forbidden();
   const rooms = await validateAssignments(parsed.data.companyId, parsed.data.propertyIds, parsed.data.roomIds);

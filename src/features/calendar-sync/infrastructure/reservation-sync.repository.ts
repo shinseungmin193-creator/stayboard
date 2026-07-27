@@ -16,8 +16,8 @@ export function createRunningSyncLog(calendarSourceId: string, provider: Calenda
   return prisma.syncLog.create({ data: { calendarSourceId, provider, syncRunId, status: "RUNNING", startedAt }, select: { id: true } });
 }
 
-export function failSyncLog(id: string, startedAt: Date, completedAt: Date, error: { code: string; safeMessage: string; technicalMessage: string; httpStatus: number | null; retryCount: number }, fetchedCount: number, eventCounts: CalendarEventClassificationCounts, unknownEventDetails: Prisma.InputJsonValue = []) {
-  return prisma.syncLog.update({ where: { id }, data: { status: "FAILED", completedAt, durationMs: completedAt.getTime() - startedAt.getTime(), errorCode: error.code, errorMessage: error.safeMessage, errorDetails: error.technicalMessage, httpStatus: error.httpStatus, retryCount: error.retryCount, fetchedCount, ...eventCounts, unknownEventDetails } });
+export function failSyncLog(id: string, startedAt: Date, completedAt: Date, error: { code: string; safeMessage: string; technicalMessage: string; httpStatus: number | null; retryCount: number }, fetchedCount: number, eventCounts: CalendarEventClassificationCounts, unknownEventDetails: Prisma.InputJsonValue = [], eventDiagnostics: Prisma.InputJsonValue = {}) {
+  return prisma.syncLog.update({ where: { id }, data: { status: "FAILED", completedAt, durationMs: completedAt.getTime() - startedAt.getTime(), errorCode: error.code, errorMessage: error.safeMessage, errorDetails: error.technicalMessage, httpStatus: error.httpStatus, retryCount: error.retryCount, fetchedCount, ...eventCounts, unknownEventDetails, eventDiagnostics } });
 }
 
 export function markStaleRunningSyncLogs(calendarSourceId: string, now: Date) {
@@ -38,6 +38,7 @@ interface PersistReservationSyncInput {
   blockedUids: string[];
   unknownUids: string[];
   unknownEventDetails: Prisma.InputJsonValue;
+  eventDiagnostics: Prisma.InputJsonValue;
   allowMissingCancellation: boolean;
   eventCounts: CalendarEventClassificationCounts;
   fetchedCount: number;
@@ -61,7 +62,7 @@ export async function persistReservationSync(input: PersistReservationSyncInput)
     for (const item of classification.update) await tx.reservation.update({ where: { id: item.id }, data: persistenceData(item.reservation) });
     const cancelled = classification.cancelIds.length ? await tx.reservation.updateMany({ where: { id: { in: classification.cancelIds }, status: { not: "CANCELLED" as ReservationStatus } }, data: { status: "CANCELLED" } }) : { count: 0 };
     const conflicts = await detectRoomReservationConflicts(tx, input.roomId);
-    await tx.syncLog.update({ where: { id: input.syncLogId }, data: { status: "SUCCESS", completedAt: input.completedAt, durationMs: input.completedAt.getTime() - input.syncStartedAt.getTime(), fetchedCount: input.fetchedCount, ...input.eventCounts, unknownEventDetails: input.unknownEventDetails, createdCount: created.count, updatedCount: classification.update.length, cancelledCount: cancelled.count, errorCode: null, errorMessage: null, errorDetails: null } });
+    await tx.syncLog.update({ where: { id: input.syncLogId }, data: { status: "SUCCESS", completedAt: input.completedAt, durationMs: input.completedAt.getTime() - input.syncStartedAt.getTime(), fetchedCount: input.fetchedCount, ...input.eventCounts, unknownEventDetails: input.unknownEventDetails, eventDiagnostics: input.eventDiagnostics, createdCount: created.count, updatedCount: classification.update.length, cancelledCount: cancelled.count, errorCode: null, errorMessage: null, errorDetails: null } });
     await tx.calendarSource.update({ where: { id: input.calendarSourceId }, data: { lastSyncedAt: input.completedAt } });
     return { createdCount: created.count, updatedCount: classification.update.length, unchangedCount: classification.unchanged.length, cancelledCount: cancelled.count, ...conflicts };
   });

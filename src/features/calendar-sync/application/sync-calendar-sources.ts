@@ -18,6 +18,7 @@ export interface CalendarSourceSyncResult {
   provider: CalendarProviderType;
   outcome: CalendarSourceSyncOutcome;
   success: boolean;
+  warning: boolean;
   alreadyRunning: boolean;
   createdReservations: number;
   updatedReservations: number;
@@ -31,6 +32,7 @@ export interface BulkCalendarSyncResult {
   totalSources: number;
   targetCount: number;
   successCount: number;
+  warningCount: number;
   failureCount: number;
   failedCount: number;
   skippedCount: number;
@@ -41,11 +43,11 @@ export interface BulkCalendarSyncResult {
 }
 
 function skippedResult(source: CalendarSyncTarget, message: string, alreadyRunning = false): CalendarSourceSyncResult {
-  return { calendarSourceId: source.id, roomId: source.roomId, provider: source.provider, outcome: "SKIPPED", success: false, alreadyRunning, createdReservations: 0, updatedReservations: 0, message };
+  return { calendarSourceId: source.id, roomId: source.roomId, provider: source.provider, outcome: "SKIPPED", success: false, warning: false, alreadyRunning, createdReservations: 0, updatedReservations: 0, message };
 }
 
 function failedResult(source: CalendarSyncTarget, message: string): CalendarSourceSyncResult {
-  return { calendarSourceId: source.id, roomId: source.roomId, provider: source.provider, outcome: "FAILED", success: false, alreadyRunning: false, createdReservations: 0, updatedReservations: 0, message };
+  return { calendarSourceId: source.id, roomId: source.roomId, provider: source.provider, outcome: "FAILED", success: false, warning: false, alreadyRunning: false, createdReservations: 0, updatedReservations: 0, message };
 }
 
 export async function syncCalendarSources(
@@ -80,7 +82,7 @@ export async function syncCalendarSources(
         if (bulkSignal.aborted) return skippedResult(source, "전체 동기화 제한 시간을 초과해 시작하지 못했습니다.");
         try {
           const synced = await syncCalendarSource(source.id, bulkSignal, run.id);
-          return { calendarSourceId: source.id, roomId: source.roomId, provider: source.provider, outcome: "SUCCESS", success: true, alreadyRunning: false, createdReservations: synced.createdCount, updatedReservations: synced.updatedCount, message: "완료" };
+          return { calendarSourceId: source.id, roomId: source.roomId, provider: source.provider, outcome: "SUCCESS", success: true, warning: synced.warning, alreadyRunning: false, createdReservations: synced.createdCount, updatedReservations: synced.updatedCount, message: synced.warning ? "완료되었지만 확인이 필요한 이벤트가 있습니다." : "완료" };
         } catch (error) {
           const alreadyRunning = error instanceof Error && error.name === "CalendarSyncAlreadyRunningError";
           const expected = error instanceof Error && error.name === "CalendarSyncError";
@@ -112,6 +114,7 @@ export async function syncCalendarSources(
       targetRoomCount: batch.length,
       calendarSourceCount: batchResults.length,
       successCount: batchResults.filter((item) => item.outcome === "SUCCESS").length,
+      warningCount: batchResults.filter((item) => item.warning).length,
       failureCount: batchResults.filter((item) => item.outcome === "FAILED").length,
       skippedCount: batchResults.filter((item) => item.outcome === "SKIPPED").length,
     });
@@ -125,6 +128,7 @@ export async function syncCalendarSources(
     totalSources: sources.length,
     targetCount: sources.length,
     successCount: summary.successCount,
+    warningCount: allResults.filter((item) => item.warning).length,
     failureCount: summary.failureCount,
     failedCount: summary.failureCount,
     skippedCount: summary.skippedCount,

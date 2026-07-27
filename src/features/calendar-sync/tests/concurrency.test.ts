@@ -15,6 +15,16 @@ test("모든 활성 연결은 성공, 실패, 건너뜀 중 하나로 집계한�
   assert.equal(summary.activeSourceCount, summary.successCount + summary.failureCount + summary.skippedCount);
 });
 
+test("주의 결과는 성공 결과 안에서 별도로 집계할 수 있다", () => {
+  const results = [
+    { outcome: "SUCCESS", warning: true },
+    { outcome: "SUCCESS", warning: false },
+    { outcome: "FAILED", warning: false },
+  ] as const;
+  assert.equal(results.filter((result) => result.outcome === "SUCCESS").length, 2);
+  assert.equal(results.filter((result) => result.warning).length, 1);
+});
+
 test("대상 객실을 고정 크기 batch로 끝까지 나눈다", () => {
   const batches = chunkItems(Array.from({ length: 67 }, (_, index) => index), 25);
   assert.deepEqual(batches.map((batch) => batch.length), [25, 25, 17]);

@@ -24,7 +24,7 @@ export function RoomCalendarSync({ filters = {}, roomIds, compact = false }: { f
           {pending ? "동기화 중" : compact ? "객실 동기화" : "표시 중인 객실 동기화"}
         </Button>
       </form>
-      {state.message && <p aria-live="polite" className={`max-w-xl text-xs ${state.success ? "text-muted-foreground" : "text-destructive"}`}>{state.success && state.data ? `대상 객실 ${state.data.targetRoomCount}개 · 활성 연결 ${state.data.activeSourceCount}개 · 성공 ${state.data.successCount}개 · 실패 ${state.data.failureCount}개 · 건너뜀 ${state.data.skippedCount}개${state.data.roomsWithoutActiveSources ? ` · 연결 없음 ${state.data.roomsWithoutActiveSources}개` : ""}` : state.message}</p>}
+      {state.message && <p aria-live="polite" className={`max-w-xl text-xs ${state.success ? "text-muted-foreground" : "text-destructive"}`}>{state.success && state.data ? `대상 객실 ${state.data.targetRoomCount}개 · 활성 연결 ${state.data.activeSourceCount}개 · 성공 ${state.data.successCount}개 · 주의 ${state.data.warningCount}개 · 실패 ${state.data.failureCount}개 · 건너뜀 ${state.data.skippedCount}개${state.data.roomsWithoutActiveSources ? ` · 연결 없음 ${state.data.roomsWithoutActiveSources}개` : ""}` : state.message}</p>}
     </div>
   );
 }

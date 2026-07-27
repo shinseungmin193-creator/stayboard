@@ -3,6 +3,7 @@ import type { CalendarEventClassificationCounts } from "./classify-calendar-even
 export interface CalendarSyncResult extends CalendarEventClassificationCounts {
   calendarSourceId: string;
   provider: string;
+  warning: boolean;
   fetchedCount: number;
   parsedCount: number;
   excludedCount: number;

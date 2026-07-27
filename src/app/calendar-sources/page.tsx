@@ -25,7 +25,7 @@ export const metadata = { title: "캘린더 연결" };
 export const dynamic = "force-dynamic";
 
 const providers = ["AIRBNB", "BOOKING", "AGODA"] as const;
-const statuses = ["HEALTHY", "PARTIAL_FAILURE", "FAILED", "SYNCING", "NOT_SYNCED", "DISABLED"] as const;
+const statuses = ["HEALTHY", "WARNING", "PARTIAL_FAILURE", "FAILED", "SYNCING", "NOT_SYNCED", "DISABLED"] as const;
 const syncLogFormatter = new Intl.DateTimeFormat("ko-KR", { dateStyle: "short", timeStyle: "medium", timeZone: "Asia/Tokyo" });
 
 export default async function CalendarSourcesPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {

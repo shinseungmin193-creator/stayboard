@@ -2,7 +2,7 @@
 
 import "server-only";
 import { revalidatePath } from "next/cache";
-import { getCurrentAccessContext, hasPermission, PERMISSIONS } from "@/features/access-control";
+import { getCurrentAccessContext, getRolePreviewWriteBlock, hasPermission, PERMISSIONS } from "@/features/access-control";
 import type { ActionResult } from "@/lib/action-result";
 import { Prisma } from "@/lib/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
@@ -14,7 +14,9 @@ export type InvitationCodeActionResult = ActionResult<{ code?: string; codeId?: 
 
 async function contextFor(companyId: string) {
   const context = await getCurrentAccessContext();
-  if (!context || !hasPermission(context.role, PERMISSIONS.USER_MANAGE) || context.role === "STAFF") return null;
+  if (!context) return null;
+  if (getRolePreviewWriteBlock(context)) return context;
+  if (!hasPermission(context.role, PERMISSIONS.USER_MANAGE) || context.role === "STAFF") return null;
   if (context.role !== "DEVELOPER" && context.activeCompanyId !== companyId) return null;
   if (context.role === "DEVELOPER" && !context.availableCompanies?.some((company) => company.id === companyId)) return null;
   return context;
@@ -27,6 +29,8 @@ export async function createInvitationCodeAction(companyId: string, state: Invit
   void formData;
   const context = await contextFor(companyId);
   if (!context) return forbidden();
+  const previewBlock = getRolePreviewWriteBlock(context);
+  if (previewBlock) return previewBlock;
   const generated = generateInvitationCode();
   const now = new Date();
   try {
@@ -51,6 +55,8 @@ export async function revokeInvitationCodeAction(companyId: string, _state: Invi
   if (!parsed.success) return { success: false, message: "잘못된 요청입니다." };
   const context = await contextFor(companyId);
   if (!context) return forbidden();
+  const previewBlock = getRolePreviewWriteBlock(context);
+  if (previewBlock) return previewBlock;
   const now = new Date();
   const result = await prisma.$transaction(async (tx) => {
     const updated = await tx.invitationCode.updateMany({ where: { id: parsed.data.codeId, companyId, role: "ADMIN", status: "ACTIVE" }, data: { status: "REVOKED", revokedAt: now } });

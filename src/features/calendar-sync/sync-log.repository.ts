@@ -55,6 +55,8 @@ export async function listCalendarSourceSyncLogs(calendarSourceId: string, reque
       cancelledEventCount: true,
       unknownEventCount: true,
       unknownEventDetails: true,
+      failedEventCount: true,
+      eventDiagnostics: true,
       skippedEventCount: true,
       createdCount: true,
       updatedCount: true,

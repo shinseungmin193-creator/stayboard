@@ -26,7 +26,7 @@ export function RoomOverviewSync({ propertyId, compact = false }: { propertyId?:
       setNotice({
         success: true,
         message: data?.totalSources
-          ? `동기화 완료: 성공 ${data.successCount}개 · 실패 ${data.failureCount}개 · 예약 ${applied}건 반영`
+          ? `동기화 완료: 성공 ${data.successCount}개 · 주의 ${data.warningCount}개 · 실패 ${data.failureCount}개 · 예약 ${applied}건 반영`
           : "동기화할 활성 캘린더 연결이 없습니다.",
       });
       router.refresh();

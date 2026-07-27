@@ -9,6 +9,7 @@ import { DEFAULT_SIDEBAR_PREFERENCE, SidebarPreferenceProvider } from "@/feature
 import { findSidebarPreference } from "@/features/sidebar-preferences/infrastructure/sidebar-preference.repository";
 import { DesktopSidebar } from "./desktop-sidebar";
 import { MobileNavigation } from "./mobile-navigation";
+import { RolePreviewBanner } from "@/features/access-control/components/role-preview-banner";
 
 export async function AppShell({ children }: Readonly<{ children: React.ReactNode }>) {
   const accessContext = await getCurrentAccessContext();
@@ -42,6 +43,7 @@ export async function AppShell({ children }: Readonly<{ children: React.ReactNod
                 <ThemeToggle />
               </div>
             </header>
+            {accessContext?.actualRole === "DEVELOPER" && accessContext.previewRole && <RolePreviewBanner previewRole={accessContext.previewRole} scopeLabel={accessContext.previewScopeLabel} />}
             {!accessContext && <DemoModeBanner />}
             <main className="mx-auto min-w-0 max-w-[1500px] overflow-x-clip p-3 pb-[calc(5.5rem+env(safe-area-inset-bottom))] sm:p-6 sm:pb-24 lg:p-7 lg:pb-7">
               {children}

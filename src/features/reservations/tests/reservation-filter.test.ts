@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 import { reservationStatusesForFilter } from "../reservation.constants";
 import { reservationDateHref, reservationDateRangeLabel, shiftReservationDateInput } from "../reservation-query";
@@ -31,4 +32,16 @@ test("날짜 이동은 날짜와 URL을 갱신하고 다른 필터를 유지한�
 test("현재 조회 날짜는 단일 날짜와 범위를 구분해 표시한다", () => {
   assert.equal(reservationDateRangeLabel("2026-07-26", "2026-07-26"), "2026년 7월 26일 (일)");
   assert.equal(reservationDateRangeLabel("2026-07-26", "2026-07-30"), "2026년 7월 26일 ~ 2026년 7월 30일");
+});
+
+test("Booking provider는 예약 목록·객실 현황·월간 캘린더 조회 대상에 포함된다", () => {
+  for (const path of [
+    "src/features/reservations/reservation.repository.ts",
+    "src/features/room-overview/infrastructure/room-overview.repository.ts",
+    "src/features/room-status/room-status.repository.ts",
+  ]) {
+    const source = readFileSync(path, "utf8");
+    assert.match(source, /CALENDAR_PROVIDER_TYPES/);
+  }
+  assert.match(readFileSync("src/providers/calendar/types.ts", "utf8"), /"BOOKING"/);
 });

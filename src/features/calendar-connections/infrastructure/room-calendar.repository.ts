@@ -38,7 +38,7 @@ export function findRoomCalendarRows(filters: RoomCalendarFilters) {
         select: {
           id: true, status: true, executionMode: true, startedAt: true, finishedAt: true, targetCount: true, successCount: true, failedCount: true, errorSummary: true,
           actor: { select: { name: true } },
-          syncLogs: { select: { calendarSourceId: true, provider: true, status: true, startedAt: true, completedAt: true, fetchedCount: true, blockedEventCount: true, unknownEventCount: true, createdCount: true, updatedCount: true, cancelledCount: true, retryCount: true, httpStatus: true, errorCode: true, errorMessage: true, errorDetails: true, durationMs: true } },
+          syncLogs: { select: { calendarSourceId: true, provider: true, status: true, startedAt: true, completedAt: true, fetchedCount: true, reservationEventCount: true, blockedEventCount: true, cancelledEventCount: true, unknownEventCount: true, failedEventCount: true, createdCount: true, updatedCount: true, cancelledCount: true, retryCount: true, httpStatus: true, errorCode: true, errorMessage: true, errorDetails: true, durationMs: true } },
         },
         orderBy: [{ startedAt: "desc" }, { id: "desc" }],
         take: 20,

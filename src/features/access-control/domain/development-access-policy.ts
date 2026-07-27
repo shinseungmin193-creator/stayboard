@@ -16,10 +16,10 @@ export function resolveDevelopmentAccessContext(environment: DevelopmentAccessEn
   const role = environment.STAYBOARD_DEV_ACCESS_ROLE;
   const configuredUserId = environment.STAYBOARD_DEV_ACCESS_USER_ID?.trim();
   if (role === "DEVELOPER") {
-    return { userId: configuredUserId || "development:developer", role, systemRole: "DEVELOPER", companyRole: null, scope: { mode: "all" }, source: "development-bootstrap" };
+    return { userId: configuredUserId || "development:developer", actualRole: role, previewRole: null, effectiveRole: role, role, systemRole: "DEVELOPER", companyRole: null, scope: { mode: "all" }, source: "development-bootstrap" };
   }
 
   const companyIds = [...new Set((environment.STAYBOARD_DEV_ACCESS_COMPANY_IDS ?? "").split(",").map((value) => value.trim()).filter(Boolean))];
   if (!companyIds.length) return null;
-  return { userId: configuredUserId || `development:${role.toLowerCase()}:${companyIds.join(",")}`, role, systemRole: "NONE", companyRole: role, scope: { mode: "companies", companyIds }, source: "development-bootstrap" };
+  return { userId: configuredUserId || `development:${role.toLowerCase()}:${companyIds.join(",")}`, actualRole: role, previewRole: null, effectiveRole: role, role, systemRole: "NONE", companyRole: role, scope: { mode: "companies", companyIds }, source: "development-bootstrap" };
 }

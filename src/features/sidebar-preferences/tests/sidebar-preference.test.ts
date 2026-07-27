@@ -55,6 +55,12 @@ test("역할 권한과 사용자 숨김 설정을 순서 설정에 함께 적용
   assert.equal(staff.some((item) => item.id === "room-overview"), true);
   const developer = getAuthorizedSidebarMenus(SIDEBAR_MENU_ITEMS, DEFAULT_SIDEBAR_PREFERENCE, "DEVELOPER");
   assert.equal(developer.some((item) => item.id === "developer-settings"), true);
+  const admin = getAuthorizedSidebarMenus(SIDEBAR_MENU_ITEMS, DEFAULT_SIDEBAR_PREFERENCE, "ADMIN");
+  assert.equal(admin.some((item) => item.id === "member-management"), true);
+  assert.equal(admin.some((item) => item.id === "admin-settings"), true);
+  assert.equal(admin.some((item) => item.id === "developer-settings"), false);
+  assert.equal(staff.some((item) => item.id === "member-management"), false);
+  assert.equal(staff.some((item) => item.id === "admin-settings"), false);
 });
 
 test("사용자 지정 이름은 메뉴 ID별로 정규화하고 기본 정의는 변경하지 않는다", () => {

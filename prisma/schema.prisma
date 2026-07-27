@@ -410,6 +410,8 @@ model SyncLog {
   cancelledEventCount   Int                  @default(0)
   unknownEventCount     Int                  @default(0)
   unknownEventDetails   Json?
+  failedEventCount      Int                  @default(0)
+  eventDiagnostics      Json?
   skippedEventCount     Int                  @default(0)
   createdCount          Int                  @default(0)
   updatedCount          Int                  @default(0)

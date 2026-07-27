@@ -5,8 +5,8 @@ import { CompanySettingsAccessError, updateCompanySettingsForAccess } from "../a
 import { companySettingsInputSchema, DEFAULT_COMPANY_SETTINGS, withCompanySettingsDefaults } from "../domain/company-settings";
 
 const context = (role: AccessContext["role"], companyIds: string[] = ["company-a"]): AccessContext => role === "DEVELOPER"
-  ? { userId: "test-developer", role, systemRole: "DEVELOPER", companyRole: null, scope: { mode: "all" }, source: "development-bootstrap" }
-  : { userId: `test-${role.toLowerCase()}`, role, systemRole: "NONE", companyRole: role, scope: { mode: "companies", companyIds }, source: "development-bootstrap" };
+  ? { userId: "test-developer", actualRole: role, previewRole: null, effectiveRole: role, role, systemRole: "DEVELOPER", companyRole: null, scope: { mode: "all" }, source: "development-bootstrap" }
+  : { userId: `test-${role.toLowerCase()}`, actualRole: role, previewRole: null, effectiveRole: role, role, systemRole: "NONE", companyRole: role, scope: { mode: "companies", companyIds }, source: "development-bootstrap" };
 const input = { companyId: "company-a", ...DEFAULT_COMPANY_SETTINGS };
 
 test("설정이 없으면 안전한 기본값을 반환한다", () => assert.deepEqual(withCompanySettingsDefaults(null), DEFAULT_COMPANY_SETTINGS));
