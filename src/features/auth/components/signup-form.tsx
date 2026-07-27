@@ -23,7 +23,9 @@ export function SignupForm({ onSuccess }: { onSuccess?: () => void }) {
     startTransition(async () => {
       const result = await signupAction(formData);
       if (!result.success) { setMessage(result.message); setErrors(result.fieldErrors ?? {}); return; }
-      const signInResult = await signIn("credentials", { identifier: formData.get("email"), password: formData.get("password"), redirect: false });
+      const loginEmail = result.data?.email;
+      if (!loginEmail) { setMessage("계정이 생성되었습니다. 로그인 탭에서 로그인해 주세요."); return; }
+      const signInResult = await signIn("credentials", { identifier: loginEmail, password: formData.get("password"), redirect: false });
       if (!signInResult?.ok) { setMessage("계정이 생성되었습니다. 로그인 탭에서 로그인해 주세요."); return; }
       onSuccess?.(); window.location.replace(withBasePath(signupType === "new-company" ? "/properties?welcome=1" : "/"));
     });

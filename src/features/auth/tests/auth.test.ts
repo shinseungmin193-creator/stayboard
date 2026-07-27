@@ -1,14 +1,25 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { compare, hash } from "bcryptjs";
 import { loginSchema, signupSchema } from "../auth.schemas";
 import { authenticateLoginAttempt, type LoginUserRecord } from "../domain/authenticate-login";
+import { normalizeEmail } from "../domain/identity";
 import { safeInternalAuthPath } from "../domain/auth-navigation";
 import { requireNextAuthSecret } from "../domain/auth-secret";
 import { usesSecureAuthCookies } from "../domain/cookie-policy";
 import { isNextAuthSessionCookie } from "../domain/session-cookie";
 import { normalizeBasePath, resolveBasePath } from "../../../lib/base-path";
 
-const activeUser: LoginUserRecord = { id: "user-a", email: "user@example.com", name: "User", passwordHash: "stored-hash", isActive: true };
+const activeUser: LoginUserRecord = {
+  id: "user-a",
+  email: "user@example.com",
+  name: "User",
+  passwordHash: "stored-hash",
+  isActive: true,
+  systemRole: "NONE",
+  memberships: [{ status: "ACTIVE", companyActive: true }],
+};
 
 test("공개 회원가입 입력은 역할을 받지 않고 회사 관리자 생성 필드만 검증한다", () => {
   const result = signupSchema.safeParse({ signupType: "new-company", name: "Demo Admin", email: "ADMIN@EXAMPLE.COM", password: "password123", passwordConfirm: "password123", companyName: "Demo Company", role: "DEVELOPER" });
@@ -29,21 +40,74 @@ test("로그인 식별자는 사용자명과 이메일을 동일하게 정규화
   const emailLogin = loginSchema.parse({ identifier: "  USER@EXAMPLE.COM  ", password: "password123" });
   assert.equal(username.identifier, "shinseungmin193");
   assert.equal(emailLogin.identifier, "user@example.com");
+  assert.equal(normalizeEmail("  USER@EXAMPLE.COM  "), "user@example.com");
 });
 
-test("사용자명 또는 이메일과 올바른 비밀번호로 인증한다", async () => {
+test("일반 가입과 관리자 초대코드 가입 계정은 동일한 로그인 조건을 통과한다", async () => {
   const findUser = async (identifier: string) => [activeUser.email, "user-name"].includes(identifier) ? activeUser : null;
   const verify = async (password: string, hash: string) => password === "password123" && hash === activeUser.passwordHash;
   assert.equal((await authenticateLoginAttempt(activeUser.email, "password123", findUser, verify)).status, "AUTHENTICATED");
   assert.equal((await authenticateLoginAttempt("user-name", "password123", findUser, verify)).status, "AUTHENTICATED");
-  assert.equal((await authenticateLoginAttempt("missing@example.com", "password123", findUser, verify)).status, "INVALID_CREDENTIALS");
-  assert.equal((await authenticateLoginAttempt(activeUser.email, "wrong-password", findUser, verify)).status, "INVALID_CREDENTIALS");
+  const invitationAdmin = { ...activeUser, id: "invited-admin", email: "invited@example.com" };
+  assert.equal((await authenticateLoginAttempt(invitationAdmin.email, "password123", async () => invitationAdmin, verify)).status, "AUTHENTICATED");
+});
+
+test("대소문자와 앞뒤 공백이 있는 이메일도 정규화 후 로그인한다", async () => {
+  const parsed = loginSchema.parse({ identifier: "  USER@EXAMPLE.COM  ", password: "password123" });
+  const result = await authenticateLoginAttempt(parsed.identifier, parsed.password, async (identifier) => identifier === activeUser.email ? activeUser : null, async () => true);
+  assert.equal(result.status, "AUTHENTICATED");
+});
+
+test("잘못된 비밀번호와 계정·Membership 이상을 내부 사유로 구분한다", async () => {
+  const missingUser = await authenticateLoginAttempt("missing@example.com", "password123", async () => null, async () => true);
+  assert.deepEqual(missingUser, { status: "REJECTED", reason: "USER_NOT_FOUND" });
+  const missingHash = await authenticateLoginAttempt(activeUser.email, "password123", async () => ({ ...activeUser, passwordHash: null }), async () => true);
+  assert.deepEqual(missingHash, { status: "REJECTED", reason: "PASSWORD_HASH_MISSING" });
+  const mismatch = await authenticateLoginAttempt(activeUser.email, "wrong-password", async () => activeUser, async () => false);
+  assert.deepEqual(mismatch, { status: "REJECTED", reason: "PASSWORD_MISMATCH" });
+  const missingMembership = await authenticateLoginAttempt(activeUser.email, "password123", async () => ({ ...activeUser, memberships: [] }), async () => true);
+  assert.deepEqual(missingMembership, { status: "REJECTED", reason: "MEMBERSHIP_NOT_FOUND" });
+  const inactiveMembership = await authenticateLoginAttempt(activeUser.email, "password123", async () => ({ ...activeUser, memberships: [{ status: "DISABLED", companyActive: true }] }), async () => true);
+  assert.deepEqual(inactiveMembership, { status: "REJECTED", reason: "MEMBERSHIP_INACTIVE" });
 });
 
 test("비활성 계정은 비밀번호가 맞아도 인증을 차단한다", async () => {
   const disabledUser = { ...activeUser, isActive: false };
   const result = await authenticateLoginAttempt(disabledUser.email, "password123", async () => disabledUser, async () => true);
-  assert.equal(result.status, "ACCOUNT_DISABLED");
+  assert.deepEqual(result, { status: "REJECTED", reason: "USER_INACTIVE" });
+});
+
+test("가입과 로그인은 같은 bcrypt 형식과 원본 비밀번호를 사용한다", async () => {
+  const password = "  Password123  ";
+  const passwordHash = await hash(password, 4);
+  const user = { ...activeUser, passwordHash };
+  assert.equal((await authenticateLoginAttempt(user.email, password, async () => user, compare)).status, "AUTHENTICATED");
+  assert.deepEqual(await authenticateLoginAttempt(user.email, password.trim(), async () => user, compare), { status: "REJECTED", reason: "PASSWORD_MISMATCH" });
+  const actionSource = readFileSync("src/features/auth/auth.actions.ts", "utf8");
+  const authConfigSource = readFileSync("src/features/auth/auth.config.ts", "utf8");
+  assert.match(actionSource, /passwordHash = await hashPassword\(parsed\.data\.password\)/);
+  assert.match(authConfigSource, /verifyPassword/);
+  assert.doesNotMatch(actionSource, /parsed\.data\.password\.trim\(/);
+});
+
+test("가입 transaction은 User와 ADMIN ACTIVE Membership 및 코드 사용을 함께 처리한다", () => {
+  const source = readFileSync("src/features/auth/auth.actions.ts", "utf8");
+  const transactionStart = source.indexOf("prisma.$transaction");
+  const userCreate = source.indexOf("tx.user.create", transactionStart);
+  const consumeCode = source.indexOf("consumeInvitationCode", userCreate);
+  const membershipCreate = source.indexOf("tx.companyMembership.create", userCreate);
+  assert.ok(transactionStart >= 0 && userCreate > transactionStart && consumeCode > userCreate && membershipCreate > consumeCode);
+  assert.match(source.slice(membershipCreate), /role: "ADMIN", status: "ACTIVE"/);
+  assert.match(source, /Prisma\.TransactionIsolationLevel\.Serializable/);
+  assert.match(source, /error\.code === "P2002"/);
+});
+
+test("기존 계정 진단은 비밀번호 해시 원문 없이 Boolean과 Membership만 출력한다", () => {
+  const source = readFileSync("scripts/diagnose-invitation-account.ts", "utf8");
+  assert.match(source, /passwordHashPresent: Boolean\(user\?\.passwordHash\)/);
+  assert.match(source, /membershipExists: Boolean\(user\?\.memberships\.length\)/);
+  assert.doesNotMatch(source, /passwordHash:\s*user\?\.passwordHash/);
+  assert.doesNotMatch(source, /user\.passwordHash\s*[,}]/);
 });
 
 test("NextAuth secret은 고정된 32자 이상의 값만 허용한다", () => {

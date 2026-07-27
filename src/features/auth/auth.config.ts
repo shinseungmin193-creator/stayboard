@@ -1,3 +1,5 @@
+import "server-only";
+
 import type { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { prisma } from "@/lib/prisma";
@@ -7,6 +9,8 @@ import { authenticateLoginAttempt } from "./domain/authenticate-login";
 import { requireNextAuthSecret } from "./domain/auth-secret";
 import { stayboardAuthCookies } from "./domain/cookie-policy";
 import { withBasePath } from "@/lib/base-path";
+import { findLoginUserByIdentifier } from "./server/login-user.repository";
+import { logLoginRejection } from "./server/login-audit";
 
 export const authOptions: NextAuthOptions = {
   secret: requireNextAuthSecret(process.env.NEXTAUTH_SECRET),
@@ -20,21 +24,28 @@ export const authOptions: NextAuthOptions = {
       },
       async authorize(credentials) {
         const parsed = loginSchema.safeParse(credentials);
-        if (!parsed.success) return null;
-        const attempt = await authenticateLoginAttempt(
-          parsed.data.identifier,
-          parsed.data.password,
-          (identifier) => prisma.user.findFirst({
-            where: { OR: [{ email: identifier }, { username: identifier }] },
-            select: { id: true, email: true, name: true, passwordHash: true, isActive: true },
-          }),
-          verifyPassword,
-        );
-        if (attempt.status === "INVALID_CREDENTIALS") return null;
-        if (attempt.status === "ACCOUNT_DISABLED") throw new Error("ACCOUNT_DISABLED");
-        const { user } = attempt;
-        await prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
-        return { id: user.id, email: user.email, name: user.name };
+        if (!parsed.success) {
+          logLoginRejection("INVALID_INPUT");
+          return null;
+        }
+        try {
+          const attempt = await authenticateLoginAttempt(
+            parsed.data.identifier,
+            parsed.data.password,
+            findLoginUserByIdentifier,
+            verifyPassword,
+          );
+          if (attempt.status === "REJECTED") {
+            logLoginRejection(attempt.reason);
+            return null;
+          }
+          const { user } = attempt;
+          await prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
+          return { id: user.id, email: user.email, name: user.name };
+        } catch (error) {
+          logLoginRejection("AUTHENTICATION_ERROR", error);
+          return null;
+        }
       },
     }),
   ],

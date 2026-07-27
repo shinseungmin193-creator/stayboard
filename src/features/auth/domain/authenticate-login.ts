@@ -2,14 +2,23 @@ export interface LoginUserRecord {
   id: string;
   email: string;
   name: string;
-  passwordHash: string;
+  passwordHash: string | null;
   isActive: boolean;
+  systemRole: "NONE" | "DEVELOPER";
+  memberships: Array<{ status: "INVITED" | "ACTIVE" | "DISABLED"; companyActive: boolean }>;
 }
+
+export type LoginRejectionReason =
+  | "USER_NOT_FOUND"
+  | "PASSWORD_HASH_MISSING"
+  | "PASSWORD_MISMATCH"
+  | "USER_INACTIVE"
+  | "MEMBERSHIP_NOT_FOUND"
+  | "MEMBERSHIP_INACTIVE";
 
 export type LoginAttemptResult =
   | { status: "AUTHENTICATED"; user: LoginUserRecord }
-  | { status: "INVALID_CREDENTIALS" }
-  | { status: "ACCOUNT_DISABLED" };
+  | { status: "REJECTED"; reason: LoginRejectionReason };
 
 export async function authenticateLoginAttempt(
   identifier: string,
@@ -18,7 +27,15 @@ export async function authenticateLoginAttempt(
   verifyPassword: (password: string, passwordHash: string) => Promise<boolean>,
 ): Promise<LoginAttemptResult> {
   const user = await findUserByIdentifier(identifier);
-  if (!user || !(await verifyPassword(password, user.passwordHash))) return { status: "INVALID_CREDENTIALS" };
-  if (!user.isActive) return { status: "ACCOUNT_DISABLED" };
+  if (!user) return { status: "REJECTED", reason: "USER_NOT_FOUND" };
+  if (!user.passwordHash) return { status: "REJECTED", reason: "PASSWORD_HASH_MISSING" };
+  if (!(await verifyPassword(password, user.passwordHash))) return { status: "REJECTED", reason: "PASSWORD_MISMATCH" };
+  if (!user.isActive) return { status: "REJECTED", reason: "USER_INACTIVE" };
+  if (user.systemRole !== "DEVELOPER") {
+    if (!user.memberships.length) return { status: "REJECTED", reason: "MEMBERSHIP_NOT_FOUND" };
+    if (!user.memberships.some((membership) => membership.status === "ACTIVE" && membership.companyActive)) {
+      return { status: "REJECTED", reason: "MEMBERSHIP_INACTIVE" };
+    }
+  }
   return { status: "AUTHENTICATED", user };
 }

@@ -18,7 +18,7 @@ export function LoginForm({ callbackUrl = "/", onSuccess }: { callbackUrl?: stri
     startTransition(async () => {
       const result = await signIn("credentials", { identifier: formData.get("identifier"), password: formData.get("password"), redirect: false, callbackUrl });
       if (!result?.ok) {
-        setError(result?.error === "ACCOUNT_DISABLED" ? "비활성화된 계정입니다. 관리자에게 문의하세요." : "아이디·이메일 또는 비밀번호가 올바르지 않습니다.");
+        setError("아이디·이메일 또는 비밀번호를 확인해 주세요.");
         return;
       }
       onSuccess?.();
