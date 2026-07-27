@@ -16,17 +16,6 @@
     grid-template-columns: minmax(0, 1fr) var(--room-schedule-panel-width, 300px);
   }
 
-  :global([data-room-overview-settings][data-show-property="false"] [data-room-overview-property]),
-  :global([data-room-overview-settings][data-show-providers="false"] [data-room-overview-providers]),
-  :global([data-room-overview-settings][data-show-guest="false"] [data-room-overview-guest-name]),
-  :global([data-room-overview-settings][data-show-stay-dates="false"] [data-room-overview-stay-date]),
-  :global([data-room-overview-settings][data-show-night-count="false"] [data-room-overview-night-count]),
-  :global([data-room-overview-settings][data-show-next-reservation="false"] [data-room-overview-next-reservation]),
-  :global([data-room-overview-settings][data-show-sync-warnings="false"] [data-room-overview-sync-warning]),
-  :global([data-room-overview-settings][data-show-no-conflict="false"] [data-room-overview-no-conflict]),
-  :global([data-room-overview-settings][data-show-footer="false"] [data-room-overview-footer]) {
-    display: none;
-  }
 }
 
 .roomCard {

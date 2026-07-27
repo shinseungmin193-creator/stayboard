@@ -1,8 +1,8 @@
 import type { NextConfig } from "next";
-import { APP_BASE_PATH } from "./src/lib/base-path";
+import basePathConfig from "./base-path.config.cjs";
 
 const nextConfig: NextConfig = {
-  basePath: APP_BASE_PATH,
+  basePath: basePathConfig.APP_BASE_PATH,
 };
 
 export default nextConfig;

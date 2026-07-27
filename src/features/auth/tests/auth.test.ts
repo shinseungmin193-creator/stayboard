@@ -6,7 +6,7 @@ import { safeInternalAuthPath } from "../domain/auth-navigation";
 import { requireNextAuthSecret } from "../domain/auth-secret";
 import { usesSecureAuthCookies } from "../domain/cookie-policy";
 import { isNextAuthSessionCookie } from "../domain/session-cookie";
-import { normalizeBasePath } from "../../../lib/base-path";
+import { normalizeBasePath, resolveBasePath } from "../../../lib/base-path";
 
 const activeUser: LoginUserRecord = { id: "user-a", email: "user@example.com", name: "User", passwordHash: "stored-hash", isActive: true };
 
@@ -68,6 +68,13 @@ test("하위 배포 경로는 정규화하고 잘못된 형식은 거부한다",
   assert.throws(() => normalizeBasePath("stayboard"), /NEXT_PUBLIC_BASE_PATH/);
   assert.throws(() => normalizeBasePath("/stayboard/"), /NEXT_PUBLIC_BASE_PATH/);
   assert.throws(() => normalizeBasePath("/stayboard?mode=1"), /NEXT_PUBLIC_BASE_PATH/);
+});
+
+test("기본 경로는 운영과 로컬에서 /stayboard를 사용하고 로컬은 명시적으로 해제할 수 있다", () => {
+  assert.equal(resolveBasePath(undefined, "production"), "/stayboard");
+  assert.equal(resolveBasePath("", "production"), "/stayboard");
+  assert.equal(resolveBasePath(undefined, "development"), "/stayboard");
+  assert.equal(resolveBasePath("", "development"), "");
 });
 
 test("로그인 완료 이동은 내부 경로만 허용한다", () => {

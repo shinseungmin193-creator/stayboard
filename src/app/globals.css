@@ -148,3 +148,17 @@
     background: var(--background);
   }
 }
+
+@media (min-width: 80rem) {
+  [data-room-overview-settings][data-show-property="false"] [data-room-overview-property],
+  [data-room-overview-settings][data-show-providers="false"] [data-room-overview-providers],
+  [data-room-overview-settings][data-show-guest="false"] [data-room-overview-guest-name],
+  [data-room-overview-settings][data-show-stay-dates="false"] [data-room-overview-stay-date],
+  [data-room-overview-settings][data-show-night-count="false"] [data-room-overview-night-count],
+  [data-room-overview-settings][data-show-next-reservation="false"] [data-room-overview-next-reservation],
+  [data-room-overview-settings][data-show-sync-warnings="false"] [data-room-overview-sync-warning],
+  [data-room-overview-settings][data-show-no-conflict="false"] [data-room-overview-no-conflict],
+  [data-room-overview-settings][data-show-footer="false"] [data-room-overview-footer] {
+    display: none;
+  }
+}
