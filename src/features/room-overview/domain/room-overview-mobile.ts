@@ -6,9 +6,9 @@ export type RoomStatusViewMode = (typeof ROOM_STATUS_VIEW_MODES)[number];
 export const CALENDAR_RANGE_OPTIONS = [3, 7, 14, 30] as const;
 export type CalendarRangeDays = (typeof CALENDAR_RANGE_OPTIONS)[number];
 export const DEFAULT_CALENDAR_RANGE: CalendarRangeDays = 7;
-export const TIMELINE_ROOM_COLUMN_WIDTH = 104;
-export const TIMELINE_ROW_MIN_HEIGHT = 54;
-export const TIMELINE_RESERVATION_HEIGHT = 22;
+export const TIMELINE_ROOM_COLUMN_WIDTH = 132;
+export const TIMELINE_ROW_MIN_HEIGHT = 44;
+export const TIMELINE_RESERVATION_HEIGHT = 20;
 export const TIMELINE_DATE_COLUMN_WIDTHS: Record<CalendarRangeDays, number> = {
   3: 88,
   7: 72,

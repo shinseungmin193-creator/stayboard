@@ -137,3 +137,28 @@ test("모바일 객실 현황은 2열 카드·3가지 보기·하단 안전 영�
   assert.match(timeline, /overflow-auto/);
   assert.match(reservationSheet, /side="bottom"/);
 });
+
+test("모바일 타임라인은 좁은 객실 열과 간결한 OTA·공실 표시를 사용한다", () => {
+  const domain = readFileSync("src/features/room-overview/domain/room-overview-mobile.ts", "utf8");
+  const roomRow = readFileSync("src/features/room-overview/components/timeline-room-row.tsx", "utf8");
+  const reservationBar = readFileSync("src/features/room-overview/components/timeline-reservation-bar.tsx", "utf8");
+  const dateHeader = readFileSync("src/features/room-overview/components/timeline-date-header.tsx", "utf8");
+  const calendar = readFileSync("src/features/room-overview/components/room-status-calendar.tsx", "utf8");
+  const collapsedGroups = readFileSync("src/features/room-overview/hooks/use-collapsed-room-groups.ts", "utf8");
+
+  assert.match(domain, /TIMELINE_ROOM_COLUMN_WIDTH = 132/);
+  assert.match(domain, /TIMELINE_ROW_MIN_HEIGHT = 44/);
+  assert.match(roomRow, /getProviderVisual/);
+  assert.match(roomRow, /formatRoomDisplayLabel/);
+  assert.match(roomRow, /formatRoomNumber/);
+  assert.match(roomRow, /className="shrink-0"/);
+  assert.match(roomRow, /MOBILE_ROOM_STATUS_VISUALS\.VACANT\.className/);
+  assert.equal(roomRow.match(/room\.propertyName/g)?.length, 1);
+  assert.doesNotMatch(roomRow, /guestName/);
+  assert.match(reservationBar, /rounded-full/);
+  assert.match(reservationBar, /visual\.className/);
+  assert.doesNotMatch(reservationBar, /LogIn|LogOut|startsInRange|endsInRange/);
+  assert.match(dateHeader, /MOBILE_TIMELINE_TODAY_VISUAL\.badgeClassName/);
+  assert.match(calendar, /MOBILE_TIMELINE_TODAY_VISUAL\.lineClassName/);
+  assert.match(collapsedGroups, /useState<Set<string>>\(\(\) => new Set\(\)\)/);
+});

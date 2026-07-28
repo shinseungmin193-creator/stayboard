@@ -11,6 +11,11 @@ export const MOBILE_ROOM_STATUS_VISUALS = {
   CONFLICT: { label: "오버부킹", className: "border-red-400 bg-red-100 text-red-900 dark:border-red-700 dark:bg-red-950 dark:text-red-100" },
 } as const satisfies Record<MobileRoomVisualStatus, { label: string; className: string }>;
 
+export const MOBILE_TIMELINE_TODAY_VISUAL = {
+  badgeClassName: "bg-blue-600 text-white dark:bg-blue-500 dark:text-white",
+  lineClassName: "bg-blue-500/70 dark:bg-blue-400/70",
+} as const;
+
 export function getMobileRoomVisualStatus(room: RoomOverviewCard): MobileRoomVisualStatus {
   if (room.status === "CONFLICT") return "CONFLICT";
   if (room.operationalStatus === "CLEANING_REQUIRED") return "CLEANING";
@@ -36,4 +41,3 @@ export function getMobileSyncLabel(room: RoomOverviewCard) {
   if (room.latestSync?.status === "SUCCESS") return { label: "동기화 정상", error: false };
   return { label: room.providers.length ? "동기화 기록 없음" : "OTA 연결 없음", error: false };
 }
-
