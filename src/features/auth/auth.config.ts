@@ -11,6 +11,7 @@ import { stayboardAuthCookies } from "./domain/cookie-policy";
 import { withBasePath } from "@/lib/base-path";
 import { findLoginUserByIdentifier } from "./server/login-user.repository";
 import { logLoginRejection } from "./server/login-audit";
+import { isSessionSnapshotValid } from "./domain/session-policy";
 
 export const authOptions: NextAuthOptions = {
   secret: requireNextAuthSecret(process.env.NEXTAUTH_SECRET),
@@ -41,7 +42,12 @@ export const authOptions: NextAuthOptions = {
           }
           const { user } = attempt;
           await prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
-          return { id: user.id, email: user.email, name: user.name };
+          return {
+            id: user.id,
+            email: user.email,
+            name: user.name,
+            sessionVersion: user.sessionVersion,
+          };
         } catch (error) {
           logLoginRejection("AUTHENTICATION_ERROR", error);
           return null;
@@ -53,11 +59,24 @@ export const authOptions: NextAuthOptions = {
   pages: { signIn: withBasePath("/login") },
   callbacks: {
     async jwt({ token, user }) {
-      if (user?.id) token.sub = user.id;
+      if (user?.id) {
+        token.sub = user.id;
+        token.sessionVersion = user.sessionVersion;
+      }
+      if (!token.sub) {
+        token.sessionValid = false;
+        return token;
+      }
+      const account = await prisma.user.findUnique({
+        where: { id: token.sub },
+        select: { status: true, isActive: true, sessionVersion: true },
+      });
+      token.sessionValid = isSessionSnapshotValid(account, token.sessionVersion);
       return token;
     },
     async session({ session, token }) {
-      if (session.user && token.sub) session.user.id = token.sub;
+      if (!token.sub || token.sessionValid !== true) return { expires: session.expires };
+      if (session.user) session.user.id = token.sub;
       return session;
     },
   },

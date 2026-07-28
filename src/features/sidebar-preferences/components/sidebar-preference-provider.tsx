@@ -1,4 +1,4 @@
-"use client";
+"use client";import { useTranslations } from "next-intl";
 
 import { createContext, startTransition, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { DEFAULT_SIDEBAR_PREFERENCE, moveSidebarMenu, normalizeSidebarPreference, type SidebarPreferenceValue } from "../domain/sidebar-preference";
@@ -21,7 +21,7 @@ interface SidebarPreferenceContextValue {
 const SidebarPreferenceContext = createContext<SidebarPreferenceContextValue | null>(null);
 const SAVE_DEBOUNCE_MS = 400;
 
-export function SidebarPreferenceProvider({ children, initialPreference }: { children: ReactNode; initialPreference: SidebarPreferenceValue }) {
+export function SidebarPreferenceProvider({ children, initialPreference }: {children: ReactNode;initialPreference: SidebarPreferenceValue;}) {
   const [preference, setPreference] = useState(() => normalizeSidebarPreference(initialPreference));
   const [saveStatus, setSaveStatus] = useState<SidebarPreferenceSaveStatus>("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -74,9 +74,9 @@ export function SidebarPreferenceProvider({ children, initialPreference }: { chi
       if (!isSidebarMenuHideable(menuId)) return;
       commit((current) => ({
         ...current,
-        hiddenMenuIds: current.hiddenMenuIds.includes(menuId)
-          ? current.hiddenMenuIds.filter((hiddenId) => hiddenId !== menuId)
-          : [...current.hiddenMenuIds, menuId],
+        hiddenMenuIds: current.hiddenMenuIds.includes(menuId) ?
+        current.hiddenMenuIds.filter((hiddenId) => hiddenId !== menuId) :
+        [...current.hiddenMenuIds, menuId]
       }));
     },
     renameMenu: (menuId, label) => {
@@ -89,14 +89,14 @@ export function SidebarPreferenceProvider({ children, initialPreference }: { chi
       delete customLabels[menuId];
       return { ...current, customLabels };
     }),
-    resetPreference: () => commit(() => structuredClone(DEFAULT_SIDEBAR_PREFERENCE)),
+    resetPreference: () => commit(() => structuredClone(DEFAULT_SIDEBAR_PREFERENCE))
   }), [commit, errorMessage, preference, saveStatus]);
 
   return <SidebarPreferenceContext.Provider value={value}>{children}</SidebarPreferenceContext.Provider>;
 }
 
-export function useSidebarPreference() {
+export function useSidebarPreference() {const i18n = useTranslations();
   const context = useContext(SidebarPreferenceContext);
-  if (!context) throw new Error("SidebarPreferenceProvider 안에서 사용해야 합니다.");
+  if (!context) throw new Error(i18n("auto.m0609"));
   return context;
 }

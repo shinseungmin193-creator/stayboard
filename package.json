@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "postinstall": "node scripts/patch-next-themes-react19.mjs",
     "dev": "next dev --webpack -p 3004",
     "build": "next build --webpack",
     "start": "next start",
@@ -11,7 +12,7 @@
     "test": "npm run test:auth && npm run test:sync && npm run test:dashboard",
     "test:sync": "tsc -p tsconfig.sync-tests.json && node --test .sync-tests/features/calendar-sync/tests/event-classification.test.js .sync-tests/features/calendar-sync/tests/sync-engine.test.js .sync-tests/features/calendar-sync/tests/sync-safety.test.js .sync-tests/features/calendar-sync/tests/concurrency.test.js .sync-tests/features/calendar-connections/tests/room-calendar-summary.test.js .sync-tests/features/calendar-connections/tests/room-calendar-filter.test.js .sync-tests/features/developer-settings/tests/developer-settings.test.js .sync-tests/features/sidebar-preferences/tests/sidebar-preference.test.js .sync-tests/features/reservation-conflicts/tests/reservation-conflicts.test.js .sync-tests/features/reservations/tests/reservation-display.test.js .sync-tests/features/reservations/tests/reservation-filter.test.js .sync-tests/features/reservations/tests/reservation-provider-visuals.test.js .sync-tests/features/room-overview/tests/room-overview.test.js .sync-tests/features/statistics/occupancy/tests/occupancy.test.js .sync-tests/features/rooms/tests/room-display.test.js .sync-tests/features/rooms/tests/room-registration.test.js .sync-tests/features/rooms/tests/room-operational-status.test.js .sync-tests/features/rooms/tests/room-calendar-update.test.js",
     "test:dashboard": "tsc -p tsconfig.sync-tests.json && node --test .sync-tests/features/dashboard/tests/dashboard-cleaning.test.js",
-    "test:auth": "tsc -p tsconfig.sync-tests.json && node --test .sync-tests/features/access-control/tests/access-control.test.js .sync-tests/features/auth/tests/auth.test.js .sync-tests/features/user-management/tests/account-policy.test.js .sync-tests/features/member-management/tests/member-policy.test.js .sync-tests/features/invitation-codes/tests/invitation-code.test.js",
+    "test:auth": "tsc -p tsconfig.sync-tests.json && node --test .sync-tests/features/access-control/tests/access-control.test.js .sync-tests/features/auth/tests/auth.test.js .sync-tests/features/user-management/tests/account-policy.test.js .sync-tests/features/member-management/tests/member-policy.test.js .sync-tests/features/invitation-codes/tests/invitation-code.test.js .sync-tests/features/developer-management/tests/developer-management-policy.test.js",
     "diagnose:invitation-account": "tsx --env-file-if-exists=.env --env-file-if-exists=.env.local scripts/diagnose-invitation-account.ts",
     "cleanup:calendar-events": "tsc -p tsconfig.cleanup.json && node .cleanup-scripts/scripts/cleanup-non-reservation-calendar-events.js",
     "seed:initial-developer": "tsx --env-file-if-exists=.env --env-file-if-exists=.env.local scripts/seed-initial-developer.ts"
@@ -31,6 +32,7 @@
     "lucide-react": "^1.26.0",
     "next": "^16.2.11",
     "next-auth": "^4.24.15",
+    "next-intl": "^4.13.4",
     "next-themes": "^0.4.6",
     "pg": "^8.22.0",
     "react": "^19.2.8",

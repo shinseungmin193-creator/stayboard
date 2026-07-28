@@ -1,4 +1,4 @@
-import Link from "next/link";
+﻿import { getTranslations } from "next-intl/server";import Link from "next/link";
 import { addDays, addMonths, format, isValid, parse, startOfMonth } from "date-fns";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
@@ -8,10 +8,9 @@ import { listRoomStatusCalendar } from "@/features/room-status";
 import { MonthlyReservationCalendar } from "@/features/room-status/components/monthly-reservation-calendar";
 import { AccessDenied, authorizeAccess, companyScopeIds, getCurrentAccessContext, PERMISSIONS } from "@/features/access-control";
 import { DEMO_PROPERTY_OPTIONS, getDemoRoomStatusData } from "@/features/demo";
-import { RESERVATION_CONFLICT_UI } from "@/features/reservation-conflicts/reservation-conflict.labels";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "객실 현황판" };
+export async function generateMetadata() { const i18n = await getTranslations(); return { title: i18n("navigation.items.room-status") }; }
 
 const CALENDAR_DAYS = 42;
 const TIME_ZONE = "Asia/Tokyo";
@@ -28,7 +27,7 @@ function validMonth(value: string | undefined) {
   return isValid(parsed) ? startOfMonth(parsed) : startOfMonth(new Date(`${todayKey()}T00:00:00+09:00`));
 }
 
-export default async function RoomStatusPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+export default async function RoomStatusPage({ searchParams }: {searchParams: Promise<Record<string, string | string[] | undefined>>;}) {const i18n = await getTranslations();
   const context = await getCurrentAccessContext();
   const access = context ? await authorizeAccess(PERMISSIONS.ROOM_READ) : null;
   if (access && !access.allowed) return <AccessDenied role={access.context?.role ?? null} />;
@@ -51,23 +50,23 @@ export default async function RoomStatusPage({ searchParams }: { searchParams: P
 
   return (
     <div className="space-y-5">
-      <PageHeader eyebrow="ROOM STATUS" title="객실 현황판" description={`객실별 예약 흐름과 ${RESERVATION_CONFLICT_UI.label}을 월간 타임라인에서 비교합니다.`} />
+      <PageHeader eyebrow="ROOM STATUS" title={i18n("navigation.items.room-status")} description={i18n("auto.m0095", { value0: i18n("conflict.label") })} />
       <div className="flex flex-col gap-3 rounded-xl border bg-card p-3 sm:flex-row sm:items-center sm:justify-between">
         <form method="get" className="flex flex-1 flex-col gap-2 sm:max-w-sm sm:flex-row">
           <input type="hidden" name="month" value={format(month, "yyyy-MM")} />
           <select name="propertyId" defaultValue={propertyId ?? ""} className="h-9 min-w-0 flex-1 rounded-lg border border-input bg-background px-3 text-sm">
-            <option value="">모든 숙소</option>
+            <option value="">{i18n("auto.m0079")}</option>
             {properties.filter((property) => property.isActive).map((property) => <option key={property.id} value={property.id}>{property.name}</option>)}
           </select>
-          <Button type="submit" variant="outline">적용</Button>
+          <Button type="submit" variant="outline">{i18n("auto.m0096")}</Button>
         </form>
         <div className="flex items-center justify-between gap-2 sm:justify-end">
-          <Button nativeButton={false} render={<Link href={monthHref(addMonths(month, -1))} />} variant="outline" size="icon" aria-label="이전 달"><ChevronLeft /></Button>
-          <p className="min-w-28 text-center text-sm font-semibold">{format(month, "yyyy년 M월")}</p>
-          <Button nativeButton={false} render={<Link href={monthHref(addMonths(month, 1))} />} variant="outline" size="icon" aria-label="다음 달"><ChevronRight /></Button>
+          <Button nativeButton={false} render={<Link href={monthHref(addMonths(month, -1))} />} variant="outline" size="icon" aria-label={i18n("auto.m0097")}><ChevronLeft /></Button>
+          <p className="min-w-28 text-center text-sm font-semibold">{format(month, i18n("auto.m0098"))}</p>
+          <Button nativeButton={false} render={<Link href={monthHref(addMonths(month, 1))} />} variant="outline" size="icon" aria-label={i18n("auto.m0099")}><ChevronRight /></Button>
         </div>
       </div>
       <MonthlyReservationCalendar rooms={rooms} rangeStart={format(rangeStart, "yyyy-MM-dd")} dayCount={CALENDAR_DAYS} today={todayKey()} />
-    </div>
-  );
+    </div>);
+
 }

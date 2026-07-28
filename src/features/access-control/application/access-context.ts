@@ -17,7 +17,7 @@ const ACTIVE_COMPANY_COOKIE = "stayboard.active-company";
 const accessContextProvider: AccessContextProvider = {
   async getCurrentAccessContext() {
     const user = await getCurrentUser();
-    if (!user?.isActive) return null;
+    if (!user?.isActive || user.status !== "ACTIVE") return null;
     const cookieStore = await cookies();
     const requestedCompanyId = cookieStore.get(ACTIVE_COMPANY_COOKIE)?.value;
     if (user.systemRole === "DEVELOPER") {

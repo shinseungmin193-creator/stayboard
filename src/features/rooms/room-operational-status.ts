@@ -2,10 +2,17 @@ import type { RoomOperationalStatus } from "@/lib/generated/prisma/enums";
 
 export const ROOM_OPERATIONAL_STATUS_VALUES = ["NONE", "CLEANING_REQUIRED", "INSPECTION_REQUIRED"] as const satisfies readonly RoomOperationalStatus[];
 export const ROOM_OPERATIONAL_STATUS_META = {
-  NONE: { label: "상태 없음", badgeClassName: "" },
-  CLEANING_REQUIRED: { label: "청소 필요", badgeClassName: "border-emerald-300 bg-emerald-100 text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-200" },
-  INSPECTION_REQUIRED: { label: "점검 필요", badgeClassName: "border-violet-300 bg-violet-100 text-violet-800 dark:border-violet-900 dark:bg-violet-950 dark:text-violet-200" },
-} satisfies Record<RoomOperationalStatus, { label: string; badgeClassName: string }>;
+  NONE: { labelKey: "roomStatus.NONE", badgeClassName: "" },
+  CLEANING_REQUIRED: { labelKey: "roomStatus.CLEANING_REQUIRED", badgeClassName: "border-emerald-300 bg-emerald-100 text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-200" },
+  INSPECTION_REQUIRED: { labelKey: "roomStatus.INSPECTION_REQUIRED", badgeClassName: "border-violet-300 bg-violet-100 text-violet-800 dark:border-violet-900 dark:bg-violet-950 dark:text-violet-200" },
+} as const satisfies Record<RoomOperationalStatus, { labelKey: `roomStatus.${RoomOperationalStatus}`; badgeClassName: string }>;
+
+export function getRoomOperationalStatusLabel(
+  status: RoomOperationalStatus,
+  translate: (key: `roomStatus.${RoomOperationalStatus}`) => string,
+) {
+  return translate(ROOM_OPERATIONAL_STATUS_META[status].labelKey);
+}
 
 export const ROOM_OPERATION_POLICY = { autoMarkCleaningRequired: false } as const;
 

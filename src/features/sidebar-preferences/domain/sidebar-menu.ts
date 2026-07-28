@@ -1,5 +1,5 @@
 import type { LucideIcon } from "lucide-react";
-import { BedDouble, Bug, Building2, CalendarDays, ChartNoAxesCombined, Code2, Hotel, LayoutDashboard, Rows3, Settings, TriangleAlert, Unplug, Users } from "lucide-react";
+import { BedDouble, Bug, Building2, CalendarDays, ChartNoAxesCombined, Code2, Hotel, LayoutDashboard, Rows3, ScrollText, Settings, TriangleAlert, Unplug, UserCog, Users } from "lucide-react";
 import { PERMISSIONS, type Permission } from "../../access-control/domain/access-control";
 import { RESERVATION_CONFLICT_UI } from "../../reservation-conflicts/reservation-conflict.labels";
 
@@ -36,6 +36,9 @@ export const SIDEBAR_MENU_ITEMS = [
   { id: "occupancy-statistics", label: "점유율 통계", href: "/statistics/occupancy", icon: ChartNoAxesCombined, group: "statistics", requiredPermission: PERMISSIONS.STATISTICS_READ, hideable: true },
   { id: "admin-settings", label: "관리자 설정", href: "/settings/admin", icon: Settings, group: "settings", requiredPermission: PERMISSIONS.ADMIN_SETTINGS_READ, hideable: false },
   { id: "developer-settings", label: "개발자 설정", href: "/developer/settings", icon: Code2, group: "developer", requiredPermission: PERMISSIONS.DEVELOPER_SETTINGS_READ, hideable: false },
+  { id: "developer-users", label: "회원 관리", href: "/developer/users", icon: UserCog, group: "developer", requiredPermission: PERMISSIONS.DEVELOPER_MANAGEMENT_READ, hideable: false },
+  { id: "developer-companies", label: "회사 관리", href: "/developer/companies", icon: Building2, group: "developer", requiredPermission: PERMISSIONS.DEVELOPER_MANAGEMENT_READ, hideable: false },
+  { id: "developer-audit-logs", label: "작업 로그", href: "/developer/audit-logs", icon: ScrollText, group: "developer", requiredPermission: PERMISSIONS.DEVELOPER_MANAGEMENT_READ, hideable: false },
   { id: "developer-error-logs", label: "오류 로그", href: "/developer/errors", icon: Bug, group: "developer", requiredPermission: PERMISSIONS.DEBUG_READ, hideable: false },
 ] as const satisfies readonly SidebarMenuDefinition[];
 

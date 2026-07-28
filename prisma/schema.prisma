@@ -57,6 +57,12 @@ enum UserSystemRole {
   DEVELOPER
 }
 
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  DELETED
+}
+
 enum CompanyMemberRole {
   ADMIN
   STAFF
@@ -75,17 +81,23 @@ enum InvitationCodeStatus {
 }
 
 model Company {
-  id          String              @id @default(cuid())
-  name        String
-  isActive    Boolean             @default(true)
-  createdAt   DateTime            @default(now())
-  updatedAt   DateTime            @updatedAt
-  properties  Property[]
-  settings    CompanySettings?
-  memberships CompanyMembership[]
-  invitationCodes InvitationCode[]
+  id               String              @id @default(cuid())
+  name             String
+  isActive         Boolean             @default(true)
+  suspendedAt      DateTime?
+  suspendedById    String?
+  suspensionReason String?
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+  properties       Property[]
+  settings         CompanySettings?
+  memberships      CompanyMembership[]
+  invitationCodes  InvitationCode[]
+  suspendedBy      User?               @relation("CompanySuspendedBy", fields: [suspendedById], references: [id], onDelete: SetNull)
+  auditLogs        AuditLog[]
 
   @@index([isActive, name])
+  @@index([suspendedById])
 }
 
 model CompanySettings {
@@ -171,38 +183,55 @@ model Room {
 }
 
 model User {
-  id                String              @id @default(cuid())
-  username          String?             @unique
-  email             String              @unique
-  name              String
-  passwordHash      String
-  systemRole        UserSystemRole      @default(NONE)
-  isActive          Boolean             @default(true)
-  lastLoginAt       DateTime?
-  createdAt         DateTime            @default(now())
-  updatedAt         DateTime            @updatedAt
-  memberships       CompanyMembership[]
-  assignments       StaffAssignment[]
-  auditLogsAsActor  AuditLog[]          @relation("AuditActor")
-  auditLogsAsTarget AuditLog[]          @relation("AuditTarget")
-  syncRuns          SyncRun[]
-  invitationCodesCreated InvitationCode[] @relation("InvitationCodeCreator")
-  invitationCodesUsed    InvitationCode[] @relation("InvitationCodeUser")
+  id                     String              @id @default(cuid())
+  username               String?             @unique
+  email                  String              @unique
+  name                   String
+  passwordHash           String?
+  systemRole             UserSystemRole      @default(NONE)
+  isActive               Boolean             @default(true)
+  status                 UserStatus          @default(ACTIVE)
+  sessionVersion         Int                 @default(0)
+  suspendedAt            DateTime?
+  suspendedById          String?
+  suspensionReason       String?
+  deletedAt              DateTime?
+  deletedById            String?
+  deletionReason         String?
+  anonymizedAt           DateTime?
+  lastLoginAt            DateTime?
+  createdAt              DateTime            @default(now())
+  updatedAt              DateTime            @updatedAt
+  memberships            CompanyMembership[]
+  assignments            StaffAssignment[]
+  auditLogsAsActor       AuditLog[]          @relation("AuditActor")
+  auditLogsAsTarget      AuditLog[]          @relation("AuditTarget")
+  syncRuns               SyncRun[]
+  invitationCodesCreated InvitationCode[]    @relation("InvitationCodeCreator")
+  invitationCodesUsed    InvitationCode[]    @relation("InvitationCodeUser")
+  suspendedBy            User?               @relation("UserSuspendedBy", fields: [suspendedById], references: [id], onDelete: SetNull)
+  suspendedUsers         User[]              @relation("UserSuspendedBy")
+  deletedBy              User?               @relation("UserDeletedBy", fields: [deletedById], references: [id], onDelete: SetNull)
+  deletedUsers           User[]              @relation("UserDeletedBy")
+  companiesSuspended     Company[]           @relation("CompanySuspendedBy")
 
   @@index([isActive, name])
+  @@index([status, createdAt])
+  @@index([suspendedById])
+  @@index([deletedById])
 }
 
 model CompanyMembership {
-  id        String            @id @default(cuid())
-  userId    String
-  companyId String
-  role      CompanyMemberRole
-  status    MembershipStatus @default(ACTIVE)
-  disabledAt DateTime?
-  createdAt DateTime          @default(now())
-  updatedAt DateTime          @updatedAt
-  user      User              @relation(fields: [userId], references: [id], onDelete: Cascade)
-  company   Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  id               String            @id @default(cuid())
+  userId           String
+  companyId        String
+  role             CompanyMemberRole
+  status           MembershipStatus  @default(ACTIVE)
+  disabledAt       DateTime?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  company          Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
   propertyAccesses PropertyAccess[]
 
   @@unique([userId, companyId])
@@ -212,12 +241,12 @@ model CompanyMembership {
 }
 
 model PropertyAccess {
-  id           String @id @default(cuid())
+  id           String            @id @default(cuid())
   membershipId String
   propertyId   String
-  createdAt    DateTime @default(now())
+  createdAt    DateTime          @default(now())
   membership   CompanyMembership @relation(fields: [membershipId], references: [id], onDelete: Cascade)
-  property     Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  property     Property          @relation(fields: [propertyId], references: [id], onDelete: Cascade)
 
   @@unique([membershipId, propertyId])
   @@index([propertyId])
@@ -230,6 +259,7 @@ model InvitationCode {
   codeHash    String               @unique
   codePrefix  String
   status      InvitationCodeStatus @default(ACTIVE)
+  expiresAt   DateTime
   createdById String
   createdAt   DateTime             @default(now())
   usedAt      DateTime?
@@ -241,6 +271,7 @@ model InvitationCode {
   usedBy      User?                @relation("InvitationCodeUser", fields: [usedById], references: [id], onDelete: SetNull)
 
   @@index([companyId, status, createdAt])
+  @@index([expiresAt])
   @@index([usedById])
 }
 
@@ -261,17 +292,21 @@ model StaffAssignment {
 }
 
 model AuditLog {
-  id           String   @id @default(cuid())
-  actorUserId  String
-  targetUserId String?
-  action       String
-  details      Json?
-  createdAt    DateTime @default(now())
-  actor        User     @relation("AuditActor", fields: [actorUserId], references: [id], onDelete: Restrict)
-  target       User?    @relation("AuditTarget", fields: [targetUserId], references: [id], onDelete: SetNull)
+  id              String   @id @default(cuid())
+  actorUserId     String
+  targetUserId    String?
+  targetCompanyId String?
+  action          String
+  reason          String?
+  details         Json?
+  createdAt       DateTime @default(now())
+  actor           User     @relation("AuditActor", fields: [actorUserId], references: [id], onDelete: Restrict)
+  target          User?    @relation("AuditTarget", fields: [targetUserId], references: [id], onDelete: SetNull)
+  targetCompany   Company? @relation(fields: [targetCompanyId], references: [id], onDelete: SetNull)
 
   @@index([actorUserId, createdAt])
   @@index([targetUserId, createdAt])
+  @@index([targetCompanyId, createdAt])
   @@index([action, createdAt])
 }
 

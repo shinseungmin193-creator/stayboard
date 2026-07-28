@@ -1,4 +1,4 @@
-"use client";
+"use client";import { useTranslations } from "next-intl";
 
 import Link from "next/link";
 import { CalendarDays, List } from "lucide-react";
@@ -7,7 +7,7 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "
 import type { ReservationViewModel } from "../reservation-view-model";
 import { ReservationDetailContent } from "./reservation-detail-content";
 
-export function ReservationDetailSheet({ reservation, open, onOpenChange }: { reservation: ReservationViewModel | null; open: boolean; onOpenChange: (open: boolean) => void }) {
+export function ReservationDetailSheet({ reservation, open, onOpenChange }: {reservation: ReservationViewModel | null;open: boolean;onOpenChange: (open: boolean) => void;}) {const i18n = useTranslations();
   if (!reservation) return null;
   const date = reservation.startDate.slice(0, 10);
   return (
@@ -15,21 +15,21 @@ export function ReservationDetailSheet({ reservation, open, onOpenChange }: { re
       <SheetContent
         side="bottom"
         className="h-[88dvh] max-h-[88dvh] gap-0 overflow-hidden p-0 md:inset-y-0 md:right-0 md:left-auto md:h-dvh md:max-h-dvh md:w-[30rem] md:rounded-none md:border-t-0 md:border-l"
-        aria-label="예약 상세"
-      >
+        aria-label={i18n("auto.m0418")}>
+        
         <div className="mx-auto mt-2 h-1 w-10 rounded-full bg-muted-foreground/30 md:hidden" aria-hidden="true" />
         <SheetHeader className="border-b px-4 py-3 pr-12 text-left">
           <SheetTitle className="text-lg font-bold">{reservation.roomName}</SheetTitle>
-          <SheetDescription>{reservation.propertyName} · 예약 상세</SheetDescription>
+          <SheetDescription>{reservation.propertyName}{i18n("auto.m0419")}</SheetDescription>
         </SheetHeader>
         <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
           <ReservationDetailContent reservation={reservation} />
         </div>
         <div className="grid grid-cols-2 gap-2 border-t bg-popover px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
-          <Button nativeButton={false} render={<Link href={`/reservations?roomId=${reservation.roomId}`} onClick={() => onOpenChange(false)} />} variant="outline" className="min-h-11"><List />객실 예약</Button>
-          <Button nativeButton={false} render={<Link href={`/room-overview?view=calendar&propertyId=${reservation.propertyId}&date=${date}`} />} variant="outline" className="min-h-11"><CalendarDays />캘린더 보기</Button>
+          <Button nativeButton={false} render={<Link href={`/reservations?roomId=${reservation.roomId}`} onClick={() => onOpenChange(false)} />} variant="outline" className="min-h-11"><List />{i18n("auto.m0420")}</Button>
+          <Button nativeButton={false} render={<Link href={`/room-overview?view=calendar&propertyId=${reservation.propertyId}&date=${date}`} />} variant="outline" className="min-h-11"><CalendarDays />{i18n("auto.m0421")}</Button>
         </div>
       </SheetContent>
-    </Sheet>
-  );
+    </Sheet>);
+
 }

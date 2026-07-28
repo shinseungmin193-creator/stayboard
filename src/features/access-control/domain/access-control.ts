@@ -25,6 +25,8 @@ export const PERMISSIONS = {
   ADMIN_SETTINGS_MANAGE: "admin-settings.manage",
   DEVELOPER_SETTINGS_READ: "developer-settings.read",
   DEVELOPER_SETTINGS_MANAGE: "developer-settings.manage",
+  DEVELOPER_MANAGEMENT_READ: "developer-management.read",
+  DEVELOPER_MANAGEMENT_MANAGE: "developer-management.manage",
   USER_MANAGE: "user.manage",
   DEBUG_READ: "debug.read",
   FEATURE_FLAGS_MANAGE: "feature-flags.manage",

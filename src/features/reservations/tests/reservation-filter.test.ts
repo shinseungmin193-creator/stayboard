@@ -91,7 +91,12 @@ test("예약 상태와 빠른 필터 UI에는 운영 중인 예약 조건만 노
   const filterFields = readFileSync("src/features/reservations/components/reservation-filter-fields.tsx", "utf8");
   const quickFilters = readFileSync("src/features/reservations/components/reservation-quick-filter-sheet.tsx", "utf8");
   assert.match(filterFields, /ACTIVE_RESERVATION_DISPLAY_STATUSES/);
-  assert.match(filterFields, />전체<\/button>/);
+  assert.match(filterFields, /getLocalizedReservationStatusLabel/);
+  assert.match(filterFields, /i18n\("auto\.m0102"\)/);
+  assert.match(quickFilters, /i18n\("reservation\.statuses\.CHECK_IN_TODAY"\)/);
+  assert.match(quickFilters, /i18n\("reservation\.statuses\.CHECK_OUT_TODAY"\)/);
+  assert.match(quickFilters, /i18n\("auto\.m0387"\)/);
+  assert.match(quickFilters, /value: "month-stays"/);
   assert.doesNotMatch(filterFields, /지난 예약|취소됨|노쇼/);
   assert.doesNotMatch(quickFilters, /취소된 예약|지난 예약|과거 예약|노쇼/);
 });

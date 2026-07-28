@@ -10,6 +10,8 @@ const loginUserSelect = {
   name: true,
   passwordHash: true,
   isActive: true,
+  status: true,
+  sessionVersion: true,
   systemRole: true,
   memberships: {
     select: {

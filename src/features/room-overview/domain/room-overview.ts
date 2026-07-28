@@ -7,12 +7,19 @@ export type RoomOverviewStatus = RoomReservationState;
 export const ROOM_OVERVIEW_STATUS_PRIORITY = ["CONFLICT", "CHECK_OUT_TODAY", "CHECK_IN_TODAY", "OCCUPIED", "VACANT"] as const satisfies readonly RoomReservationState[];
 
 export const ROOM_OVERVIEW_STATUS_META = {
-  VACANT: { label: "공실" },
-  CHECK_IN_TODAY: { label: "오늘 체크인" },
-  OCCUPIED: { label: "투숙 중" },
-  CHECK_OUT_TODAY: { label: "오늘 체크아웃" },
-  CONFLICT: { label: "오버부킹" },
-} satisfies Record<RoomReservationState, { label: string }>;
+  VACANT: { labelKey: "roomStatus.VACANT" },
+  CHECK_IN_TODAY: { labelKey: "roomStatus.CHECK_IN_TODAY" },
+  OCCUPIED: { labelKey: "roomStatus.OCCUPIED" },
+  CHECK_OUT_TODAY: { labelKey: "roomStatus.CHECK_OUT_TODAY" },
+  CONFLICT: { labelKey: "roomStatus.CONFLICT" },
+} as const satisfies Record<RoomReservationState, { labelKey: `roomStatus.${RoomReservationState}` }>;
+
+export function getRoomOverviewStatusLabel(
+  status: RoomReservationState,
+  translate: (key: `roomStatus.${RoomReservationState}`) => string,
+) {
+  return translate(ROOM_OVERVIEW_STATUS_META[status].labelKey);
+}
 
 export interface RoomOverviewReservation {
   id: string;

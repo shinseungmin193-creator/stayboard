@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";import { useLocale, useTranslations } from "next-intl";
 
 import { ArrowDown, ArrowUp, Check } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -7,11 +7,11 @@ import type { RoomOverviewCard } from "../domain/room-overview";
 import type { MobileRoomSortDirection, MobileRoomSortField } from "../domain/room-overview-mobile";
 import { formatMobileRoomDate, getMobileRoomStatusVisual } from "../room-overview-mobile-visuals";
 
-const columns: Array<{ field: MobileRoomSortField; label: string; className: string }> = [
-  { field: "status", label: "상태", className: "justify-center" },
-  { field: "checkIn", label: "체크인", className: "justify-center" },
-  { field: "checkOut", label: "체크아웃", className: "justify-center" },
-];
+
+
+
+
+
 
 export function RoomStatusList({
   rooms,
@@ -20,16 +20,16 @@ export function RoomStatusList({
   selectionMode,
   selectedIds,
   onSort,
-  onActivate,
-}: {
-  rooms: RoomOverviewCard[];
-  sortField: MobileRoomSortField;
-  sortDirection: MobileRoomSortDirection;
-  selectionMode: boolean;
-  selectedIds: ReadonlySet<string>;
-  onSort: (field: MobileRoomSortField) => void;
-  onActivate: (room: RoomOverviewCard) => void;
-}) {
+  onActivate
+
+
+
+
+
+
+
+
+}: {rooms: RoomOverviewCard[];sortField: MobileRoomSortField;sortDirection: MobileRoomSortDirection;selectionMode: boolean;selectedIds: ReadonlySet<string>;onSort: (field: MobileRoomSortField) => void;onActivate: (room: RoomOverviewCard) => void;}) {const locale = useLocale();const localeTag = locale === "ja" ? "ja-JP" : "ko-KR";const i18n = useTranslations();const columns: Array<{field: MobileRoomSortField;label: string;className: string;}> = [{ field: "status", label: i18n("common.status"), className: "justify-center" }, { field: "checkIn", label: i18n("reservation.checkIn"), className: "justify-center" }, { field: "checkOut", label: i18n("reservation.checkOut"), className: "justify-center" }];
   const sortButton = (field: MobileRoomSortField, label: string, className?: string) => {
     const active = sortField === field;
     const Icon = sortDirection === "asc" ? ArrowUp : ArrowDown;
@@ -37,9 +37,9 @@ export function RoomStatusList({
   };
 
   return (
-    <section className="overflow-hidden rounded-xl border bg-card" aria-label="객실 목록 보기">
+    <section className="overflow-hidden rounded-xl border bg-card" aria-label={i18n("auto.m0517")}>
       <div className="sticky top-0 z-10 grid grid-cols-[minmax(0,1fr)_4.5rem_3.5rem_3.5rem] border-b bg-card/95 px-2 backdrop-blur">
-        <div className="flex min-w-0 gap-2">{sortButton("room", "객실")}{sortButton("property", "숙소")}</div>
+        <div className="flex min-w-0 gap-2">{sortButton("room", i18n("common.room"))}{sortButton("property", i18n("common.property"))}</div>
         {columns.map((column) => {
           const active = sortField === column.field;
           const Icon = sortDirection === "asc" ? ArrowUp : ArrowDown;
@@ -49,7 +49,7 @@ export function RoomStatusList({
       <div className="divide-y">
         {rooms.map((room) => {
           const reservation = room.currentReservation ?? room.nextReservation;
-          const status = getMobileRoomStatusVisual(room);
+          const status = getMobileRoomStatusVisual(room, i18n);
           const selected = selectedIds.has(room.id);
           return <button key={room.id} type="button" onClick={() => onActivate(room)} aria-pressed={selectionMode ? selected : undefined} className={cn("grid min-h-14 w-full grid-cols-[minmax(0,1fr)_4.5rem_3.5rem_3.5rem] items-center px-2 text-left outline-none [content-visibility:auto] [contain-intrinsic-size:auto_56px] hover:bg-muted/40 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring", selected && "bg-primary/5")}>
             <span className="flex min-w-0 items-center gap-2">
@@ -57,11 +57,11 @@ export function RoomStatusList({
               <span className="min-w-0"><strong className="block truncate text-sm leading-4">{room.name}</strong><span className="block truncate text-[9px] text-muted-foreground">{room.propertyName}</span></span>
             </span>
             <Badge variant="outline" className={cn("mx-auto h-5 max-w-[4.25rem] px-1 text-[8px]", status.className)}><span className="truncate">{status.label}</span></Badge>
-            <span className="text-center text-[10px] tabular-nums">{formatMobileRoomDate(reservation?.startDate)}</span>
-            <span className="text-center text-[10px] tabular-nums">{formatMobileRoomDate(reservation?.endDate)}</span>
+            <span className="text-center text-[10px] tabular-nums">{formatMobileRoomDate(reservation?.startDate, localeTag)}</span>
+            <span className="text-center text-[10px] tabular-nums">{formatMobileRoomDate(reservation?.endDate, localeTag)}</span>
           </button>;
         })}
       </div>
-    </section>
-  );
+    </section>);
+
 }

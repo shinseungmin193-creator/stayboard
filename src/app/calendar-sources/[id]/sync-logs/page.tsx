@@ -1,4 +1,4 @@
-import Link from "next/link";
+﻿import { getTranslations, getLocale } from "next-intl/server";import Link from "next/link";
 import { notFound } from "next/navigation";
 import { differenceInMilliseconds } from "date-fns";
 import { AccessDenied, authorizeAccess, companyScopeIds, PERMISSIONS } from "@/features/access-control";
@@ -11,16 +11,17 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { formatRoomDisplayName } from "@/features/rooms/room-display";
 import { readCalendarSyncDiagnosticPayload } from "@/features/calendar-sync/domain/calendar-sync-diagnostics";
 import { isCalendarSyncWarning } from "@/features/calendar-sync/domain/sync-health";
+import { getReservationSyncStatusLabel } from "@/features/reservations/reservation-status-meta";
 
 export const dynamic = "force-dynamic";
 
-const formatter = new Intl.DateTimeFormat("ko-KR", {
-  dateStyle: "short",
-  timeStyle: "medium",
-  timeZone: "Asia/Tokyo",
-});
-const eventDateFormatter = new Intl.DateTimeFormat("ko-KR", { year: "numeric", month: "2-digit", day: "2-digit", timeZone: "Asia/Tokyo" });
-const eventDate = (value: string) => {
+
+
+
+
+
+
+const eventDate = (value: string, localeTag: string) => {const eventDateFormatter = new Intl.DateTimeFormat(localeTag, { year: "numeric", month: "2-digit", day: "2-digit", timeZone: "Asia/Tokyo" });
   if (!value) return "-";
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? "-" : eventDateFormatter.format(date);
@@ -28,11 +29,11 @@ const eventDate = (value: string) => {
 
 export default async function SyncLogsPage({
   params,
-  searchParams,
-}: {
-  params: Promise<{ id: string }>;
-  searchParams: Promise<Record<string, string | string[] | undefined>>;
-}) {
+  searchParams
+
+
+
+}: {params: Promise<{id: string;}>;searchParams: Promise<Record<string, string | string[] | undefined>>;}) {const locale = await getLocale(),localeTag = locale === "ja" ? "ja-JP" : "ko-KR";const formatter = new Intl.DateTimeFormat(localeTag, { dateStyle: "short", timeStyle: "medium", timeZone: "Asia/Tokyo" });const i18n = await getTranslations();
   const access = await authorizeAccess(PERMISSIONS.SYNC_READ);
   if (!access.allowed) return <AccessDenied role={access.context?.role ?? null} />;
 
@@ -49,15 +50,15 @@ export default async function SyncLogsPage({
     <div className="space-y-5">
       <PageHeader
         eyebrow="SYNC HISTORY"
-        title="동기화 이력"
+        title={i18n("auto.m0019")}
         description={`${result.source.room.property.name} · ${formatRoomDisplayName(result.source.room)} · ${result.source.name}`}
-        action={<Button nativeButton={false} render={<Link href="/calendar-sources" />} variant="outline">목록으로</Button>}
-      />
+        action={<Button nativeButton={false} render={<Link href="/calendar-sources" />} variant="outline">{i18n("auto.m0020")}</Button>} />
+      
       <Card className="overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>시작</TableHead><TableHead>완료</TableHead><TableHead>소요</TableHead><TableHead>상태</TableHead><TableHead>처리 요약</TableHead><TableHead>이벤트 분류</TableHead><TableHead>생성</TableHead><TableHead>수정</TableHead><TableHead>취소 처리</TableHead><TableHead>진단</TableHead>
+              <TableHead>{i18n("auto.m0004")}</TableHead><TableHead>{i18n("auto.m0021")}</TableHead><TableHead>{i18n("auto.m0022")}</TableHead><TableHead>{i18n("common.status")}</TableHead><TableHead>{i18n("auto.m0023")}</TableHead><TableHead>{i18n("auto.m0024")}</TableHead><TableHead>{i18n("auto.m0025")}</TableHead><TableHead>{i18n("common.edit")}</TableHead><TableHead>{i18n("auto.m0027")}</TableHead><TableHead>{i18n("auto.m0028")}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -68,30 +69,30 @@ export default async function SyncLogsPage({
               const excludedCount = log.blockedEventCount + log.unknownEventCount + log.failedEventCount;
               return <TableRow key={log.id}>
                 <TableCell>{formatter.format(log.startedAt)}</TableCell>
-                <TableCell>{log.completedAt ? formatter.format(log.completedAt) : "진행 중"}</TableCell>
-                <TableCell>{differenceInMilliseconds(log.completedAt ?? now, log.startedAt)}ms{!log.completedAt && " (진행 중)"}</TableCell>
-                <TableCell><Badge variant={log.status === "FAILED" || log.status === "TIMEOUT" ? "destructive" : "outline"} className={warning ? "border-amber-500/35 bg-amber-500/10 text-amber-800 dark:text-amber-300" : undefined}>{warning ? "주의" : log.status}</Badge></TableCell>
-                <TableCell><div className="whitespace-nowrap text-xs leading-5"><p>다운로드 {log.fetchedCount} · 예약 반영 {reflectedCount}</p><p className="text-muted-foreground">제외 {excludedCount} · 알 수 없음 {log.unknownEventCount}</p></div></TableCell>
+                <TableCell>{log.completedAt ? formatter.format(log.completedAt) : i18n("auto.m0029")}</TableCell>
+                <TableCell>{differenceInMilliseconds(log.completedAt ?? now, log.startedAt)}ms{!log.completedAt && i18n("auto.m0030")}</TableCell>
+                <TableCell><Badge variant={log.status === "FAILED" || log.status === "TIMEOUT" ? "destructive" : "outline"} className={warning ? "border-amber-500/35 bg-amber-500/10 text-amber-800 dark:text-amber-300" : undefined}>{warning ? i18n("auto.m0031") : getReservationSyncStatusLabel(log.status, i18n)}</Badge></TableCell>
+                <TableCell><div className="whitespace-nowrap text-xs leading-5"><p>{i18n("auto.m0032")}{log.fetchedCount}{i18n("auto.m0033")}{reflectedCount}</p><p className="text-muted-foreground">{i18n("auto.m0034")}{excludedCount}{i18n("auto.m0035")}{log.unknownEventCount}</p></div></TableCell>
                 <TableCell>
                   <div className="whitespace-nowrap text-xs leading-5 text-muted-foreground">
-                    <p>파싱 {log.parsedEventCount} · 예약 {log.reservationEventCount} · 차단 {log.blockedEventCount}</p>
-                    <p>취소 {log.cancelledEventCount} · 미분류 {log.unknownEventCount} · 파싱 실패 {log.failedEventCount}</p>
+                    <p>{i18n("auto.m0036")}{log.parsedEventCount}{i18n("auto.m0037")}{log.reservationEventCount}{i18n("auto.m0038")}{log.blockedEventCount}</p>
+                    <p>{i18n("common.cancel")}{log.cancelledEventCount}{i18n("auto.m0040")}{log.unknownEventCount}{i18n("auto.m0041")}{log.failedEventCount}</p>
                   </div>
                 </TableCell>
                 <TableCell>{log.createdCount}</TableCell><TableCell>{log.updatedCount}</TableCell><TableCell>{log.cancelledCount}</TableCell>
-                <TableCell className="max-w-[32rem]"><p className="truncate">{log.errorMessage ?? (warning ? "모든 이벤트가 UNKNOWN 또는 파싱 실패로 제외됨" : "-")}</p>{(diagnostics.events.length > 0 || Object.keys(diagnostics.exclusionReasonCounts).length > 0) && <details className="mt-1 text-xs text-muted-foreground"><summary className="cursor-pointer">이벤트 진단 {diagnostics.events.length}건{diagnostics.truncatedEventCount > 0 ? ` 외 ${diagnostics.truncatedEventCount}건` : ""}</summary><div className="mt-2 space-y-2">{Object.keys(diagnostics.exclusionReasonCounts).length > 0 && <p>제외 사유: {Object.entries(diagnostics.exclusionReasonCounts).map(([reason, count]) => `${reason} ${count}`).join(" · ")}</p>}<ul className="space-y-1">{diagnostics.events.map((detail, index) => <li key={index} className="rounded border p-2"><p>UID {detail.uidPresent ? "있음" : "없음"} · {eventDate(detail.startDate)} → {eventDate(detail.endDate)}</p><p>STATUS {detail.status ?? "없음"} · SUMMARY {detail.summaryPreview ?? "없음"} · DESCRIPTION {detail.descriptionPresent ? "있음" : "없음"}</p><p>{detail.classification}{detail.exclusionReason ? ` · ${detail.exclusionReason}` : ""}</p></li>)}</ul></div></details>}</TableCell>
+                <TableCell className="max-w-[32rem]"><p className="truncate">{log.errorMessage ?? (warning ? i18n("auto.m0042") : "-")}</p>{(diagnostics.events.length > 0 || Object.keys(diagnostics.exclusionReasonCounts).length > 0) && <details className="mt-1 text-xs text-muted-foreground"><summary className="cursor-pointer">{i18n("auto.m0043")}{diagnostics.events.length}{i18n("auto.m0013")}{diagnostics.truncatedEventCount > 0 ? i18n("auto.m0044", { value0: diagnostics.truncatedEventCount }) : ""}</summary><div className="mt-2 space-y-2">{Object.keys(diagnostics.exclusionReasonCounts).length > 0 && <p>{i18n("auto.m0045")}{Object.entries(diagnostics.exclusionReasonCounts).map(([reason, count]) => `${reason} ${count}`).join(" · ")}</p>}<ul className="space-y-1">{diagnostics.events.map((detail, index) => <li key={index} className="rounded border p-2"><p>{i18n("technical.uid")} {detail.uidPresent ? i18n("auto.m0046") : i18n("auto.m0047")} · {eventDate(detail.startDate, localeTag)} → {eventDate(detail.endDate, localeTag)}</p><p>{i18n("technical.status")} {detail.status ?? i18n("auto.m0047")} · {i18n("technical.summary")} {detail.summaryPreview ?? i18n("auto.m0047")} · {i18n("technical.description")} {detail.descriptionPresent ? i18n("auto.m0046") : i18n("auto.m0047")}</p><p>{detail.classification}{detail.exclusionReason ? ` · ${detail.exclusionReason}` : ""}</p></li>)}</ul></div></details>}</TableCell>
               </TableRow>;
             })}
           </TableBody>
         </Table>
       </Card>
       <div className="flex justify-between text-xs text-muted-foreground">
-        <span>{result.page} / {result.totalPages} 페이지 · {result.totalCount}건</span>
+        <span>{result.page} / {result.totalPages}{i18n("auto.m0012")}{result.totalCount}{i18n("auto.m0013")}</span>
         <div className="flex gap-2">
-          <Button nativeButton={false} render={<Link href={`?page=${Math.max(1, result.page - 1)}`} />} size="sm" variant="outline" disabled={result.page <= 1}>이전</Button>
-          <Button nativeButton={false} render={<Link href={`?page=${Math.min(result.totalPages, result.page + 1)}`} />} size="sm" variant="outline" disabled={result.page >= result.totalPages}>다음</Button>
+          <Button nativeButton={false} render={<Link href={`?page=${Math.max(1, result.page - 1)}`} />} size="sm" variant="outline" disabled={result.page <= 1}>{i18n("auto.m0014")}</Button>
+          <Button nativeButton={false} render={<Link href={`?page=${Math.min(result.totalPages, result.page + 1)}`} />} size="sm" variant="outline" disabled={result.page >= result.totalPages}>{i18n("auto.m0015")}</Button>
         </div>
       </div>
-    </div>
-  );
+    </div>);
+
 }

@@ -1,4 +1,4 @@
-"use client";
+"use client";import { useTranslations } from "next-intl";
 
 import { useActionState } from "react";
 import { RefreshCcw } from "lucide-react";
@@ -9,7 +9,7 @@ import type { RoomCalendarFilters } from "../types/room-calendar-summary";
 
 const initialState: ActionResult<BulkSyncResult> = { success: true };
 
-export function RoomCalendarSync({ filters = {}, roomIds, compact = false }: { filters?: Pick<RoomCalendarFilters, "propertyId" | "roomId" | "provider" | "status">; roomIds?: readonly string[]; compact?: boolean }) {
+export function RoomCalendarSync({ filters = {}, roomIds, compact = false }: {filters?: Pick<RoomCalendarFilters, "propertyId" | "roomId" | "provider" | "status">;roomIds?: readonly string[];compact?: boolean;}) {const i18n = useTranslations();
   const [state, action, pending] = useActionState(syncRoomCalendarSourcesAction, initialState);
   const singleRoomId = filters.roomId ?? (roomIds?.length === 1 ? roomIds[0] : undefined);
   return (
@@ -19,12 +19,12 @@ export function RoomCalendarSync({ filters = {}, roomIds, compact = false }: { f
         <input type="hidden" name="roomId" value={singleRoomId ?? ""} />
         <input type="hidden" name="provider" value={filters.provider ?? ""} />
         <input type="hidden" name="status" value={filters.status ?? ""} />
-        <Button type="submit" size={compact ? "sm" : "default"} variant={compact ? "outline" : "default"} disabled={pending} aria-label={compact ? "이 객실의 활성 캘린더 연결 전체 동기화" : "현재 필터에 해당하는 모든 객실 동기화"}>
+        <Button type="submit" size={compact ? "sm" : "default"} variant={compact ? "outline" : "default"} disabled={pending} aria-label={compact ? i18n("auto.m0254") : i18n("auto.m0255")}>
           <RefreshCcw className={pending ? "animate-spin" : undefined} />
-          {pending ? "동기화 중" : compact ? "객실 동기화" : "표시 중인 객실 동기화"}
+          {pending ? i18n("sync.statuses.RUNNING") : compact ? i18n("auto.m0256") : i18n("auto.m0257")}
         </Button>
       </form>
-      {state.message && <p aria-live="polite" className={`max-w-xl text-xs ${state.success ? "text-muted-foreground" : "text-destructive"}`}>{state.success && state.data ? `대상 객실 ${state.data.targetRoomCount}개 · 활성 연결 ${state.data.activeSourceCount}개 · 성공 ${state.data.successCount}개 · 주의 ${state.data.warningCount}개 · 실패 ${state.data.failureCount}개 · 건너뜀 ${state.data.skippedCount}개${state.data.roomsWithoutActiveSources ? ` · 연결 없음 ${state.data.roomsWithoutActiveSources}개` : ""}` : state.message}</p>}
-    </div>
-  );
+      {state.message && <p aria-live="polite" className={`max-w-xl text-xs ${state.success ? "text-muted-foreground" : "text-destructive"}`}>{state.success && state.data ? i18n("auto.m0258", { value0: state.data.targetRoomCount, value1: state.data.activeSourceCount, value2: state.data.successCount, value3: state.data.warningCount, value4: state.data.failureCount, value5: state.data.skippedCount, value6: state.data.roomsWithoutActiveSources ? i18n("auto.m0259", { value0: state.data.roomsWithoutActiveSources }) : "" }) : state.message}</p>}
+    </div>);
+
 }

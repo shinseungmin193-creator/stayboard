@@ -3,14 +3,21 @@ import type { AccessScope } from "@/features/access-control/domain/access-contro
 
 export type RoomCalendarStatus = "HEALTHY" | "WARNING" | "PARTIAL_FAILURE" | "FAILED" | "SYNCING" | "NOT_SYNCED" | "DISABLED";
 export const ROOM_CALENDAR_STATUS_META = {
-  HEALTHY: { label: "정상", className: "border-emerald-500/35 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300", icon: "check" },
-  WARNING: { label: "주의", className: "border-amber-500/35 bg-amber-500/10 text-amber-800 dark:text-amber-300", icon: "warning" },
-  PARTIAL_FAILURE: { label: "일부 오류", className: "border-amber-500/35 bg-amber-500/10 text-amber-800 dark:text-amber-300", icon: "warning" },
-  FAILED: { label: "전체 오류", className: "border-destructive/40 bg-destructive/10 text-destructive", icon: "error" },
-  SYNCING: { label: "동기화 중", className: "border-blue-500/30 bg-blue-500/10 text-blue-700 dark:text-blue-300", icon: "loading" },
-  NOT_SYNCED: { label: "동기화 전", className: "border-border bg-muted/50 text-muted-foreground", icon: "clock" },
-  DISABLED: { label: "연결 없음", className: "border-border bg-muted/50 text-muted-foreground", icon: "off" },
-} satisfies Record<RoomCalendarStatus, { label: string; className: string; icon: "check" | "warning" | "error" | "loading" | "clock" | "off" }>;
+  HEALTHY: { className: "border-emerald-500/35 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300", icon: "check" },
+  WARNING: { className: "border-amber-500/35 bg-amber-500/10 text-amber-800 dark:text-amber-300", icon: "warning" },
+  PARTIAL_FAILURE: { className: "border-amber-500/35 bg-amber-500/10 text-amber-800 dark:text-amber-300", icon: "warning" },
+  FAILED: { className: "border-destructive/40 bg-destructive/10 text-destructive", icon: "error" },
+  SYNCING: { className: "border-blue-500/30 bg-blue-500/10 text-blue-700 dark:text-blue-300", icon: "loading" },
+  NOT_SYNCED: { className: "border-border bg-muted/50 text-muted-foreground", icon: "clock" },
+  DISABLED: { className: "border-border bg-muted/50 text-muted-foreground", icon: "off" },
+} satisfies Record<RoomCalendarStatus, { className: string; icon: "check" | "warning" | "error" | "loading" | "clock" | "off" }>;
+
+export function getRoomCalendarStatusLabel(
+  status: RoomCalendarStatus,
+  translate: (key: `calendarStatus.${RoomCalendarStatus}`) => string,
+) {
+  return translate(`calendarStatus.${status}`);
+}
 
 export const CALENDAR_PROVIDER_LABELS = { AIRBNB: "Airbnb", BOOKING: "Booking.com", AGODA: "Agoda", EXPEDIA: "Expedia", VRBO: "Vrbo", OTHER: "기타" } satisfies Record<CalendarProviderType, string>;
 

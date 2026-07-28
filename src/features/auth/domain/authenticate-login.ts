@@ -4,6 +4,8 @@ export interface LoginUserRecord {
   name: string;
   passwordHash: string | null;
   isActive: boolean;
+  status: "ACTIVE" | "SUSPENDED" | "DELETED";
+  sessionVersion: number;
   systemRole: "NONE" | "DEVELOPER";
   memberships: Array<{ status: "INVITED" | "ACTIVE" | "DISABLED"; companyActive: boolean }>;
 }
@@ -30,7 +32,7 @@ export async function authenticateLoginAttempt(
   if (!user) return { status: "REJECTED", reason: "USER_NOT_FOUND" };
   if (!user.passwordHash) return { status: "REJECTED", reason: "PASSWORD_HASH_MISSING" };
   if (!(await verifyPassword(password, user.passwordHash))) return { status: "REJECTED", reason: "PASSWORD_MISMATCH" };
-  if (!user.isActive) return { status: "REJECTED", reason: "USER_INACTIVE" };
+  if (!user.isActive || user.status !== "ACTIVE") return { status: "REJECTED", reason: "USER_INACTIVE" };
   if (user.systemRole !== "DEVELOPER") {
     if (!user.memberships.length) return { status: "REJECTED", reason: "MEMBERSHIP_NOT_FOUND" };
     if (!user.memberships.some((membership) => membership.status === "ACTIVE" && membership.companyActive)) {

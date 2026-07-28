@@ -9,6 +9,7 @@ import { safeInternalAuthPath } from "../domain/auth-navigation";
 import { requireNextAuthSecret } from "../domain/auth-secret";
 import { usesSecureAuthCookies } from "../domain/cookie-policy";
 import { isNextAuthSessionCookie } from "../domain/session-cookie";
+import { isSessionSnapshotValid } from "../domain/session-policy";
 import { normalizeBasePath, resolveBasePath } from "../../../lib/base-path";
 
 const activeUser: LoginUserRecord = {
@@ -17,6 +18,8 @@ const activeUser: LoginUserRecord = {
   name: "User",
   passwordHash: "stored-hash",
   isActive: true,
+  status: "ACTIVE",
+  sessionVersion: 0,
   systemRole: "NONE",
   memberships: [{ status: "ACTIVE", companyActive: true }],
 };
@@ -77,6 +80,22 @@ test("비활성 계정은 비밀번호가 맞아도 인증을 차단한다", asy
   assert.deepEqual(result, { status: "REJECTED", reason: "USER_INACTIVE" });
 });
 
+test("정지·탈퇴 계정은 isActive 호환 필드와 무관하게 로그인을 차단한다", async () => {
+  for (const status of ["SUSPENDED", "DELETED"] as const) {
+    const user = { ...activeUser, status };
+    const result = await authenticateLoginAttempt(user.email, "password123", async () => user, async () => true);
+    assert.deepEqual(result, { status: "REJECTED", reason: "USER_INACTIVE" });
+  }
+});
+
+test("세션은 ACTIVE 상태와 로그인 시점 sessionVersion이 모두 일치해야 유효하다", () => {
+  assert.equal(isSessionSnapshotValid({ status: "ACTIVE", isActive: true, sessionVersion: 3 }, 3), true);
+  assert.equal(isSessionSnapshotValid({ status: "ACTIVE", isActive: true, sessionVersion: 4 }, 3), false);
+  assert.equal(isSessionSnapshotValid({ status: "SUSPENDED", isActive: false, sessionVersion: 3 }, 3), false);
+  assert.equal(isSessionSnapshotValid({ status: "DELETED", isActive: false, sessionVersion: 3 }, 3), false);
+  assert.equal(isSessionSnapshotValid(null, 3), false);
+});
+
 test("가입과 로그인은 같은 bcrypt 형식과 원본 비밀번호를 사용한다", async () => {
   const password = "  Password123  ";
   const passwordHash = await hash(password, 4);
@@ -90,14 +109,15 @@ test("가입과 로그인은 같은 bcrypt 형식과 원본 비밀번호를 사�
   assert.doesNotMatch(actionSource, /parsed\.data\.password\.trim\(/);
 });
 
-test("가입 transaction은 User와 ADMIN ACTIVE Membership 및 코드 사용을 함께 처리한다", () => {
+test("가입 transaction은 User, 코드 역할 Membership, 코드 사용을 함께 처리한다", () => {
   const source = readFileSync("src/features/auth/auth.actions.ts", "utf8");
   const transactionStart = source.indexOf("prisma.$transaction");
   const userCreate = source.indexOf("tx.user.create", transactionStart);
   const consumeCode = source.indexOf("consumeInvitationCode", userCreate);
-  const membershipCreate = source.indexOf("tx.companyMembership.create", userCreate);
-  assert.ok(transactionStart >= 0 && userCreate > transactionStart && consumeCode > userCreate && membershipCreate > consumeCode);
-  assert.match(source.slice(membershipCreate), /role: "ADMIN", status: "ACTIVE"/);
+  const invitedMembershipCreate = source.indexOf("createInvitedCompanyMembership", consumeCode);
+  assert.ok(transactionStart >= 0 && userCreate > transactionStart && consumeCode > userCreate && invitedMembershipCreate > consumeCode);
+  assert.match(source, /membershipRole = consumed\.role/);
+  assert.match(source.slice(invitedMembershipCreate), /role: membershipRole/);
   assert.match(source, /Prisma\.TransactionIsolationLevel\.Serializable/);
   assert.match(source, /error\.code === "P2002"/);
 });
@@ -153,4 +173,35 @@ test("인증 쿠키 보안 여부는 공개 인증 URL의 프로토콜을 따른
   assert.equal(usesSecureAuthCookies("https://example.com/stayboard/api/auth"), true);
   assert.equal(usesSecureAuthCookies("http://127.0.0.1:3004/api/auth"), false);
   assert.equal(usesSecureAuthCookies("invalid"), false);
+});
+
+test("RootLayout은 수동 테마 Script 없이 next-themes Provider만 사용한다", () => {
+  const layout = readFileSync("src/app/layout.tsx", "utf8");
+  const themeProvider = readFileSync("src/components/shared/theme-provider.tsx", "utf8");
+  const themeToggle = readFileSync("src/components/shared/theme-toggle.tsx", "utf8");
+  const packageJson = readFileSync("package.json", "utf8");
+  const compatibilityPatch = readFileSync("scripts/patch-next-themes-react19.mjs", "utf8");
+  const nextThemesRuntime = readFileSync("node_modules/next-themes/dist/index.mjs", "utf8");
+
+  assert.doesNotMatch(layout, /^\s*["']use client["']/m);
+  assert.doesNotMatch(layout, /next\/script|themeInitializationScript|<Script|<script/);
+  assert.match(layout, /<html lang=\{locale\} suppressHydrationWarning>/);
+  assert.match(layout, /<body[\s\S]*<ThemeProvider>[\s\S]*<AuthProvider session=\{session\}>[\s\S]*<AppShell>/);
+  assert.match(themeProvider, /ThemeProvider as NextThemesProvider/);
+  assert.match(themeProvider, /attribute="class"/);
+  assert.match(themeProvider, /defaultTheme="system"/);
+  assert.match(themeProvider, /enableSystem/);
+  assert.match(themeProvider, /disableTransitionOnChange/);
+  assert.match(themeProvider, /storageKey=\{THEME_STORAGE_KEY\}/);
+  assert.doesNotMatch(themeProvider, /document\.documentElement|localStorage|<script|dangerouslySetInnerHTML/);
+  assert.match(themeToggle, /import \{ useTheme \} from "next-themes"/);
+  assert.doesNotMatch(themeToggle, /mounted|useEffect|document\.documentElement/);
+  assert.match(themeToggle, /setTheme\(resolvedTheme === "dark" \? "light" : "dark"\)/);
+  assert.match(themeToggle, /useTranslations\("common"\)/);
+  assert.match(themeToggle, /aria-label=\{t\("themeToggle"\)\}/);
+  assert.match(packageJson, /"postinstall": "node scripts\/patch-next-themes-react19\.mjs"/);
+  assert.match(compatibilityPatch, /NEXT_THEMES_VERSION = "0\.4\.6"/);
+  assert.match(compatibilityPatch, /typeof window/);
+  assert.match(compatibilityPatch, /return null/);
+  assert.match(nextThemesRuntime, /typeof window!="undefined"\)return null/);
 });

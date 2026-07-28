@@ -1,9 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { buildRoomOperationalSchedule, calculateRoomOverviewStatus, getReservationOperationalDay, getRoomOverviewGuestName, ROOM_OVERVIEW_STATUS_META, sortRoomOverviewCards, summarizeRoomOverview, type RoomOverviewCard, type RoomOverviewReservation } from "../domain/room-overview";
+import { buildRoomOperationalSchedule, calculateRoomOverviewStatus, getReservationOperationalDay, getRoomOverviewGuestName, getRoomOverviewStatusLabel, sortRoomOverviewCards, summarizeRoomOverview, type RoomOverviewCard, type RoomOverviewReservation } from "../domain/room-overview";
 import { buildCalendarDateRange, buildMobileRoomCalendarSegments, filterMobileRooms, getCalendarRangeStart, groupRoomsForCalendar, moveRoomOverviewDate, parseCalendarRangeDays, parseRoomOverviewDateKey, sortMobileRooms, summarizeMobileRooms } from "../domain/room-overview-mobile";
-import { ROOM_OPERATIONAL_STATUS_META } from "../../rooms/room-operational-status";
+import { getRoomOperationalStatusLabel } from "../../rooms/room-operational-status";
 
 const todayStart = new Date("2026-07-24T00:00:00+09:00");
 const todayEnd = new Date("2026-07-25T00:00:00+09:00");
@@ -32,8 +32,14 @@ test("예약자 이름이 없으면 가짜 이름을 만들지 않는다", () =>
 const card = (overrides: Partial<RoomOverviewCard>): RoomOverviewCard => ({ id: "1", propertyId: "p", propertyName: "세레니테", name: "객실", code: "801", sortOrder: 0, operationalStatus: "NONE", operationalStatusUpdatedAt: null, status: "VACANT", currentReservation: null, nextReservation: null, nextReservationLeadDays: null, reservationCount: 0, activeConflictCount: 0, providers: [], latestSync: null, syncStates: [], reservations: [], ...overrides });
 test("객실은 숙소·sortOrder·객실 코드 순서로 정렬한다", () => { const result = sortRoomOverviewCards([card({ id: "801", code: "801", sortOrder: 2 }), card({ id: "303", code: "303", sortOrder: 1 }), card({ id: "701", code: "701", sortOrder: 2 })]); assert.deepEqual(result.map((item) => item.id), ["303", "701", "801"]); });
 test("자동·수동 상태별 객실 수를 집계한다", () => { const result = summarizeRoomOverview([card({ status: "VACANT" }), card({ id: "2", status: "OCCUPIED", operationalStatus: "CLEANING_REQUIRED" }), card({ id: "3", status: "CONFLICT", operationalStatus: "INSPECTION_REQUIRED" })]); assert.equal(result.total, 3); assert.equal(result.statuses.VACANT, 1); assert.equal(result.statuses.CONFLICT, 1); assert.equal(result.operationalStatuses.CLEANING_REQUIRED, 1); });
-test("CONFLICT는 오버부킹으로 표시한다", () => assert.equal(ROOM_OVERVIEW_STATUS_META.CONFLICT.label, "오버부킹"));
-test("수동 운영 상태 표시 문자열을 구분한다", () => { assert.equal(ROOM_OPERATIONAL_STATUS_META.NONE.label, "상태 없음"); assert.equal(ROOM_OPERATIONAL_STATUS_META.CLEANING_REQUIRED.label, "청소 필요"); assert.equal(ROOM_OPERATIONAL_STATUS_META.INSPECTION_REQUIRED.label, "점검 필요"); });
+test("CONFLICT는 번역 키를 통해 오버부킹으로 표시한다", () => assert.equal(getRoomOverviewStatusLabel("CONFLICT", () => "오버부킹"), "오버부킹"));
+test("수동 운영 상태 표시 문자열을 번역 키로 구분한다", () => {
+  const labels = { "roomStatus.NONE": "상태 없음", "roomStatus.CLEANING_REQUIRED": "청소 필요", "roomStatus.INSPECTION_REQUIRED": "점검 필요" } as const;
+  const translate = (key: keyof typeof labels) => labels[key];
+  assert.equal(getRoomOperationalStatusLabel("NONE", translate), "상태 없음");
+  assert.equal(getRoomOperationalStatusLabel("CLEANING_REQUIRED", translate), "청소 필요");
+  assert.equal(getRoomOperationalStatusLabel("INSPECTION_REQUIRED", translate), "점검 필요");
+});
 test("오버부킹과 청소 필요 상태를 동시에 보존한다", () => { const value = card({ status: "CONFLICT", operationalStatus: "CLEANING_REQUIRED" }); assert.equal(value.status, "CONFLICT"); assert.equal(value.operationalStatus, "CLEANING_REQUIRED"); });
 
 test("모바일 조회 날짜는 잘못된 값을 거부하고 하루씩 이동한다", () => {
@@ -148,7 +154,7 @@ test("모바일 타임라인은 좁은 객실 열과 간결한 OTA·공실 표�
 
   assert.match(domain, /TIMELINE_ROOM_COLUMN_WIDTH = 132/);
   assert.match(domain, /TIMELINE_ROW_MIN_HEIGHT = 44/);
-  assert.match(roomRow, /getProviderVisual/);
+  assert.match(roomRow, /getProviderLabel/);
   assert.match(roomRow, /formatRoomDisplayLabel/);
   assert.match(roomRow, /formatRoomNumber/);
   assert.match(roomRow, /className="shrink-0"/);

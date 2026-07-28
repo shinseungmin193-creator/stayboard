@@ -1,4 +1,4 @@
-"use client";
+"use client";import { useTranslations } from "next-intl";
 
 import { useState } from "react";
 import { SlidersHorizontal } from "lucide-react";
@@ -7,15 +7,15 @@ import { Label } from "@/components/ui/label";
 import { Sheet, SheetClose, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import type { MobileRoomFilters } from "../domain/room-overview-mobile";
 
-const statusOptions: Array<{ value: MobileRoomFilters["status"]; label: string }> = [
-  { value: "ALL", label: "모든 상태" },
-  { value: "RESERVED", label: "예약" },
-  { value: "VACANT", label: "공실" },
-  { value: "CHECK_IN_TODAY", label: "체크인" },
-  { value: "CHECK_OUT_TODAY", label: "체크아웃" },
-  { value: "CLEANING", label: "청소중" },
-  { value: "CONFLICT", label: "오버부킹" },
-];
+
+
+
+
+
+
+
+
+
 
 const fieldClassName = "h-11 w-full rounded-lg border border-input bg-background px-3 text-sm";
 
@@ -24,14 +24,14 @@ export function RoomStatusFilterSheet({
   propertyId,
   properties,
   onApply,
-  onReset,
-}: {
-  filters: MobileRoomFilters;
-  propertyId?: string;
-  properties: Array<{ id: string; name: string; isActive: boolean }>;
-  onApply: (filters: MobileRoomFilters, propertyId?: string) => void;
-  onReset: () => void;
-}) {
+  onReset
+
+
+
+
+
+
+}: {filters: MobileRoomFilters;propertyId?: string;properties: Array<{id: string;name: string;isActive: boolean;}>;onApply: (filters: MobileRoomFilters, propertyId?: string) => void;onReset: () => void;}) {const i18n = useTranslations();const statusOptions: Array<{value: MobileRoomFilters["status"];label: string;}> = [{ value: "ALL", label: i18n("auto.m0244") }, { value: "RESERVED", label: i18n("common.reservation") }, { value: "VACANT", label: i18n("reservation.vacant") }, { value: "CHECK_IN_TODAY", label: i18n("reservation.checkIn") }, { value: "CHECK_OUT_TODAY", label: i18n("reservation.checkOut") }, { value: "CLEANING", label: i18n("roomStatus.cleaning") }, { value: "CONFLICT", label: i18n("reservation.overbooking") }];
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState(filters);
   const [draftPropertyId, setDraftPropertyId] = useState(propertyId ?? "");
@@ -47,55 +47,55 @@ export function RoomStatusFilterSheet({
 
   return (
     <Sheet open={open} onOpenChange={changeOpen}>
-      <SheetTrigger render={<Button type="button" variant="outline" size="icon" className="relative min-h-10 min-w-10" aria-label="객실 필터 열기" />}>
+      <SheetTrigger render={<Button type="button" variant="outline" size="icon" className="relative min-h-10 min-w-10" aria-label={i18n("auto.m0510")} />}>
         <SlidersHorizontal />
         {activeCount > 0 && <span className="absolute -right-1 -top-1 grid size-4 place-items-center rounded-full bg-primary text-[9px] font-bold text-primary-foreground">{activeCount}</span>}
       </SheetTrigger>
-      <SheetContent side="bottom" className="gap-0" aria-label="객실 필터">
+      <SheetContent side="bottom" className="gap-0" aria-label={i18n("auto.m0080")}>
         <SheetHeader className="border-b px-4 py-4 text-left">
-          <SheetTitle>객실 필터</SheetTitle>
-          <SheetDescription>현재 날짜의 객실 상태와 연결 조건을 선택합니다.</SheetDescription>
+          <SheetTitle>{i18n("auto.m0080")}</SheetTitle>
+          <SheetDescription>{i18n("auto.m0511")}</SheetDescription>
         </SheetHeader>
         <div className="grid gap-4 overflow-y-auto px-4 py-4 sm:grid-cols-2">
           <div className="space-y-1.5 sm:col-span-2">
-            <Label htmlFor="mobile-room-query">객실 검색</Label>
-            <input id="mobile-room-query" value={draft.query} onChange={(event) => setDraft((current) => ({ ...current, query: event.target.value }))} placeholder="객실 번호·객실명·숙소명" className={fieldClassName} />
+            <Label htmlFor="mobile-room-query">{i18n("auto.m0492")}</Label>
+            <input id="mobile-room-query" value={draft.query} onChange={(event) => setDraft((current) => ({ ...current, query: event.target.value }))} placeholder={i18n("auto.m0512")} className={fieldClassName} />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="mobile-room-property">숙소</Label>
+            <Label htmlFor="mobile-room-property">{i18n("common.property")}</Label>
             <select id="mobile-room-property" value={draftPropertyId} onChange={(event) => setDraftPropertyId(event.target.value)} className={fieldClassName}>
-              <option value="">모든 숙소</option>
+              <option value="">{i18n("auto.m0079")}</option>
               {properties.filter((property) => property.isActive).map((property) => <option key={property.id} value={property.id}>{property.name}</option>)}
             </select>
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="mobile-room-status">상태</Label>
+            <Label htmlFor="mobile-room-status">{i18n("common.status")}</Label>
             <select id="mobile-room-status" value={draft.status} onChange={(event) => setDraft((current) => ({ ...current, status: event.target.value as MobileRoomFilters["status"] }))} className={fieldClassName}>
               {statusOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
             </select>
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="mobile-room-ota">OTA 연결</Label>
+            <Label htmlFor="mobile-room-ota">{i18n("auto.m0470")}</Label>
             <select id="mobile-room-ota" value={draft.ota} onChange={(event) => setDraft((current) => ({ ...current, ota: event.target.value as MobileRoomFilters["ota"] }))} className={fieldClassName}>
-              <option value="ALL">모든 객실</option>
-              <option value="CONNECTED">연결됨</option>
-              <option value="DISCONNECTED">연결 없음</option>
+              <option value="ALL">{i18n("auto.m0081")}</option>
+              <option value="CONNECTED">{i18n("auto.m0513")}</option>
+              <option value="DISCONNECTED">{i18n("auto.m0248")}</option>
             </select>
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="mobile-room-sync">동기화 상태</Label>
+            <Label htmlFor="mobile-room-sync">{i18n("auto.m0514")}</Label>
             <select id="mobile-room-sync" value={draft.sync} onChange={(event) => setDraft((current) => ({ ...current, sync: event.target.value as MobileRoomFilters["sync"] }))} className={fieldClassName}>
-              <option value="ALL">모든 상태</option>
-              <option value="ERROR">오류 있음</option>
-              <option value="NORMAL">오류 없음</option>
+              <option value="ALL">{i18n("auto.m0244")}</option>
+              <option value="ERROR">{i18n("auto.m0515")}</option>
+              <option value="NORMAL">{i18n("auto.m0516")}</option>
             </select>
           </div>
         </div>
         <SheetFooter className="grid grid-cols-2 border-t p-4">
-          <Button type="button" variant="outline" onClick={() => { onReset(); setOpen(false); }}>초기화</Button>
-          <SheetClose render={<Button type="button" onClick={() => onApply(draft, draftPropertyId || undefined)} />}>적용</SheetClose>
+          <Button type="button" variant="outline" onClick={() => {onReset();setOpen(false);}}>{i18n("auto.m0403")}</Button>
+          <SheetClose render={<Button type="button" onClick={() => onApply(draft, draftPropertyId || undefined)} />}>{i18n("auto.m0096")}</SheetClose>
         </SheetFooter>
       </SheetContent>
-    </Sheet>
-  );
+    </Sheet>);
+
 }

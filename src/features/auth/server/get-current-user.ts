@@ -9,8 +9,8 @@ export const getOptionalSession = cache(() => getServerSession(authOptions));
 
 export const getCurrentUser = cache(async () => {
   const session = await getOptionalSession();
-  if (!session?.user.id) return null;
-  return prisma.user.findUnique({
+  if (!session?.user?.id) return null;
+  const user = await prisma.user.findUnique({
     where: { id: session.user.id },
     select: {
       id: true,
@@ -18,6 +18,8 @@ export const getCurrentUser = cache(async () => {
       name: true,
       systemRole: true,
       isActive: true,
+      status: true,
+      sessionVersion: true,
       memberships: {
         where: { status: "ACTIVE", company: { isActive: true } },
         select: { id: true, companyId: true, role: true, status: true, company: { select: { name: true } }, propertyAccesses: { select: { propertyId: true } } },
@@ -33,4 +35,5 @@ export const getCurrentUser = cache(async () => {
       },
     },
   });
+  return user?.isActive && user.status === "ACTIVE" ? user : null;
 });
