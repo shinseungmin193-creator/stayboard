@@ -1,0 +1,53 @@
+export type CleaningWorkflowStatus = "PENDING" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED";
+
+export interface CleaningWorkflowSnapshot {
+  status: CleaningWorkflowStatus;
+  assigneeUserId: string | null;
+  assigneeName: string | null;
+  assignedByUserId: string | null;
+}
+
+export type CleaningWorkflowErrorCode =
+  | "NOT_ACTIONABLE"
+  | "NAME_REQUIRED"
+  | "ALREADY_ASSIGNED"
+  | "ASSIGNEE_REQUIRED";
+
+export class CleaningWorkflowError extends Error {
+  constructor(public readonly code: CleaningWorkflowErrorCode) {
+    super(code);
+    this.name = "CleaningWorkflowError";
+  }
+}
+
+export function normalizeCleaningWorkerName(value: string | null | undefined) {
+  const normalized = value?.trim() ?? "";
+  if (normalized.length < 1 || normalized.length > 30) throw new CleaningWorkflowError("NAME_REQUIRED");
+  return normalized;
+}
+
+export function hasCleaningAssignee(task: Pick<CleaningWorkflowSnapshot, "assigneeUserId" | "assigneeName">) {
+  return Boolean(task.assigneeUserId || task.assigneeName?.trim());
+}
+
+export function assertCleaningTaskActionable(status: CleaningWorkflowStatus) {
+  if (status !== "PENDING" && status !== "IN_PROGRESS") throw new CleaningWorkflowError("NOT_ACTIONABLE");
+}
+
+export function planCleaningAssignment(task: CleaningWorkflowSnapshot, workerName: string) {
+  assertCleaningTaskActionable(task.status);
+  if (hasCleaningAssignee(task)) throw new CleaningWorkflowError("ALREADY_ASSIGNED");
+  return { workerName: normalizeCleaningWorkerName(workerName) };
+}
+
+export function planCleaningStart(task: CleaningWorkflowSnapshot, workerName?: string | null) {
+  if (task.status !== "PENDING") throw new CleaningWorkflowError("NOT_ACTIONABLE");
+  if (!hasCleaningAssignee(task)) return { shouldAssign: true, workerName: normalizeCleaningWorkerName(workerName) };
+  return { shouldAssign: false, workerName: workerName?.trim() || task.assigneeName };
+}
+
+export function planCleaningCompletion(task: CleaningWorkflowSnapshot, workerName?: string | null) {
+  assertCleaningTaskActionable(task.status);
+  if (!hasCleaningAssignee(task)) return { shouldAssign: true, workerName: normalizeCleaningWorkerName(workerName) };
+  return { shouldAssign: false, workerName: normalizeCleaningWorkerName(workerName || task.assigneeName) };
+}

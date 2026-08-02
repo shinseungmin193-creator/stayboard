@@ -54,6 +54,15 @@ enum CleaningTaskStatus {
   CANCELLED
 }
 
+enum CleaningTaskLogAction {
+  ASSIGNED
+  REASSIGNED
+  STARTED
+  COMPLETED
+  NOTE_ADDED
+  PHOTO_ADDED
+}
+
 enum GuestFallbackMode {
   PROVIDER
   GENERIC
@@ -193,40 +202,43 @@ model Room {
 }
 
 model User {
-  id                     String              @id @default(cuid())
-  username               String?             @unique
-  email                  String              @unique
-  name                   String
-  passwordHash           String?
-  systemRole             UserSystemRole      @default(NONE)
-  isActive               Boolean             @default(true)
-  status                 UserStatus          @default(ACTIVE)
-  sessionVersion         Int                 @default(0)
-  suspendedAt            DateTime?
-  suspendedById          String?
-  suspensionReason       String?
-  deletedAt              DateTime?
-  deletedById            String?
-  deletionReason         String?
-  anonymizedAt           DateTime?
-  lastLoginAt            DateTime?
-  createdAt              DateTime            @default(now())
-  updatedAt              DateTime            @updatedAt
-  memberships            CompanyMembership[]
-  assignments            StaffAssignment[]
-  auditLogsAsActor       AuditLog[]          @relation("AuditActor")
-  auditLogsAsTarget      AuditLog[]          @relation("AuditTarget")
-  syncRuns               SyncRun[]
-  invitationCodesCreated InvitationCode[]    @relation("InvitationCodeCreator")
-  invitationCodesUsed    InvitationCode[]    @relation("InvitationCodeUser")
-  suspendedBy            User?               @relation("UserSuspendedBy", fields: [suspendedById], references: [id], onDelete: SetNull)
-  suspendedUsers         User[]              @relation("UserSuspendedBy")
-  deletedBy              User?               @relation("UserDeletedBy", fields: [deletedById], references: [id], onDelete: SetNull)
-  deletedUsers           User[]              @relation("UserDeletedBy")
-  companiesSuspended     Company[]           @relation("CompanySuspendedBy")
-  cleaningTasksAssigned  CleaningTask[]      @relation("CleaningTaskAssignee")
-  cleaningTasksCompleted CleaningTask[]      @relation("CleaningTaskCompletedBy")
-  cleaningPhotosUploaded CleaningPhoto[]     @relation("CleaningPhotoUploader")
+  id                      String              @id @default(cuid())
+  username                String?             @unique
+  email                   String              @unique
+  name                    String
+  passwordHash            String?
+  systemRole              UserSystemRole      @default(NONE)
+  isActive                Boolean             @default(true)
+  status                  UserStatus          @default(ACTIVE)
+  sessionVersion          Int                 @default(0)
+  suspendedAt             DateTime?
+  suspendedById           String?
+  suspensionReason        String?
+  deletedAt               DateTime?
+  deletedById             String?
+  deletionReason          String?
+  anonymizedAt            DateTime?
+  lastLoginAt             DateTime?
+  createdAt               DateTime            @default(now())
+  updatedAt               DateTime            @updatedAt
+  memberships             CompanyMembership[]
+  assignments             StaffAssignment[]
+  auditLogsAsActor        AuditLog[]          @relation("AuditActor")
+  auditLogsAsTarget       AuditLog[]          @relation("AuditTarget")
+  syncRuns                SyncRun[]
+  invitationCodesCreated  InvitationCode[]    @relation("InvitationCodeCreator")
+  invitationCodesUsed     InvitationCode[]    @relation("InvitationCodeUser")
+  suspendedBy             User?               @relation("UserSuspendedBy", fields: [suspendedById], references: [id], onDelete: SetNull)
+  suspendedUsers          User[]              @relation("UserSuspendedBy")
+  deletedBy               User?               @relation("UserDeletedBy", fields: [deletedById], references: [id], onDelete: SetNull)
+  deletedUsers            User[]              @relation("UserDeletedBy")
+  companiesSuspended      Company[]           @relation("CompanySuspendedBy")
+  cleaningTasksAssigned   CleaningTask[]      @relation("CleaningTaskAssignee")
+  cleaningTasksAssignedBy CleaningTask[]      @relation("CleaningTaskAssignedBy")
+  cleaningTasksStarted    CleaningTask[]      @relation("CleaningTaskStartedBy")
+  cleaningTasksCompleted  CleaningTask[]      @relation("CleaningTaskCompletedBy")
+  cleaningTaskLogs        CleaningTaskLog[]   @relation("CleaningTaskLogActor")
+  cleaningPhotosUploaded  CleaningPhoto[]     @relation("CleaningPhotoUploader")
 
   @@index([isActive, name])
   @@index([status, createdAt])
@@ -420,26 +432,36 @@ model Reservation {
 }
 
 model CleaningTask {
-  id            String             @id @default(cuid())
-  companyId     String
-  propertyId    String
-  roomId        String
-  reservationId String?
-  scheduledDate DateTime
-  status        CleaningTaskStatus @default(PENDING)
-  assignedToId  String?
-  startedAt     DateTime?
-  completedAt   DateTime?
-  completedById String?
-  createdAt     DateTime           @default(now())
-  updatedAt     DateTime           @updatedAt
-  company       Company            @relation(fields: [companyId], references: [id], onDelete: Restrict)
-  property      Property           @relation(fields: [propertyId], references: [id], onDelete: Restrict)
-  room          Room               @relation(fields: [roomId], references: [id], onDelete: Restrict)
-  reservation   Reservation?       @relation(fields: [reservationId], references: [id], onDelete: SetNull)
-  assignedTo    User?              @relation("CleaningTaskAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
-  completedBy   User?              @relation("CleaningTaskCompletedBy", fields: [completedById], references: [id], onDelete: SetNull)
-  photos        CleaningPhoto[]
+  id              String             @id @default(cuid())
+  companyId       String
+  propertyId      String
+  roomId          String
+  reservationId   String?
+  scheduledDate   DateTime
+  status          CleaningTaskStatus @default(PENDING)
+  assignedToId    String?
+  assigneeName    String?
+  assignedById    String?
+  assignedAt      DateTime?
+  startedById     String?
+  startedByName   String?
+  startedAt       DateTime?
+  completedAt     DateTime?
+  completedById   String?
+  completedByName String?
+  note            String?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  company         Company            @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  property        Property           @relation(fields: [propertyId], references: [id], onDelete: Restrict)
+  room            Room               @relation(fields: [roomId], references: [id], onDelete: Restrict)
+  reservation     Reservation?       @relation(fields: [reservationId], references: [id], onDelete: SetNull)
+  assignedTo      User?              @relation("CleaningTaskAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
+  assignedBy      User?              @relation("CleaningTaskAssignedBy", fields: [assignedById], references: [id], onDelete: SetNull)
+  startedBy       User?              @relation("CleaningTaskStartedBy", fields: [startedById], references: [id], onDelete: SetNull)
+  completedBy     User?              @relation("CleaningTaskCompletedBy", fields: [completedById], references: [id], onDelete: SetNull)
+  photos          CleaningPhoto[]
+  logs            CleaningTaskLog[]
 
   @@unique([reservationId, roomId])
   @@index([companyId, status, scheduledDate])
@@ -448,7 +470,27 @@ model CleaningTask {
   @@index([propertyId, status, completedAt])
   @@index([roomId, scheduledDate])
   @@index([assignedToId, scheduledDate, status])
+  @@index([assignedById, assignedAt])
+  @@index([startedById, startedAt])
   @@index([status, scheduledDate])
+}
+
+model CleaningTaskLog {
+  id             String                @id @default(cuid())
+  taskId         String
+  action         CleaningTaskLogAction
+  actorUserId    String?
+  workerName     String?
+  previousStatus CleaningTaskStatus?
+  nextStatus     CleaningTaskStatus?
+  details        Json?
+  createdAt      DateTime              @default(now())
+  task           CleaningTask          @relation(fields: [taskId], references: [id], onDelete: Restrict)
+  actor          User?                 @relation("CleaningTaskLogActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([taskId, createdAt])
+  @@index([actorUserId, createdAt])
+  @@index([action, createdAt])
 }
 
 model CleaningPhoto {

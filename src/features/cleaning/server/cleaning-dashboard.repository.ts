@@ -17,7 +17,7 @@ export async function getCleaningDashboardSummary(input: {
   const tasks = await prisma.cleaningTask.findMany({
     where: {
       status: { in: ["PENDING", "IN_PROGRESS"] },
-      scheduledDate: { gt: input.start, lte: input.end },
+      scheduledDate: { gte: input.start, lt: input.end },
       room: { is: scopedRoom },
     },
     select: {

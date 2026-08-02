@@ -4,7 +4,6 @@ import { PageHeader } from "@/components/shared/page-header";
 import { AccessDenied, authorizeAccess, getCurrentAccessContext, PERMISSIONS } from "@/features/access-control";
 import { CleaningWorkspace } from "@/features/cleaning/components/cleaning-workspace";
 import type { CleaningFilters } from "@/features/cleaning/cleaning.types";
-import { parseCleaningDate } from "@/features/cleaning/domain/cleaning-date";
 import { listCleaningPage } from "@/features/cleaning/server/cleaning.repository";
 
 export const dynamic = "force-dynamic";
@@ -19,21 +18,25 @@ function value(params: Record<string, string | string[] | undefined>, key: strin
 }
 
 function parseFilters(params: Record<string, string | string[] | undefined>): CleaningFilters {
-  const tab = value(params, "tab") === "history" ? "history" : "ongoing";
   const requestedStatus = value(params, "status");
   const requestedPriority = value(params, "priority");
+  const requestedSection = value(params, "section");
   const requestedPage = Number(value(params, "page") ?? "1");
   return {
-    tab,
-    date: parseCleaningDate(value(params, "date")).dateInput,
+    date: value(params, "date") ?? "",
     companyId: value(params, "companyId") ?? null,
     propertyId: value(params, "propertyId") ?? null,
     roomId: value(params, "roomId") ?? null,
     assigneeId: value(params, "assigneeId") ?? null,
-    status: tab === "history"
-      ? "COMPLETED"
-      : requestedStatus === "PENDING" || requestedStatus === "IN_PROGRESS" ? requestedStatus : null,
+    status: requestedStatus === "UNASSIGNED"
+      || requestedStatus === "WAITING"
+      || requestedStatus === "IN_PROGRESS"
+      || requestedStatus === "COMPLETED"
+      ? requestedStatus
+      : null,
     priority: requestedPriority === "urgent" || requestedPriority === "flexible" ? requestedPriority : null,
+    unassignedOnly: value(params, "unassignedOnly") === "true",
+    section: requestedSection === "urgent" || requestedSection === "flexible" || requestedSection === "completed" ? requestedSection : "all",
     page: Number.isInteger(requestedPage) && requestedPage > 0 ? requestedPage : 1,
   };
 }
@@ -54,9 +57,10 @@ export default async function CleaningPage({ searchParams }: { searchParams: Pro
     <div className="space-y-5">
       <PageHeader eyebrow={t("eyebrow")} title={t("title")} description={t("description")} />
       <CleaningWorkspace
-        filters={{ ...filters, page: data.page }}
+        filters={{ ...filters, date: data.date }}
         data={data}
         currentUserId={context.userId}
+        currentUserName={context.name ?? ""}
         role={context.role}
       />
     </div>

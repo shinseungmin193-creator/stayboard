@@ -13,6 +13,8 @@ export async function requireCleaningTaskAccess(taskId: string, permission: Perm
       roomId: true,
       status: true,
       assignedToId: true,
+      assigneeName: true,
+      assignedById: true,
     },
   });
   if (!task) throw new CleaningTaskNotFoundError();
@@ -28,7 +30,15 @@ export class CleaningTaskNotFoundError extends Error {
 }
 
 export class CleaningTaskStateError extends Error {
-  constructor(public readonly code: "NOT_ACTIONABLE" | "PHOTO_REQUIRED" | "INVALID_ASSIGNEE" | "ASSIGNEE_REQUIRED") {
+  constructor(public readonly code:
+    | "NOT_ACTIONABLE"
+    | "PHOTO_REQUIRED"
+    | "INVALID_ASSIGNEE"
+    | "ASSIGNEE_REQUIRED"
+    | "NAME_REQUIRED"
+    | "INVALID_NOTE"
+    | "ALREADY_ASSIGNED"
+    | "CONFLICT") {
     super(code);
     this.name = "CleaningTaskStateError";
   }
