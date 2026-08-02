@@ -20,8 +20,7 @@ export function getActualRole(actualRole: UserRole): UserRole {
 }
 
 export function canUseRolePreview(environment: RolePreviewEnvironment, actualRole: UserRole) {
-  return environment.NODE_ENV !== "production"
-    && environment.ENABLE_ROLE_PREVIEW === "true"
+  return environment.ENABLE_ROLE_PREVIEW === "true"
     && actualRole === "DEVELOPER";
 }
 

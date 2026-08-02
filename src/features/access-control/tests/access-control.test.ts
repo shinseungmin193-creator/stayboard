@@ -51,7 +51,7 @@ test("STAFF는 배정된 숙소 또는 객실만 접근한다", () => {
   assert.equal(canAccessRoom(context, { id: "room-c", propertyId: "property-b" }), false);
 });
 
-const previewEnvironment = { NODE_ENV: "development", ENABLE_ROLE_PREVIEW: "true" };
+const previewEnvironment = { NODE_ENV: "production", ENABLE_ROLE_PREVIEW: "true" };
 
 test("role preview keeps the actual DEVELOPER while applying ADMIN or STAFF permissions", () => {
   const admin = getAuthorizationRoles(previewEnvironment, "DEVELOPER", "ADMIN", true);
@@ -70,13 +70,21 @@ test("ordinary ADMIN and STAFF accounts cannot use role preview", () => {
   assert.equal(getPreviewRole(previewEnvironment, "ADMIN", "STAFF", true), null);
 });
 
-test("production and disabled environments ignore role preview cookies", () => {
+test("production enables role preview only with the explicit server flag", () => {
   assert.deepEqual(
     getAuthorizationRoles({ NODE_ENV: "production", ENABLE_ROLE_PREVIEW: "true" }, "DEVELOPER", "ADMIN", true),
+    { actualRole: "DEVELOPER", previewRole: "ADMIN", effectiveRole: "ADMIN" },
+  );
+  assert.equal(canUseRolePreview({ NODE_ENV: "production", ENABLE_ROLE_PREVIEW: "true" }, "DEVELOPER"), true);
+});
+
+test("missing or disabled role preview flags ignore preview cookies in every environment", () => {
+  assert.deepEqual(
+    getAuthorizationRoles({ NODE_ENV: "development", ENABLE_ROLE_PREVIEW: "false" }, "DEVELOPER", "STAFF", true),
     { actualRole: "DEVELOPER", previewRole: null, effectiveRole: "DEVELOPER" },
   );
   assert.deepEqual(
-    getAuthorizationRoles({ NODE_ENV: "development", ENABLE_ROLE_PREVIEW: "false" }, "DEVELOPER", "STAFF", true),
+    getAuthorizationRoles({ NODE_ENV: "production" }, "DEVELOPER", "ADMIN", true),
     { actualRole: "DEVELOPER", previewRole: null, effectiveRole: "DEVELOPER" },
   );
 });
