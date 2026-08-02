@@ -70,6 +70,7 @@ export async function syncCalendarSource(calendarSourceId: string, signal?: Abor
       const persisted = await persistReservationSync({
         syncLogId: syncLog.id,
         calendarSourceId: source.id,
+        companyId: source.room.property.companyId,
         propertyId: source.room.propertyId,
         roomId: source.roomId,
         provider: source.provider,

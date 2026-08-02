@@ -226,7 +226,6 @@ fi
 
 PACKAGE_CHANGED=0
 PRISMA_GENERATE_CHANGED=0
-MIGRATIONS_CHANGED=0
 
 if grep -Eq '^(package\.json|package-lock\.json)$' <<<"$CHANGED_FILES"; then
   PACKAGE_CHANGED=1
@@ -234,10 +233,6 @@ fi
 
 if grep -Eq '^(prisma/schema\.prisma|prisma\.config\.ts|prisma/migrations/)' <<<"$CHANGED_FILES"; then
   PRISMA_GENERATE_CHANGED=1
-fi
-
-if grep -Eq '^prisma/migrations/' <<<"$CHANGED_FILES"; then
-  MIGRATIONS_CHANGED=1
 fi
 
 echo "[4/10] 의존성 설치 필요 여부를 확인합니다."
@@ -256,11 +251,8 @@ else
   echo "[생략] Prisma Client 재생성 조건에 해당하지 않습니다."
 fi
 
-if [[ "$MIGRATIONS_CHANGED" -eq 1 ]]; then
-  npx prisma migrate deploy
-else
-  echo "[생략] Prisma migration 변경이 없습니다."
-fi
+echo "[적용] 미적용 Prisma migration을 확인하고 적용합니다."
+npx prisma migrate deploy
 
 echo "[6/10] Production Build를 실행합니다."
 NODE_OPTIONS="--max-old-space-size=4096" npm run build

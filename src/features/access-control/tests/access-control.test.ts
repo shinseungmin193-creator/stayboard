@@ -22,6 +22,9 @@ test("STAFF는 객실 조회와 운영 상태 변경만 허용된 관리 권한�
   assert.equal(hasPermission("STAFF", PERMISSIONS.CALENDAR_SOURCE_MANAGE), false);
   assert.equal(hasPermission("STAFF", PERMISSIONS.ADMIN_SETTINGS_READ), false);
   assert.equal(hasPermission("STAFF", PERMISSIONS.DEVELOPER_MANAGEMENT_READ), false);
+  assert.equal(hasPermission("STAFF", PERMISSIONS.CLEANING_READ), true);
+  assert.equal(hasPermission("STAFF", PERMISSIONS.CLEANING_MANAGE), true);
+  assert.equal(hasPermission("STAFF", PERMISSIONS.CLEANING_ASSIGN), false);
 });
 test("Permission Mapping은 모든 Role을 빠짐없이 정의한다", () => {
   assert.deepEqual(Object.keys(ROLE_PERMISSIONS).sort(), [...USER_ROLES].sort());

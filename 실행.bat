@@ -28,6 +28,20 @@ if not exist "package.json" (
     goto :end
 )
 
+echo Prisma migration을 확인하고 적용합니다.
+call npx.cmd prisma migrate deploy
+if errorlevel 1 (
+    echo [오류] Prisma migration 적용에 실패했습니다.
+    goto :end
+)
+
+echo Prisma Client를 생성합니다.
+call npx.cmd prisma generate
+if errorlevel 1 (
+    echo [오류] Prisma Client 생성에 실패했습니다.
+    goto :end
+)
+
 echo StayBoard 개발 서버를 시작합니다.
 echo 종료하려면 Ctrl+C를 누르세요.
 echo.

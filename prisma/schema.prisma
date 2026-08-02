@@ -47,6 +47,13 @@ enum RoomOperationalStatus {
   INSPECTION_REQUIRED
 }
 
+enum CleaningTaskStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
 enum GuestFallbackMode {
   PROVIDER
   GENERIC
@@ -93,6 +100,7 @@ model Company {
   settings         CompanySettings?
   memberships      CompanyMembership[]
   invitationCodes  InvitationCode[]
+  cleaningTasks    CleaningTask[]
   suspendedBy      User?               @relation("CompanySuspendedBy", fields: [suspendedById], references: [id], onDelete: SetNull)
   auditLogs        AuditLog[]
 
@@ -151,6 +159,7 @@ model Property {
   reservations     Reservation[]
   staffAssignments StaffAssignment[]
   propertyAccesses PropertyAccess[]
+  cleaningTasks    CleaningTask[]
 
   @@unique([companyId, name])
   @@index([companyId, isActive])
@@ -175,6 +184,7 @@ model Room {
   conflicts                  ReservationConflict[]
   staffAssignments           StaffAssignment[]
   syncRuns                   SyncRun[]
+  cleaningTasks              CleaningTask[]
 
   @@unique([propertyId, code])
   @@index([propertyId, isActive, sortOrder])
@@ -214,6 +224,9 @@ model User {
   deletedBy              User?               @relation("UserDeletedBy", fields: [deletedById], references: [id], onDelete: SetNull)
   deletedUsers           User[]              @relation("UserDeletedBy")
   companiesSuspended     Company[]           @relation("CompanySuspendedBy")
+  cleaningTasksAssigned  CleaningTask[]      @relation("CleaningTaskAssignee")
+  cleaningTasksCompleted CleaningTask[]      @relation("CleaningTaskCompletedBy")
+  cleaningPhotosUploaded CleaningPhoto[]     @relation("CleaningPhotoUploader")
 
   @@index([isActive, name])
   @@index([status, createdAt])
@@ -394,6 +407,7 @@ model Reservation {
   calendarSource        CalendarSource        @relation(fields: [calendarSourceId], references: [id], onDelete: Restrict)
   conflictsAsA          ReservationConflict[] @relation("ConflictReservationA")
   conflictsAsB          ReservationConflict[] @relation("ConflictReservationB")
+  cleaningTasks         CleaningTask[]
 
   @@unique([calendarSourceId, rawUid])
   @@index([roomId, startDate, endDate])
@@ -403,6 +417,59 @@ model Reservation {
   @@index([calendarSourceId, status])
   @@index([provider, startDate])
   @@index([provider, providerReservationId])
+}
+
+model CleaningTask {
+  id            String             @id @default(cuid())
+  companyId     String
+  propertyId    String
+  roomId        String
+  reservationId String?
+  scheduledDate DateTime
+  status        CleaningTaskStatus @default(PENDING)
+  assignedToId  String?
+  startedAt     DateTime?
+  completedAt   DateTime?
+  completedById String?
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+  company       Company            @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  property      Property           @relation(fields: [propertyId], references: [id], onDelete: Restrict)
+  room          Room               @relation(fields: [roomId], references: [id], onDelete: Restrict)
+  reservation   Reservation?       @relation(fields: [reservationId], references: [id], onDelete: SetNull)
+  assignedTo    User?              @relation("CleaningTaskAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
+  completedBy   User?              @relation("CleaningTaskCompletedBy", fields: [completedById], references: [id], onDelete: SetNull)
+  photos        CleaningPhoto[]
+
+  @@unique([reservationId, roomId])
+  @@index([companyId, status, scheduledDate])
+  @@index([companyId, status, completedAt])
+  @@index([propertyId, status, scheduledDate])
+  @@index([propertyId, status, completedAt])
+  @@index([roomId, scheduledDate])
+  @@index([assignedToId, scheduledDate, status])
+  @@index([status, scheduledDate])
+}
+
+model CleaningPhoto {
+  id             String       @id @default(cuid())
+  taskId         String
+  storageKey     String?      @unique
+  originalName   String
+  mimeType       String
+  size           Int
+  uploadedById   String
+  createdAt      DateTime     @default(now())
+  deleteAfter    DateTime?
+  deletedAt      DateTime?
+  deleteError    String?
+  deleteAttempts Int          @default(0)
+  task           CleaningTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  uploadedBy     User         @relation("CleaningPhotoUploader", fields: [uploadedById], references: [id], onDelete: Restrict)
+
+  @@index([taskId, createdAt])
+  @@index([deleteAfter, deletedAt])
+  @@index([uploadedById, createdAt])
 }
 
 model ReservationConflict {

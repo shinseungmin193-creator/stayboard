@@ -1,5 +1,5 @@
 import type { LucideIcon } from "lucide-react";
-import { BedDouble, Bug, Building2, CalendarDays, ChartNoAxesCombined, Code2, Hotel, LayoutDashboard, Rows3, ScrollText, Settings, TriangleAlert, Unplug, UserCog, Users } from "lucide-react";
+import { BedDouble, Bug, Building2, CalendarDays, ChartNoAxesCombined, Code2, Hotel, LayoutDashboard, Rows3, ScrollText, Settings, Sparkles, TriangleAlert, Unplug, UserCog, Users } from "lucide-react";
 import { PERMISSIONS, type Permission } from "../../access-control/domain/access-control";
 import { RESERVATION_CONFLICT_UI } from "../../reservation-conflicts/reservation-conflict.labels";
 
@@ -28,6 +28,7 @@ export const SIDEBAR_MENU_ITEMS = [
   { id: "room-overview", label: "객실 현황", href: "/room-overview", icon: Hotel, group: "operations", requiredPermission: PERMISSIONS.ROOM_READ, hideable: true },
   { id: "room-status", label: "객실 현황판", href: "/room-status", icon: Rows3, group: "operations", requiredPermission: PERMISSIONS.ROOM_READ, hideable: true },
   { id: "reservations", label: "예약", href: "/reservations", icon: CalendarDays, group: "operations", requiredPermission: PERMISSIONS.RESERVATION_READ, hideable: true },
+  { id: "cleaning", label: "청소 관리", href: "/cleaning", icon: Sparkles, group: "operations", requiredPermission: PERMISSIONS.CLEANING_READ, hideable: true },
   { id: "reservation-conflicts", label: RESERVATION_CONFLICT_UI.label, href: "/reservation-conflicts", icon: TriangleAlert, group: "operations", requiredPermission: PERMISSIONS.RESERVATION_READ, hideable: true },
   { id: "properties", label: "숙소", href: "/properties", icon: Building2, group: "management", requiredPermission: PERMISSIONS.PROPERTY_MANAGE, hideable: true },
   { id: "rooms", label: "객실", href: "/rooms", icon: BedDouble, group: "management", requiredPermission: PERMISSIONS.ROOM_MANAGE, hideable: true },
@@ -63,6 +64,6 @@ export function findSidebarMenu(menuId: SidebarMenuId) {
   return SIDEBAR_MENU_ITEMS.find((item) => item.id === menuId);
 }
 
-export const MOBILE_NAVIGATION_ITEMS = ["room-status", "dashboard", "reservations", "reservation-conflicts", "properties", "rooms", "calendar-sources", "member-management"]
+export const MOBILE_NAVIGATION_ITEMS = ["room-status", "dashboard", "reservations", "cleaning", "reservation-conflicts", "properties", "rooms", "calendar-sources", "member-management"]
   .map((menuId) => SIDEBAR_MENU_ITEMS.find((item) => item.id === menuId))
   .filter((item): item is (typeof SIDEBAR_MENU_ITEMS)[number] => Boolean(item));

@@ -1,5 +1,6 @@
 import "server-only";
 import { detectRoomReservationConflicts } from "@/features/reservation-conflicts/infrastructure/reservation-conflict.repository";
+import { syncCleaningTasksForCalendarSource } from "@/features/cleaning/server/cleaning-task-sync.service";
 import type { CalendarProviderType } from "@/lib/generated/prisma/enums";
 import type { Prisma } from "@/lib/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
@@ -32,6 +33,7 @@ interface PersistReservationSyncInput {
   syncLogId: string;
   calendarSourceId: string;
   propertyId: string;
+  companyId: string;
   roomId: string;
   provider: CalendarProviderType;
   reservations: NormalizedReservation[];
@@ -55,6 +57,12 @@ export async function persistReservationSync(input: PersistReservationSyncInput)
     const explicitCancelledCount = classification.update.filter((item) => item.reservation.status === "CANCELLED" && statusById.get(item.id) !== "CANCELLED").length;
     const created = classification.create.length ? await tx.reservation.createMany({ data: classification.create.map((reservation) => ({ ...persistenceData(reservation), rawUid: reservation.rawUid, calendarSourceId: input.calendarSourceId, propertyId: input.propertyId, roomId: input.roomId, provider: input.provider })), skipDuplicates: true }) : { count: 0 };
     for (const item of classification.update) await tx.reservation.update({ where: { id: item.id }, data: persistenceData(item.reservation) });
+    await syncCleaningTasksForCalendarSource(tx, {
+      calendarSourceId: input.calendarSourceId,
+      companyId: input.companyId,
+      propertyId: input.propertyId,
+      roomId: input.roomId,
+    });
     const conflicts = await detectRoomReservationConflicts(tx, input.roomId);
     await tx.syncLog.update({ where: { id: input.syncLogId }, data: { status: "SUCCESS", completedAt: input.completedAt, durationMs: input.completedAt.getTime() - input.syncStartedAt.getTime(), fetchedCount: input.fetchedCount, ...input.eventCounts, unknownEventDetails: input.unknownEventDetails, eventDiagnostics: input.eventDiagnostics, createdCount: created.count, updatedCount: classification.update.length, cancelledCount: explicitCancelledCount, errorCode: null, errorMessage: null, errorDetails: null } });
     await tx.calendarSource.update({ where: { id: input.calendarSourceId }, data: { lastSyncedAt: input.completedAt } });

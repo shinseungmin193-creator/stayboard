@@ -25,8 +25,8 @@ export default async function DashboardPage() {const i18n = await getTranslation
   { label: i18n("conflict.label"), count: summary.activeConflicts, iconName: "overbooking", href: "/reservation-conflicts", rooms: [] },
   { label: i18n("auto.m0063", { value0: summary.recentFailureHours }), count: summary.recentSyncFailures, iconName: "sync-failure", href: `/calendar-sources?logStatus=FAILED&hours=${summary.recentFailureHours}`, rooms: [] }];
 
-  const priorityCleaning: DashboardStatCardData = { label: i18n("auto.m0064"), count: summary.priorityCleaning, description: i18n("auto.m0065"), iconName: "priority-cleaning", iconClassName: "text-orange-600 dark:text-orange-400", rooms: summary.priorityCleaningRooms };
-  const flexibleCleaning: DashboardStatCardData = { label: i18n("auto.m0066"), count: summary.flexibleCleaning, description: i18n("auto.m0067"), iconName: "flexible-cleaning", iconClassName: "text-teal-600 dark:text-teal-400", rooms: summary.flexibleCleaningRooms };
+  const priorityCleaning: DashboardStatCardData = { label: i18n("auto.m0064"), count: summary.priorityCleaning, description: i18n("auto.m0065"), iconName: "priority-cleaning", iconClassName: "text-orange-600 dark:text-orange-400", href: context ? `/cleaning?date=${today}&priority=urgent` : undefined, rooms: summary.priorityCleaningRooms };
+  const flexibleCleaning: DashboardStatCardData = { label: i18n("auto.m0066"), count: summary.flexibleCleaning, description: i18n("auto.m0067"), iconName: "flexible-cleaning", iconClassName: "text-teal-600 dark:text-teal-400", href: context ? `/cleaning?date=${today}&priority=flexible` : undefined, rooms: summary.flexibleCleaningRooms };
   const canManageProperties = hasPermission(context?.role, PERMISSIONS.PROPERTY_MANAGE);
   const propertyAction = canManageProperties ?
   <Button nativeButton={false} render={<Link href="/properties" />} className="w-full sm:w-auto">{i18n("auto.m0068")}<ArrowRight /></Button> :

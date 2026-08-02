@@ -53,6 +53,7 @@ test("역할 권한과 사용자 숨김 설정을 순서 설정에 함께 적용
   assert.equal(staff.some((item) => item.id === "properties"), false);
   assert.equal(staff.some((item) => item.id === "dashboard"), false);
   assert.equal(staff.some((item) => item.id === "room-overview"), true);
+  assert.equal(staff.some((item) => item.id === "cleaning"), true);
   const developer = getAuthorizedSidebarMenus(SIDEBAR_MENU_ITEMS, DEFAULT_SIDEBAR_PREFERENCE, "DEVELOPER");
   assert.equal(developer.some((item) => item.id === "developer-settings"), true);
   const admin = getAuthorizedSidebarMenus(SIDEBAR_MENU_ITEMS, DEFAULT_SIDEBAR_PREFERENCE, "ADMIN");

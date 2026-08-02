@@ -1,4 +1,5 @@
 import type { RoomOverviewCard, RoomOverviewReservation } from "@/features/room-overview/domain/room-overview";
+import { classifyCleaningPriority } from "../cleaning/domain/cleaning-priority";
 
 const ACTIVE_RESERVATION_STATUSES = new Set(["CONFIRMED", "TENTATIVE"]);
 
@@ -16,11 +17,11 @@ export function summarizeDashboardCleaning(rooms: readonly DashboardCleaningRoom
   const flexibleRooms: Array<Pick<DashboardCleaningRoom, "id" | "name" | "propertyName">> = [];
   for (const room of rooms) {
     const reservations = room.reservations.filter(isActiveReservation);
-    const hasCheckout = reservations.some((reservation) => reservation.endDate > todayStart && reservation.endDate <= todayEnd);
-    if (!hasCheckout) continue;
-    const hasCheckIn = reservations.some((reservation) => reservation.startDate >= todayStart && reservation.startDate < todayEnd);
+    const checkout = reservations.find((reservation) => reservation.endDate > todayStart && reservation.endDate <= todayEnd);
+    if (!checkout) continue;
+    const priority = classifyCleaningPriority(checkout.endDate, reservations.map((reservation) => reservation.startDate), todayStart, todayEnd);
     const item = { id: room.id, name: room.name, propertyName: room.propertyName };
-    if (hasCheckIn) priorityRooms.push(item);
+    if (priority === "urgent") priorityRooms.push(item);
     else flexibleRooms.push(item);
   }
   return { priority: priorityRooms.length, flexible: flexibleRooms.length, priorityRooms, flexibleRooms };
