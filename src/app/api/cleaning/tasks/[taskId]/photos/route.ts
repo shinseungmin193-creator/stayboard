@@ -1,6 +1,6 @@
 import { getTranslations } from "next-intl/server";
 
-import { getRolePreviewWriteBlock, isAccessControlError, PERMISSIONS } from "@/features/access-control";
+import { isAccessControlError, PERMISSIONS } from "@/features/access-control";
 import { validateCleaningPhoto } from "@/features/cleaning/domain/cleaning-photo-validation";
 import { canWorkOnCleaningTask } from "@/features/cleaning/domain/cleaning-access-policy";
 import { CleaningTaskStateError, requireCleaningTaskAccess } from "@/features/cleaning/server/cleaning-task-access";
@@ -25,7 +25,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ tas
   try {
     const { taskId } = await params;
     const { context, task } = await requireCleaningTaskAccess(taskId, PERMISSIONS.CLEANING_MANAGE);
-    if (getRolePreviewWriteBlock(context)) return Response.json({ success: false, message: t("previewBlocked") }, { status: 403 });
     if (!canWorkOnCleaningTask({
       role: context.role,
       userId: context.userId,
@@ -68,7 +67,14 @@ export async function POST(request: Request, { params }: { params: Promise<{ tas
         },
         select: { id: true, storageKey: true },
       });
-      await recordCleaningPhotoAdded(tx, { taskId, actorUserId: context.userId, workerName: current.assigneeName });
+      await recordCleaningPhotoAdded(tx, {
+        taskId,
+        actorUserId: context.userId,
+        workerName: current.assigneeName,
+        auditMetadata: context.isRoleSwitchActive && context.developerRoleSessionId
+          ? { actualRole: context.actualRole, effectiveRole: context.effectiveRole, developerRoleSessionId: context.developerRoleSessionId }
+          : undefined,
+      });
       return created;
     });
     storageKey = null;

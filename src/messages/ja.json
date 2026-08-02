@@ -1150,5 +1150,63 @@
     "m0667": "期間を変更するか、同期状態を確認してください。",
     "m0668": "フィルタ結果がありません",
     "m0669": "宿泊施設や部屋の検索条件を変更してみてください。"
+  },
+  "developerRoleSwitch": {
+    "title": "権限テスト",
+    "description": "実際のアカウント権限を変更せず、選択した会社の範囲で管理者またはスタッフ権限をテストします。",
+    "developerMode": "開発者モード",
+    "propertyCount": "宿泊施設 {count}件",
+    "fields": {
+      "company": "テスト会社",
+      "singleCompany": "1回につき1社",
+      "searchCompany": "会社名を検索",
+      "noCompany": "検索結果がありません。",
+      "role": "テスト権限",
+      "propertyScope": "スタッフの宿泊施設アクセス範囲",
+      "noProperty": "選択できる有効な宿泊施設がありません。"
+    },
+    "roles": {
+      "ADMIN": { "title": "管理者権限テスト", "description": "選択した会社の管理者権限" },
+      "STAFF": { "title": "スタッフ権限テスト", "description": "選択した宿泊施設のスタッフ権限" }
+    },
+    "scope": {
+      "ALL": "会社内の全宿泊施設",
+      "SELECTED": "選択した宿泊施設のみ"
+    },
+    "actions": {
+      "start": "権限テストを開始",
+      "update": "権限テストを適用",
+      "open": "権限テストを開く",
+      "settings": "権限テスト設定",
+      "return": "開発者モードに戻る",
+      "processing": "処理中"
+    },
+    "banner": {
+      "ADMIN": "管理者権限をテスト中",
+      "STAFF": "スタッフ権限をテスト中",
+      "company": "会社名: {company}",
+      "properties": "アクセス可能な宿泊施設: {count}件"
+    },
+    "card": {
+      "description": "ログアウトや別のテストアカウントを使わずに、ADMIN/STAFF権限とデータ範囲を検証します。",
+      "actualRole": "実際の権限",
+      "currentMode": "現在のモード",
+      "notSelected": "未選択"
+    },
+    "messages": {
+      "unauthenticated": "ログイン後に利用できます。",
+      "forbidden": "DEVELOPERのみ権限テストを利用できます。",
+      "disabled": "現在の環境では権限テストが無効です。",
+      "companyUnavailable": "有効な会社が見つかりません。",
+      "propertyRequired": "スタッフテストに使用する宿泊施設を1件以上選択してください。",
+      "propertyOutOfScope": "選択した宿泊施設が会社の範囲外、または無効です。",
+      "sessionExpired": "権限テストセッションの有効期限が切れました。",
+      "sessionUnavailable": "現在の権限テストセッションが見つかりません。",
+      "invalidInput": "権限テスト設定を確認してください。",
+      "failed": "権限テストを処理できませんでした。",
+      "started": "権限テストを開始しました。",
+      "updated": "権限テスト設定を変更しました。",
+      "ended": "開発者モードに戻りました。"
+    }
   }
 }

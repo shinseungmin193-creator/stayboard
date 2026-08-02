@@ -4,9 +4,10 @@ import { cache } from "react";
 import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/features/auth/server/get-current-user";
+import { DEVELOPER_ROLE_SWITCH_COOKIE_NAME } from "@/features/developer-role-switch/server/developer-role-switch.session";
+import { resolveDeveloperRoleSession, revokeDeveloperRoleSessionByToken } from "@/features/developer-role-switch/server/developer-role-switch.service";
 import type { AccessContext, Permission } from "../domain/access-control";
 import { canAccessCompany, canAccessProperty, canAccessRoom, hasPermission } from "../domain/access-control";
-import { getAuthorizationRoles, isRolePreviewActive, ROLE_PREVIEW_COOKIE_NAME, ROLE_PREVIEW_WRITE_BLOCKED_MESSAGE } from "../domain/role-preview";
 
 export interface AccessContextProvider {
   getCurrentAccessContext(): Promise<AccessContext | null>;
@@ -17,31 +18,74 @@ const ACTIVE_COMPANY_COOKIE = "stayboard.active-company";
 const accessContextProvider: AccessContextProvider = {
   async getCurrentAccessContext() {
     const user = await getCurrentUser();
-    if (!user?.isActive || user.status !== "ACTIVE") return null;
+    if (!user) return null;
     const cookieStore = await cookies();
+    const developerRoleToken = cookieStore.get(DEVELOPER_ROLE_SWITCH_COOKIE_NAME)?.value ?? null;
+    if (!user.isActive || user.status !== "ACTIVE") {
+      if (user.systemRole === "DEVELOPER") {
+        await revokeDeveloperRoleSessionByToken(developerRoleToken, "ACCOUNT_UNAVAILABLE");
+      }
+      return null;
+    }
     const requestedCompanyId = cookieStore.get(ACTIVE_COMPANY_COOKIE)?.value;
     if (user.systemRole === "DEVELOPER") {
+      const roleSwitch = await resolveDeveloperRoleSession({
+        actor: user,
+        token: developerRoleToken,
+      });
+      if (roleSwitch.active) {
+        const active = roleSwitch.active;
+        return {
+          userId: user.id,
+          email: user.email,
+          name: user.name,
+          actualRole: "DEVELOPER",
+          previewRole: active.previewRole,
+          effectiveRole: active.previewRole,
+          isRoleSwitchActive: true,
+          role: active.previewRole,
+          systemRole: "DEVELOPER",
+          companyRole: active.previewRole,
+          activeCompanyId: active.companyId,
+          activeCompanyName: active.companyName,
+          availableCompanies: [{ id: active.companyId, name: active.companyName }],
+          allowedCompanyIds: [active.companyId],
+          allowedPropertyIds: active.allowedPropertyIds,
+          developerRoleSessionId: active.sessionId,
+          roleSwitchExpiresAt: active.expiresAt,
+          roleSwitchPropertyScopeMode: active.propertyScope.mode,
+          roleSwitchSelectedPropertyIds: active.propertyScope.propertyIds,
+          roleSwitchCookieStatus: "ACTIVE",
+          scope: { mode: "companies", companyIds: [active.companyId], propertyIds: active.allowedPropertyIds },
+          source: "session",
+        };
+      }
       const companies = await prisma.company.findMany({ where: { isActive: true }, select: { id: true, name: true }, orderBy: { name: "asc" } });
       const activeCompany = companies.find((company) => company.id === requestedCompanyId);
-      const roles = getAuthorizationRoles(process.env, "DEVELOPER", cookieStore.get(ROLE_PREVIEW_COOKIE_NAME)?.value, Boolean(activeCompany));
-      const staffPropertyIds = roles.effectiveRole === "STAFF" && activeCompany
-        ? (await prisma.property.findMany({ where: { companyId: activeCompany.id, isActive: true }, select: { id: true } })).map((property) => property.id)
-        : undefined;
       const scope = activeCompany
-        ? { mode: "companies" as const, companyIds: [activeCompany.id], ...(roles.effectiveRole === "STAFF" ? { propertyIds: staffPropertyIds ?? [] } : {}) }
+        ? { mode: "companies" as const, companyIds: [activeCompany.id] }
         : { mode: "all" as const };
       return {
         userId: user.id,
         email: user.email,
         name: user.name,
-        ...roles,
-        role: roles.effectiveRole,
+        actualRole: "DEVELOPER",
+        previewRole: null,
+        effectiveRole: "DEVELOPER",
+        isRoleSwitchActive: false,
+        role: "DEVELOPER",
         systemRole: "DEVELOPER",
-        companyRole: roles.previewRole === "ADMIN" || roles.previewRole === "STAFF" ? roles.previewRole : null,
+        companyRole: null,
         activeCompanyId: activeCompany?.id ?? null,
         activeCompanyName: activeCompany?.name ?? null,
         availableCompanies: companies,
-        previewScopeLabel: roles.effectiveRole === "STAFF" ? "테스트 범위: 현재 회사의 활성 숙소 전체" : null,
+        allowedCompanyIds: activeCompany ? [activeCompany.id] : null,
+        allowedPropertyIds: null,
+        developerRoleSessionId: null,
+        roleSwitchExpiresAt: null,
+        roleSwitchPropertyScopeMode: null,
+        roleSwitchSelectedPropertyIds: [],
+        roleSwitchCookieStatus: roleSwitch.status,
         scope,
         source: "session",
       };
@@ -52,18 +96,27 @@ const accessContextProvider: AccessContextProvider = {
     const membershipPropertyIds = membership.propertyAccesses.map((item) => item.propertyId);
     const propertyIds = membershipPropertyIds.length ? membershipPropertyIds : user.assignments.flatMap((item) => item.propertyId && item.property?.companyId === membership.companyId ? [item.propertyId] : []);
     const roomIds = user.assignments.flatMap((item) => item.roomId && item.room?.property.companyId === membership.companyId ? [item.roomId] : []);
-    const roles = getAuthorizationRoles(process.env, membership.role, null, true);
     return {
       userId: user.id,
       email: user.email,
       name: user.name,
-      ...roles,
-      role: roles.effectiveRole,
+      actualRole: membership.role,
+      previewRole: null,
+      effectiveRole: membership.role,
+      isRoleSwitchActive: false,
+      role: membership.role,
       systemRole: "NONE",
       companyRole: membership.role,
       activeCompanyId: membership.companyId,
       activeCompanyName: membership.company.name,
       availableCompanies: user.memberships.map((item) => ({ id: item.companyId, name: item.company.name })),
+      allowedCompanyIds: [membership.companyId],
+      allowedPropertyIds: membership.role === "STAFF" ? propertyIds : null,
+      developerRoleSessionId: null,
+      roleSwitchExpiresAt: null,
+      roleSwitchPropertyScopeMode: null,
+      roleSwitchSelectedPropertyIds: [],
+      roleSwitchCookieStatus: "NONE",
       scope: membership.role === "STAFF"
         ? { mode: "companies", companyIds: [membership.companyId], propertyIds, roomIds }
         : { mode: "companies", companyIds: [membership.companyId] },
@@ -167,8 +220,3 @@ export async function requireCalendarSourceAccess(calendarSourceId: string, perm
 }
 
 export const FORBIDDEN_ACTION_RESULT = { success: false, status: 403, errorCode: "FORBIDDEN", message: "접근 권한이 없습니다." } as const;
-export const ROLE_PREVIEW_WRITE_BLOCKED_RESULT = { success: false, status: 403, errorCode: "FORBIDDEN", message: ROLE_PREVIEW_WRITE_BLOCKED_MESSAGE } as const;
-
-export function getRolePreviewWriteBlock(context: AccessContext | null | undefined) {
-  return context && isRolePreviewActive(context) ? ROLE_PREVIEW_WRITE_BLOCKED_RESULT : null;
-}

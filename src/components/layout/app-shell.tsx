@@ -7,11 +7,11 @@ import { AuthTrigger } from "@/features/auth/components/auth-trigger";
 import { CompanySwitcher } from "@/features/auth/components/company-switcher";
 import { DemoModeBanner } from "@/features/auth/components/demo-mode-banner";
 import { AccountLogoutButton } from "@/features/auth/components/account-menu";
+import { DeveloperRoleSwitchBanner, DeveloperRoleSwitchProvider, DeveloperRoleSwitchTrigger, getCurrentDeveloperRoleSwitchOptions, type ActiveDeveloperRoleSwitch } from "@/features/developer-role-switch";
 import { DEFAULT_SIDEBAR_PREFERENCE, SidebarPreferenceProvider } from "@/features/sidebar-preferences";
 import { findSidebarPreference } from "@/features/sidebar-preferences/infrastructure/sidebar-preference.repository";
 import { DesktopSidebar } from "./desktop-sidebar";
 import { MobileNavigation } from "./mobile-navigation";
-import { RolePreviewBanner } from "@/features/access-control/components/role-preview-banner";
 
 export async function AppShell({ children }: Readonly<{ children: React.ReactNode }>) {
   const [accessContext, t] = await Promise.all([
@@ -19,10 +19,28 @@ export async function AppShell({ children }: Readonly<{ children: React.ReactNod
     getTranslations(),
   ]);
   const sidebarPreference = accessContext ? await findSidebarPreference(accessContext.userId) : DEFAULT_SIDEBAR_PREFERENCE;
+  const roleSwitchOptions = accessContext?.actualRole === "DEVELOPER" ? await getCurrentDeveloperRoleSwitchOptions() : null;
+  const activeRoleSwitch: ActiveDeveloperRoleSwitch | null = accessContext?.isRoleSwitchActive
+    && (accessContext.previewRole === "ADMIN" || accessContext.previewRole === "STAFF")
+    && accessContext.activeCompanyId
+    && accessContext.activeCompanyName
+    && accessContext.developerRoleSessionId
+    && accessContext.roleSwitchExpiresAt
+    ? {
+        sessionId: accessContext.developerRoleSessionId,
+        previewRole: accessContext.previewRole,
+        companyId: accessContext.activeCompanyId,
+        companyName: accessContext.activeCompanyName,
+        propertyScope: { mode: accessContext.roleSwitchPropertyScopeMode ?? "ALL", propertyIds: [...(accessContext.roleSwitchSelectedPropertyIds ?? [])] },
+        allowedPropertyIds: [...(accessContext.allowedPropertyIds ?? [])],
+        expiresAt: accessContext.roleSwitchExpiresAt,
+      }
+    : null;
   return (
     <AuthDialogProvider>
       <SidebarPreferenceProvider initialPreference={sidebarPreference}>
-        <div className="min-h-dvh bg-muted/30">
+        <DeveloperRoleSwitchProvider options={roleSwitchOptions} active={activeRoleSwitch} staleCookie={accessContext?.roleSwitchCookieStatus === "STALE"}>
+          <div className="min-h-dvh bg-muted/30">
           <DesktopSidebar
             role={accessContext?.role ?? null}
             userName={accessContext?.name}
@@ -40,6 +58,7 @@ export async function AppShell({ children }: Readonly<{ children: React.ReactNod
                       activeCompanyId={accessContext.activeCompanyId}
                       allowAll={accessContext.role === "DEVELOPER"}
                     />
+                    {!accessContext.isRoleSwitchActive && <DeveloperRoleSwitchTrigger size="sm" variant="ghost" className="hidden xl:inline-flex" />}
                     <AccountLogoutButton />
                   </>
                 ) : (
@@ -49,14 +68,15 @@ export async function AppShell({ children }: Readonly<{ children: React.ReactNod
                 <ThemeToggle />
               </div>
             </header>
-            {accessContext?.actualRole === "DEVELOPER" && accessContext.previewRole && <RolePreviewBanner previewRole={accessContext.previewRole} scopeLabel={accessContext.previewScopeLabel} />}
+            <DeveloperRoleSwitchBanner />
             {!accessContext && <DemoModeBanner />}
             <main className="mx-auto min-w-0 max-w-[1500px] overflow-x-clip p-3 pb-[calc(5.5rem+env(safe-area-inset-bottom))] sm:p-6 sm:pb-24 lg:p-7 lg:pb-7">
               {children}
             </main>
           </div>
           <MobileNavigation role={accessContext?.role ?? null} userName={accessContext?.name} companyName={accessContext?.activeCompanyName} />
-        </div>
+          </div>
+        </DeveloperRoleSwitchProvider>
       </SidebarPreferenceProvider>
     </AuthDialogProvider>
   );

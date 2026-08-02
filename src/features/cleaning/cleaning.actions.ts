@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { getTranslations } from "next-intl/server";
 
-import { getRolePreviewWriteBlock, hasPermission, isAccessControlError, PERMISSIONS } from "@/features/access-control";
+import { hasPermission, isAccessControlError, PERMISSIONS, type AccessContext } from "@/features/access-control";
 import { logServerError } from "@/lib/prisma-errors";
 import {
   cleaningTaskAssignmentSchema,
@@ -57,8 +57,14 @@ function revalidateCleaning() {
   revalidatePath("/");
 }
 
-function actor(context: { userId: string; name?: string }, workerName?: string) {
-  return { userId: context.userId, name: context.name?.trim() || workerName?.trim() || "" };
+function actor(context: AccessContext, workerName?: string) {
+  return {
+    userId: context.userId,
+    name: context.name?.trim() || workerName?.trim() || "",
+    auditMetadata: context.isRoleSwitchActive && context.developerRoleSessionId
+      ? { actualRole: context.actualRole, effectiveRole: context.effectiveRole, developerRoleSessionId: context.developerRoleSessionId }
+      : undefined,
+  };
 }
 
 export async function assignCleaningTaskAction(input: {
@@ -71,9 +77,6 @@ export async function assignCleaningTaskAction(input: {
   if (!parsed.success) return { success: false, message: t("invalidName"), code: "INVALID_NAME" };
   try {
     const { context, task } = await requireCleaningTaskAccess(parsed.data.taskId, PERMISSIONS.CLEANING_MANAGE);
-    const previewBlock = getRolePreviewWriteBlock(context);
-    if (previewBlock) return { success: false, message: t("previewBlocked"), code: "PREVIEW_BLOCKED" };
-
     let assigneeUserId: string | null = context.userId;
     let replaceExisting = false;
     if (context.role !== "STAFF") {
@@ -109,8 +112,6 @@ export async function startCleaningTaskAction(input: { taskId: string; workerNam
   if (!parsed.success) return { success: false, message: t("invalidName"), code: "INVALID_NAME" };
   try {
     const { context, task } = await requireCleaningTaskAccess(parsed.data.taskId, PERMISSIONS.CLEANING_MANAGE);
-    const previewBlock = getRolePreviewWriteBlock(context);
-    if (previewBlock) return { success: false, message: t("previewBlocked"), code: "PREVIEW_BLOCKED" };
     if (!canWorkOnCleaningTask({
       role: context.role,
       userId: context.userId,
@@ -136,8 +137,6 @@ export async function completeCleaningTaskAction(input: { taskId: string; worker
   if (!parsed.success) return { success: false, message: t("invalidName"), code: "INVALID_NAME" };
   try {
     const { context, task } = await requireCleaningTaskAccess(parsed.data.taskId, PERMISSIONS.CLEANING_MANAGE);
-    const previewBlock = getRolePreviewWriteBlock(context);
-    if (previewBlock) return { success: false, message: t("previewBlocked"), code: "PREVIEW_BLOCKED" };
     if (!canWorkOnCleaningTask({
       role: context.role,
       userId: context.userId,
@@ -159,8 +158,6 @@ export async function saveCleaningTaskNoteAction(input: { taskId: string; note: 
   if (!parsed.success) return { success: false, message: t("invalidNote"), code: "INVALID_NOTE" };
   try {
     const { context, task } = await requireCleaningTaskAccess(parsed.data.taskId, PERMISSIONS.CLEANING_MANAGE);
-    const previewBlock = getRolePreviewWriteBlock(context);
-    if (previewBlock) return { success: false, message: t("previewBlocked"), code: "PREVIEW_BLOCKED" };
     if (!canWorkOnCleaningTask({
       role: context.role,
       userId: context.userId,

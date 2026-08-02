@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import type { ActionResult } from "@/lib/action-result";
 import { AUTH_COOKIE_PATH, USE_SECURE_AUTH_COOKIES } from "./domain/cookie-policy";
 import { getCurrentUser } from "./server/get-current-user";
+import { getCurrentAccessContext } from "@/features/access-control";
 
 const ACTIVE_COMPANY_COOKIE = "stayboard.active-company";
 const schema = z.object({ companyId: z.string().trim().max(100) });
@@ -13,7 +14,8 @@ const schema = z.object({ companyId: z.string().trim().max(100) });
 export async function switchActiveCompanyAction(input: unknown): Promise<ActionResult> {
   const parsed = schema.safeParse(input);
   const user = await getCurrentUser();
-  if (!parsed.success || !user?.isActive) return { success: false, message: "회사를 전환할 권한이 없습니다." };
+  const accessContext = await getCurrentAccessContext();
+  if (!parsed.success || !user?.isActive || accessContext?.isRoleSwitchActive) return { success: false, message: "회사를 전환할 권한이 없습니다." };
   if (!parsed.data.companyId) {
     if (user.systemRole !== "DEVELOPER") return { success: false, message: "회사를 선택해 주세요." };
     (await cookies()).set(ACTIVE_COMPANY_COOKIE, "", {

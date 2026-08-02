@@ -2,7 +2,6 @@ import "server-only";
 
 import {
   getCurrentAccessContext,
-  getRolePreviewWriteBlock,
   hasPermission,
   PERMISSIONS,
 } from "@/features/access-control";
@@ -13,14 +12,15 @@ export async function getDeveloperAccess() {
     !context ||
     context.systemRole !== "DEVELOPER" ||
     context.actualRole !== "DEVELOPER" ||
-    !hasPermission("DEVELOPER", PERMISSIONS.DEVELOPER_MANAGEMENT_READ)
+    context.isRoleSwitchActive ||
+    !hasPermission(context.effectiveRole, PERMISSIONS.DEVELOPER_MANAGEMENT_READ)
   ) return null;
   return context;
 }
 
 export async function getDeveloperMutationAccess() {
   const context = await getDeveloperAccess();
-  if (!context || getRolePreviewWriteBlock(context)) return null;
-  if (!hasPermission("DEVELOPER", PERMISSIONS.DEVELOPER_MANAGEMENT_MANAGE)) return null;
+  if (!context) return null;
+  if (!hasPermission(context.effectiveRole, PERMISSIONS.DEVELOPER_MANAGEMENT_MANAGE)) return null;
   return context;
 }

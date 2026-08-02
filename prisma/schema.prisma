@@ -97,21 +97,22 @@ enum InvitationCodeStatus {
 }
 
 model Company {
-  id               String              @id @default(cuid())
-  name             String
-  isActive         Boolean             @default(true)
-  suspendedAt      DateTime?
-  suspendedById    String?
-  suspensionReason String?
-  createdAt        DateTime            @default(now())
-  updatedAt        DateTime            @updatedAt
-  properties       Property[]
-  settings         CompanySettings?
-  memberships      CompanyMembership[]
-  invitationCodes  InvitationCode[]
-  cleaningTasks    CleaningTask[]
-  suspendedBy      User?               @relation("CompanySuspendedBy", fields: [suspendedById], references: [id], onDelete: SetNull)
-  auditLogs        AuditLog[]
+  id                    String                 @id @default(cuid())
+  name                  String
+  isActive              Boolean                @default(true)
+  suspendedAt           DateTime?
+  suspendedById         String?
+  suspensionReason      String?
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+  properties            Property[]
+  settings              CompanySettings?
+  memberships           CompanyMembership[]
+  invitationCodes       InvitationCode[]
+  cleaningTasks         CleaningTask[]
+  developerRoleSessions DeveloperRoleSession[]
+  suspendedBy           User?                  @relation("CompanySuspendedBy", fields: [suspendedById], references: [id], onDelete: SetNull)
+  auditLogs             AuditLog[]
 
   @@index([isActive, name])
   @@index([suspendedById])
@@ -202,15 +203,15 @@ model Room {
 }
 
 model User {
-  id                      String              @id @default(cuid())
-  username                String?             @unique
-  email                   String              @unique
+  id                      String                 @id @default(cuid())
+  username                String?                @unique
+  email                   String                 @unique
   name                    String
   passwordHash            String?
-  systemRole              UserSystemRole      @default(NONE)
-  isActive                Boolean             @default(true)
-  status                  UserStatus          @default(ACTIVE)
-  sessionVersion          Int                 @default(0)
+  systemRole              UserSystemRole         @default(NONE)
+  isActive                Boolean                @default(true)
+  status                  UserStatus             @default(ACTIVE)
+  sessionVersion          Int                    @default(0)
   suspendedAt             DateTime?
   suspendedById           String?
   suspensionReason        String?
@@ -219,26 +220,27 @@ model User {
   deletionReason          String?
   anonymizedAt            DateTime?
   lastLoginAt             DateTime?
-  createdAt               DateTime            @default(now())
-  updatedAt               DateTime            @updatedAt
+  createdAt               DateTime               @default(now())
+  updatedAt               DateTime               @updatedAt
   memberships             CompanyMembership[]
   assignments             StaffAssignment[]
-  auditLogsAsActor        AuditLog[]          @relation("AuditActor")
-  auditLogsAsTarget       AuditLog[]          @relation("AuditTarget")
+  auditLogsAsActor        AuditLog[]             @relation("AuditActor")
+  auditLogsAsTarget       AuditLog[]             @relation("AuditTarget")
   syncRuns                SyncRun[]
-  invitationCodesCreated  InvitationCode[]    @relation("InvitationCodeCreator")
-  invitationCodesUsed     InvitationCode[]    @relation("InvitationCodeUser")
-  suspendedBy             User?               @relation("UserSuspendedBy", fields: [suspendedById], references: [id], onDelete: SetNull)
-  suspendedUsers          User[]              @relation("UserSuspendedBy")
-  deletedBy               User?               @relation("UserDeletedBy", fields: [deletedById], references: [id], onDelete: SetNull)
-  deletedUsers            User[]              @relation("UserDeletedBy")
-  companiesSuspended      Company[]           @relation("CompanySuspendedBy")
-  cleaningTasksAssigned   CleaningTask[]      @relation("CleaningTaskAssignee")
-  cleaningTasksAssignedBy CleaningTask[]      @relation("CleaningTaskAssignedBy")
-  cleaningTasksStarted    CleaningTask[]      @relation("CleaningTaskStartedBy")
-  cleaningTasksCompleted  CleaningTask[]      @relation("CleaningTaskCompletedBy")
-  cleaningTaskLogs        CleaningTaskLog[]   @relation("CleaningTaskLogActor")
-  cleaningPhotosUploaded  CleaningPhoto[]     @relation("CleaningPhotoUploader")
+  invitationCodesCreated  InvitationCode[]       @relation("InvitationCodeCreator")
+  invitationCodesUsed     InvitationCode[]       @relation("InvitationCodeUser")
+  suspendedBy             User?                  @relation("UserSuspendedBy", fields: [suspendedById], references: [id], onDelete: SetNull)
+  suspendedUsers          User[]                 @relation("UserSuspendedBy")
+  deletedBy               User?                  @relation("UserDeletedBy", fields: [deletedById], references: [id], onDelete: SetNull)
+  deletedUsers            User[]                 @relation("UserDeletedBy")
+  companiesSuspended      Company[]              @relation("CompanySuspendedBy")
+  cleaningTasksAssigned   CleaningTask[]         @relation("CleaningTaskAssignee")
+  cleaningTasksAssignedBy CleaningTask[]         @relation("CleaningTaskAssignedBy")
+  cleaningTasksStarted    CleaningTask[]         @relation("CleaningTaskStartedBy")
+  cleaningTasksCompleted  CleaningTask[]         @relation("CleaningTaskCompletedBy")
+  cleaningTaskLogs        CleaningTaskLog[]      @relation("CleaningTaskLogActor")
+  cleaningPhotosUploaded  CleaningPhoto[]        @relation("CleaningPhotoUploader")
+  developerRoleSessions   DeveloperRoleSession[]
 
   @@index([isActive, name])
   @@index([status, createdAt])
@@ -333,6 +335,25 @@ model AuditLog {
   @@index([targetUserId, createdAt])
   @@index([targetCompanyId, createdAt])
   @@index([action, createdAt])
+}
+
+model DeveloperRoleSession {
+  id              String            @id @default(cuid())
+  tokenHash       String            @unique
+  developerUserId String
+  previewRole     CompanyMemberRole
+  companyId       String
+  propertyScope   Json
+  expiresAt       DateTime
+  revokedAt       DateTime?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  developer       User              @relation(fields: [developerUserId], references: [id], onDelete: Cascade)
+  company         Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([developerUserId, expiresAt])
+  @@index([companyId, expiresAt])
+  @@index([revokedAt, expiresAt])
 }
 
 model CalendarSource {

@@ -18,6 +18,7 @@ const ACTIONABLE_STATUSES = ["PENDING", "IN_PROGRESS"] as const;
 interface CleaningActor {
   userId: string;
   name: string;
+  auditMetadata?: Prisma.InputJsonObject;
 }
 
 function workflowSnapshot(task: {
@@ -51,7 +52,11 @@ async function createLog(tx: Prisma.TransactionClient, input: {
   previousStatus?: CleaningTaskStatus | null;
   nextStatus?: CleaningTaskStatus | null;
   details?: Prisma.InputJsonValue;
+  auditMetadata?: Prisma.InputJsonObject;
 }) {
+  const details = input.details && typeof input.details === "object" && !Array.isArray(input.details)
+    ? { ...(input.details as Prisma.InputJsonObject), ...(input.auditMetadata ?? {}) }
+    : input.auditMetadata;
   await tx.cleaningTaskLog.create({
     data: {
       taskId: input.taskId,
@@ -60,7 +65,7 @@ async function createLog(tx: Prisma.TransactionClient, input: {
       workerName: input.workerName,
       previousStatus: input.previousStatus,
       nextStatus: input.nextStatus,
-      details: input.details,
+      details,
     },
   });
 }
@@ -99,6 +104,7 @@ export async function assignCleaningTask(taskId: string, input: CleaningActor & 
         workerName,
         previousStatus: task.status,
         nextStatus: task.status,
+        auditMetadata: input.auditMetadata,
       });
     });
   } catch (error) {
@@ -138,9 +144,9 @@ export async function startCleaningTask(taskId: string, input: CleaningActor & {
       });
       if (!updated.count) throw new CleaningTaskStateError("CONFLICT");
       if (plan.shouldAssign) {
-        await createLog(tx, { taskId, action: "ASSIGNED", actorUserId: input.userId, workerName, previousStatus: "PENDING", nextStatus: "PENDING" });
+        await createLog(tx, { taskId, action: "ASSIGNED", actorUserId: input.userId, workerName, previousStatus: "PENDING", nextStatus: "PENDING", auditMetadata: input.auditMetadata });
       }
-      await createLog(tx, { taskId, action: "STARTED", actorUserId: input.userId, workerName, previousStatus: "PENDING", nextStatus: "IN_PROGRESS" });
+      await createLog(tx, { taskId, action: "STARTED", actorUserId: input.userId, workerName, previousStatus: "PENDING", nextStatus: "IN_PROGRESS", auditMetadata: input.auditMetadata });
     });
   } catch (error) {
     translateWorkflowError(error);
@@ -184,9 +190,9 @@ export async function completeCleaningTask(taskId: string, input: CleaningActor 
       });
       if (!updated.count) throw new CleaningTaskStateError("CONFLICT");
       if (plan.shouldAssign) {
-        await createLog(tx, { taskId, action: "ASSIGNED", actorUserId: input.userId, workerName, previousStatus: task.status, nextStatus: task.status });
+        await createLog(tx, { taskId, action: "ASSIGNED", actorUserId: input.userId, workerName, previousStatus: task.status, nextStatus: task.status, auditMetadata: input.auditMetadata });
       }
-      await createLog(tx, { taskId, action: "COMPLETED", actorUserId: input.userId, workerName, previousStatus: task.status, nextStatus: "COMPLETED" });
+      await createLog(tx, { taskId, action: "COMPLETED", actorUserId: input.userId, workerName, previousStatus: task.status, nextStatus: "COMPLETED", auditMetadata: input.auditMetadata });
       await tx.cleaningPhoto.updateMany({
         where: { taskId, storageKey: { not: null }, deletedAt: null },
         data: { deleteAfter: getCleaningPhotoDeleteAfter(completedAt), deleteError: null },
@@ -214,12 +220,13 @@ export async function saveCleaningTaskNote(taskId: string, input: CleaningActor 
       previousStatus: task.status,
       nextStatus: task.status,
       details: { length: note.length },
+      auditMetadata: input.auditMetadata,
     });
   });
 }
 
-export async function recordCleaningPhotoAdded(tx: Prisma.TransactionClient, input: { taskId: string; actorUserId: string; workerName?: string | null }) {
-  await createLog(tx, { taskId: input.taskId, action: "PHOTO_ADDED", actorUserId: input.actorUserId, workerName: input.workerName });
+export async function recordCleaningPhotoAdded(tx: Prisma.TransactionClient, input: { taskId: string; actorUserId: string; workerName?: string | null; auditMetadata?: Prisma.InputJsonObject }) {
+  await createLog(tx, { taskId: input.taskId, action: "PHOTO_ADDED", actorUserId: input.actorUserId, workerName: input.workerName, auditMetadata: input.auditMetadata });
 }
 
 export async function isEligibleCleaningAssignee(input: { userId: string; companyId: string; propertyId: string; roomId: string }) {

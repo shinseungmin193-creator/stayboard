@@ -1150,5 +1150,63 @@
     "m0667": "기간을 변경하거나 동기화 상태를 확인해 주세요.",
     "m0668": "필터 결과가 없습니다",
     "m0669": "숙소 또는 객실 검색 조건을 변경해 보세요."
+  },
+  "developerRoleSwitch": {
+    "title": "권한 테스트",
+    "description": "실제 계정 권한은 변경하지 않고 선택한 회사 범위에서 관리자 또는 직원 권한을 테스트합니다.",
+    "developerMode": "개발자 모드",
+    "propertyCount": "{count}개 숙소",
+    "fields": {
+      "company": "테스트 회사",
+      "singleCompany": "한 번에 한 회사",
+      "searchCompany": "회사명 검색",
+      "noCompany": "검색 결과가 없습니다.",
+      "role": "테스트 권한",
+      "propertyScope": "직원 접근 숙소 범위",
+      "noProperty": "선택할 수 있는 활성 숙소가 없습니다."
+    },
+    "roles": {
+      "ADMIN": { "title": "관리자 권한 테스트", "description": "선택 회사의 관리자 권한" },
+      "STAFF": { "title": "직원 권한 테스트", "description": "선택 숙소의 직원 권한" }
+    },
+    "scope": {
+      "ALL": "회사 전체 숙소",
+      "SELECTED": "선택한 숙소만"
+    },
+    "actions": {
+      "start": "권한 테스트 시작",
+      "update": "권한 테스트 적용",
+      "open": "권한 테스트 열기",
+      "settings": "권한 테스트 설정",
+      "return": "개발자 모드로 복귀",
+      "processing": "처리 중"
+    },
+    "banner": {
+      "ADMIN": "관리자 권한 테스트 중",
+      "STAFF": "직원 권한 테스트 중",
+      "company": "회사명: {company}",
+      "properties": "접근 숙소: {count}개"
+    },
+    "card": {
+      "description": "로그아웃이나 별도 테스트 계정 없이 ADMIN/STAFF 권한과 데이터 범위를 검증합니다.",
+      "actualRole": "실제 권한",
+      "currentMode": "현재 모드",
+      "notSelected": "선택 안 함"
+    },
+    "messages": {
+      "unauthenticated": "로그인 후 사용할 수 있습니다.",
+      "forbidden": "DEVELOPER만 권한 테스트를 사용할 수 있습니다.",
+      "disabled": "현재 환경에서는 권한 테스트가 비활성화되어 있습니다.",
+      "companyUnavailable": "활성 회사를 찾을 수 없습니다.",
+      "propertyRequired": "직원 테스트에 사용할 숙소를 하나 이상 선택해 주세요.",
+      "propertyOutOfScope": "선택한 숙소가 회사 범위와 일치하지 않거나 비활성 상태입니다.",
+      "sessionExpired": "권한 테스트 세션이 만료되었습니다.",
+      "sessionUnavailable": "현재 권한 테스트 세션을 찾을 수 없습니다.",
+      "invalidInput": "권한 테스트 설정을 확인해 주세요.",
+      "failed": "권한 테스트를 처리하지 못했습니다.",
+      "started": "권한 테스트를 시작했습니다.",
+      "updated": "권한 테스트 설정을 변경했습니다.",
+      "ended": "개발자 모드로 복귀했습니다."
+    }
   }
 }

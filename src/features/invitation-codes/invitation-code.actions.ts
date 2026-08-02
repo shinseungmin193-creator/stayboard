@@ -2,7 +2,7 @@
 
 import "server-only";
 import { revalidatePath } from "next/cache";
-import { getCurrentAccessContext, getRolePreviewWriteBlock, hasPermission, PERMISSIONS } from "@/features/access-control";
+import { getCurrentAccessContext, hasPermission, PERMISSIONS, withAccessAuditMetadata } from "@/features/access-control";
 import type { ActionResult } from "@/lib/action-result";
 import { Prisma } from "@/lib/generated/prisma/client";
 import type { CompanyMemberRole } from "@/lib/generated/prisma/enums";
@@ -27,7 +27,6 @@ export type InvitationCodeAcceptanceResult = ActionResult<{ companyId: string; c
 async function contextFor(companyId: string) {
   const context = await getCurrentAccessContext();
   if (!context) return null;
-  if (getRolePreviewWriteBlock(context)) return context;
   if (!hasPermission(context.role, PERMISSIONS.USER_MANAGE) || context.role === "STAFF") return null;
   if (context.role !== "DEVELOPER" && context.activeCompanyId !== companyId) return null;
   if (context.role === "DEVELOPER" && !context.availableCompanies?.some((company) => company.id === companyId)) return null;
@@ -55,8 +54,6 @@ export async function createInvitationCodeAction(
   if (!parsed.success) return { success: false, message: "발행할 역할을 확인해 주세요." };
   const context = await contextFor(companyId);
   if (!context) return forbidden();
-  const previewBlock = getRolePreviewWriteBlock(context);
-  if (previewBlock) return previewBlock;
 
   const generated = generateInvitationCode(parsed.data.role);
   const now = new Date();
@@ -93,7 +90,7 @@ export async function createInvitationCodeAction(
           data: {
             actorUserId: context.userId,
             action: "INVITATION_CODE_REPLACED",
-            details: { companyId, role: parsed.data.role, revokedInvitationCodeIds: replaced.map((code) => code.id), newInvitationCodeId: invitation.id },
+            details: withAccessAuditMetadata(context, { companyId, role: parsed.data.role, revokedInvitationCodeIds: replaced.map((code) => code.id), newInvitationCodeId: invitation.id }),
           },
         });
       }
@@ -101,7 +98,7 @@ export async function createInvitationCodeAction(
         data: {
           actorUserId: context.userId,
           action: "INVITATION_CODE_CREATED",
-          details: { companyId, role: invitation.role, invitationCodeId: invitation.id, before: null, after: { status: "ACTIVE", expiresAt: invitation.expiresAt.toISOString() } },
+          details: withAccessAuditMetadata(context, { companyId, role: invitation.role, invitationCodeId: invitation.id, before: null, after: { status: "ACTIVE", expiresAt: invitation.expiresAt.toISOString() } }),
         },
       });
       return invitation;
@@ -130,8 +127,6 @@ export async function revokeInvitationCodeAction(
   if (!parsed.success) return { success: false, message: "잘못된 요청입니다." };
   const context = await contextFor(companyId);
   if (!context) return forbidden();
-  const previewBlock = getRolePreviewWriteBlock(context);
-  if (previewBlock) return previewBlock;
   const now = new Date();
   const result = await prisma.$transaction(async (tx) => {
     const invitation = await tx.invitationCode.findFirst({
@@ -148,7 +143,7 @@ export async function revokeInvitationCodeAction(
       data: {
         actorUserId: context.userId,
         action: "INVITATION_CODE_REVOKED",
-        details: { companyId, role: invitation.role, invitationCodeId: invitation.id, before: { status: "ACTIVE" }, after: { status: "REVOKED", revokedAt: now.toISOString() } },
+        details: withAccessAuditMetadata(context, { companyId, role: invitation.role, invitationCodeId: invitation.id, before: { status: "ACTIVE" }, after: { status: "REVOKED", revokedAt: now.toISOString() } }),
       },
     });
     return true;
@@ -214,7 +209,7 @@ export async function acceptInvitationCodeAction(
           actorUserId: context.userId,
           targetUserId: context.userId,
           action: "INVITATION_CODE_USED",
-          details: { companyId: consumed.companyId, role: consumed.role, propertyIds: membership.propertyIds, invitationCodeId: consumed.id, before: { status: "ACTIVE" }, after: { status: "USED", usedAt: now.toISOString() } },
+          details: withAccessAuditMetadata(context, { companyId: consumed.companyId, role: consumed.role, propertyIds: membership.propertyIds, invitationCodeId: consumed.id, before: { status: "ACTIVE" }, after: { status: "USED", usedAt: now.toISOString() } }),
         },
       });
       return { companyId: invitation.company.id, companyName: invitation.company.name, role: consumed.role };

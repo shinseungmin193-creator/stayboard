@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { Menu, MoreHorizontal } from "lucide-react";
+import { useState } from "react";
+import { Menu, MoreHorizontal, ShieldCheck } from "lucide-react";
 import { useTranslations } from "next-intl";
 import type { UserRole } from "@/features/access-control";
 import { AccountLogoutButton } from "@/features/auth/components/account-menu";
@@ -10,12 +11,16 @@ import { PUBLIC_DEMO_MENU_IDS, SIDEBAR_MENU_GROUPS, SIDEBAR_MENU_ITEMS } from "@
 import { getAuthorizedSidebarMenus, orderSidebarMenus, useSidebarPreference } from "@/features/sidebar-preferences";
 import { Sheet, SheetClose, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { NavigationLink } from "./navigation-link";
+import { Button } from "@/components/ui/button";
+import { useDeveloperRoleSwitch } from "@/features/developer-role-switch/components/developer-role-switch-provider";
 
 const PRIMARY_MOBILE_IDS = ["dashboard", "room-overview", "reservations", "room-status"];
 
 export function MobileNavigation({ role, userName, companyName }: { role: UserRole | null; userName?: string | null; companyName?: string | null }) {
   const { preference } = useSidebarPreference();
   const t = useTranslations();
+  const [open, setOpen] = useState(false);
+  const roleSwitch = useDeveloperRoleSwitch();
   const menuLabel = (item: (typeof SIDEBAR_MENU_ITEMS)[number]) =>
     preference.customLabels[item.id]
     ?? t(`navigation.items.${item.id}` as Parameters<typeof t>[0]);
@@ -30,7 +35,7 @@ export function MobileNavigation({ role, userName, companyName }: { role: UserRo
     .filter((group) => group.items.length);
 
   return (
-    <Sheet>
+    <Sheet open={open} onOpenChange={setOpen}>
       <nav className="fixed inset-x-0 bottom-0 z-40 border-t bg-background/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden" aria-label={t("navigation.mobilePrimaryMenu")}>
         <div className="grid h-16 grid-cols-5">
           {primaryItems.slice(0, 4).map((item) => <NavigationLink key={item.href} label={menuLabel(item)} href={item.href} icon={item.icon} mobile />)}
@@ -48,6 +53,7 @@ export function MobileNavigation({ role, userName, companyName }: { role: UserRo
           </SheetDescription>
         </SheetHeader>
         <div className="space-y-5 p-3">
+          {role === "DEVELOPER" && roleSwitch.enabled && <Button type="button" variant="ghost" className="min-h-11 w-full justify-start gap-3 px-3" onClick={() => { setOpen(false); roleSwitch.open(); }}><ShieldCheck className="size-4" />{t("developerRoleSwitch.title")}</Button>}
           {grouped.map((group) => <section key={group.key} aria-labelledby={`mobile-nav-${group.key}`}>
             <h2 id={`mobile-nav-${group.key}`} className="mb-1 px-3 text-[11px] font-semibold text-muted-foreground">{t(`navigation.groups.${group.key}` as Parameters<typeof t>[0])}</h2>
             <div className="space-y-1">{group.items.map((item) => (

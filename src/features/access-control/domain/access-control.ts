@@ -88,6 +88,7 @@ export interface AccessContext {
   actualRole: UserRole;
   previewRole: UserRole | null;
   effectiveRole: UserRole;
+  isRoleSwitchActive: boolean;
   /** @deprecated 권한 호환 필드이며 effectiveRole과 항상 같습니다. */
   role: UserRole;
   systemRole: "DEVELOPER" | "NONE";
@@ -95,7 +96,13 @@ export interface AccessContext {
   activeCompanyId?: string | null;
   activeCompanyName?: string | null;
   availableCompanies?: readonly { id: string; name: string }[];
-  previewScopeLabel?: string | null;
+  allowedCompanyIds: readonly string[] | null;
+  allowedPropertyIds: readonly string[] | null;
+  developerRoleSessionId: string | null;
+  roleSwitchExpiresAt?: string | null;
+  roleSwitchPropertyScopeMode?: "ALL" | "SELECTED" | null;
+  roleSwitchSelectedPropertyIds?: readonly string[];
+  roleSwitchCookieStatus?: "NONE" | "STALE" | "ACTIVE";
   scope: AccessScope;
   source: "session" | "development-bootstrap";
 }
@@ -125,4 +132,18 @@ export function canAccessRoom(context: AccessContext, room: { id: string; proper
   if (context.scope.mode === "all") return true;
   if (context.scope.propertyIds === undefined && context.scope.roomIds === undefined) return true;
   return Boolean(context.scope.propertyIds?.includes(room.propertyId) || context.scope.roomIds?.includes(room.id));
+}
+
+export function withAccessAuditMetadata<T extends Record<string, unknown>>(context: AccessContext, details: T): T & {
+  actualRole?: UserRole;
+  effectiveRole?: UserRole;
+  developerRoleSessionId?: string;
+} {
+  if (!context.isRoleSwitchActive || !context.developerRoleSessionId) return details;
+  return {
+    ...details,
+    actualRole: context.actualRole,
+    effectiveRole: context.effectiveRole,
+    developerRoleSessionId: context.developerRoleSessionId,
+  };
 }

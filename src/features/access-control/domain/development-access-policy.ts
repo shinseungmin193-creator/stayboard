@@ -16,10 +16,10 @@ export function resolveDevelopmentAccessContext(environment: DevelopmentAccessEn
   const role = environment.STAYBOARD_DEV_ACCESS_ROLE;
   const configuredUserId = environment.STAYBOARD_DEV_ACCESS_USER_ID?.trim();
   if (role === "DEVELOPER") {
-    return { userId: configuredUserId || "development:developer", actualRole: role, previewRole: null, effectiveRole: role, role, systemRole: "DEVELOPER", companyRole: null, scope: { mode: "all" }, source: "development-bootstrap" };
+    return { userId: configuredUserId || "development:developer", actualRole: role, previewRole: null, effectiveRole: role, isRoleSwitchActive: false, role, systemRole: "DEVELOPER", companyRole: null, allowedCompanyIds: null, allowedPropertyIds: null, developerRoleSessionId: null, roleSwitchExpiresAt: null, roleSwitchPropertyScopeMode: null, roleSwitchSelectedPropertyIds: [], roleSwitchCookieStatus: "NONE", scope: { mode: "all" }, source: "development-bootstrap" };
   }
 
   const companyIds = [...new Set((environment.STAYBOARD_DEV_ACCESS_COMPANY_IDS ?? "").split(",").map((value) => value.trim()).filter(Boolean))];
   if (!companyIds.length) return null;
-  return { userId: configuredUserId || `development:${role.toLowerCase()}:${companyIds.join(",")}`, actualRole: role, previewRole: null, effectiveRole: role, role, systemRole: "NONE", companyRole: role, scope: { mode: "companies", companyIds }, source: "development-bootstrap" };
+  return { userId: configuredUserId || `development:${role.toLowerCase()}:${companyIds.join(",")}`, actualRole: role, previewRole: null, effectiveRole: role, isRoleSwitchActive: false, role, systemRole: "NONE", companyRole: role, allowedCompanyIds: companyIds, allowedPropertyIds: null, developerRoleSessionId: null, roleSwitchExpiresAt: null, roleSwitchPropertyScopeMode: null, roleSwitchSelectedPropertyIds: [], roleSwitchCookieStatus: "NONE", scope: { mode: "companies", companyIds }, source: "development-bootstrap" };
 }
