@@ -1,37 +1,101 @@
-﻿"use client";import { useTranslations } from "next-intl";
+"use client";
 
 import Link from "next/link";
 import { RotateCcw } from "lucide-react";
+import { useTranslations } from "next-intl";
+
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ROOM_DENSITIES, ROOM_OVERVIEW_LIMITS, type DeveloperSettings, type RoomDensity } from "../domain/developer-settings";
-import { useDeveloperSettings } from "./developer-settings-provider";
+import {
+  StaffMobileDashboardPreferenceEditor,
+  type StaffMobileDashboardPreferenceEditorData,
+} from "@/features/dashboard-preferences";
 import { SidebarMenuOrderCard } from "@/features/sidebar-preferences/components/sidebar-menu-order-card";
+import {
+  ROOM_DENSITIES,
+  ROOM_OVERVIEW_LIMITS,
+  type DeveloperSettings,
+  type RoomDensity,
+} from "../domain/developer-settings";
+import { useDeveloperSettings } from "./developer-settings-provider";
 
-
-
-function Toggle({ label, checked, onChange, disabled = false, description }: {label: string;checked: boolean;onChange(value: boolean): void;disabled?: boolean;description?: string;}) {
-  return <label className="flex items-start justify-between gap-4 rounded-lg border p-3"><span><span className="block text-sm font-medium">{label}</span>{description && <span className="mt-1 block text-xs text-muted-foreground">{description}</span>}</span><input type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} disabled={disabled} className="mt-1 size-4 accent-primary" /></label>;
+function Toggle({ label, checked, onChange, disabled = false, description }: {
+  label: string;
+  checked: boolean;
+  onChange(value: boolean): void;
+  disabled?: boolean;
+  description?: string;
+}) {
+  return <label className="flex items-start justify-between gap-4 rounded-lg border p-3">
+    <span><span className="block text-sm font-medium">{label}</span>{description && <span className="mt-1 block text-xs text-muted-foreground">{description}</span>}</span>
+    <input type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} disabled={disabled} className="mt-1 size-4 accent-primary" />
+  </label>;
 }
 
-function NumberControl({ field, label, value, onChange }: {field: keyof typeof ROOM_OVERVIEW_LIMITS;label: string;value: number;onChange(value: number): void;}) {
+function NumberControl({ field, label, value, onChange }: {
+  field: keyof typeof ROOM_OVERVIEW_LIMITS;
+  label: string;
+  value: number;
+  onChange(value: number): void;
+}) {
   const limit = ROOM_OVERVIEW_LIMITS[field];
-  return <label className="space-y-2 rounded-lg border p-3"><span className="flex items-center justify-between gap-3 text-sm font-medium"><span>{label}</span><output>{value}px</output></span><input type="range" min={limit.min} max={limit.max} step={limit.step} value={value} onChange={(event) => onChange(Number(event.target.value))} className="w-full accent-primary" /><span className="flex justify-between text-[10px] text-muted-foreground"><span>{limit.min}</span><span>{limit.max}</span></span></label>;
+  return <label className="space-y-2 rounded-lg border p-3">
+    <span className="flex items-center justify-between gap-3 text-sm font-medium"><span>{label}</span><output>{value}px</output></span>
+    <input type="range" min={limit.min} max={limit.max} step={limit.step} value={value} onChange={(event) => onChange(Number(event.target.value))} className="w-full accent-primary" />
+    <span className="flex justify-between text-[10px] text-muted-foreground"><span>{limit.min}</span><span>{limit.max}</span></span>
+  </label>;
 }
 
-export function DeveloperSettingsForm() {const i18n = useTranslations();const densityLabels: Record<RoomDensity, string> = { comfortable: i18n("auto.m0636"), default: i18n("auto.m0637"), compact: i18n("auto.m0638"), "ultra-compact": i18n("auto.m0639") };
+export function DeveloperSettingsForm({ staffMobileDashboard }: { staffMobileDashboard: StaffMobileDashboardPreferenceEditorData }) {
+  const i18n = useTranslations();
+  const densityLabels: Record<RoomDensity, string> = {
+    comfortable: i18n("auto.m0636"),
+    default: i18n("auto.m0637"),
+    compact: i18n("auto.m0638"),
+    "ultra-compact": i18n("auto.m0639"),
+  };
   const { settings, hydrated, updateSettings, applyPreset, resetSection, resetAll } = useDeveloperSettings();
   const updateRoom = (patch: Partial<DeveloperSettings["roomOverview"]>) => updateSettings((current) => ({ ...current, roomOverview: { ...current.roomOverview, ...patch } }));
   const updateDebug = (patch: Partial<DeveloperSettings["debug"]>) => updateSettings((current) => ({ ...current, debug: { ...current.debug, ...patch } }));
+
   return <div className="space-y-4" aria-busy={!hydrated}>
     <SidebarMenuOrderCard />
-    <Card><CardHeader className="flex-row items-center justify-between"><CardTitle className="text-base">{i18n("auto.m0312")}</CardTitle><Button type="button" variant="ghost" size="sm" onClick={() => resetSection("roomOverview")}><RotateCcw />{i18n("auto.m0313")}</Button></CardHeader><CardContent className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">{ROOM_DENSITIES.map((density) => <Button key={density} type="button" variant={settings.roomOverview.density === density ? "default" : "outline"} onClick={() => applyPreset(density)}>{densityLabels[density]}</Button>)}</CardContent></Card>
-    <Card><CardHeader><CardTitle className="text-base">{i18n("auto.m0314")}</CardTitle></CardHeader><CardContent className="grid gap-3 md:grid-cols-2 xl:grid-cols-4"><NumberControl field="cardMinWidth" label={i18n("auto.m0315")} value={settings.roomOverview.cardMinWidth} onChange={(value) => updateRoom({ cardMinWidth: value })} /><NumberControl field="cardMinHeight" label={i18n("auto.m0316")} value={settings.roomOverview.cardMinHeight} onChange={(value) => updateRoom({ cardMinHeight: value })} /><NumberControl field="gridGap" label={i18n("auto.m0317")} value={settings.roomOverview.gridGap} onChange={(value) => updateRoom({ gridGap: value })} /><NumberControl field="bodyPadding" label={i18n("auto.m0318")} value={settings.roomOverview.bodyPadding} onChange={(value) => updateRoom({ bodyPadding: value })} /><NumberControl field="statusBarHeight" label={i18n("auto.m0319")} value={settings.roomOverview.statusBarHeight} onChange={(value) => updateRoom({ statusBarHeight: value })} /><NumberControl field="propertyFontSize" label={i18n("auto.m0320")} value={settings.roomOverview.propertyFontSize} onChange={(value) => updateRoom({ propertyFontSize: value })} /><NumberControl field="roomFontSize" label={i18n("auto.m0321")} value={settings.roomOverview.roomFontSize} onChange={(value) => updateRoom({ roomFontSize: value })} /><NumberControl field="schedulePanelWidth" label={i18n("auto.m0322")} value={settings.roomOverview.schedulePanelWidth} onChange={(value) => updateRoom({ schedulePanelWidth: value })} /><label className="space-y-2 rounded-lg border p-3"><span className="block text-sm font-medium">{i18n("technical.providerBadge")}</span><select value={settings.roomOverview.providerBadgeSize} onChange={(event) => updateRoom({ providerBadgeSize: event.target.value as "sm" | "md" })} className="h-8 w-full rounded-md border bg-background px-2 text-sm"><option value="sm">{i18n("auto.m0323")}</option><option value="md">{i18n("auto.m0324")}</option></select></label></CardContent></Card>
-    <Card><CardHeader><CardTitle className="text-base">{i18n("auto.m0325")}</CardTitle></CardHeader><CardContent className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">{([
-        ["showPropertyName", i18n("auto.m0326")], ["showProviderBadges", "Provider Badge"], ["showGuestName", i18n("auto.m0327")], ["showStayDates", i18n("auto.m0328")], ["showNightCount", i18n("auto.m0329")], ["showNextReservation", i18n("auto.m0330")], ["showSyncWarnings", i18n("auto.m0331")], ["showNoConflictText", i18n("auto.m0332", { value0: i18n("conflict.none") })], ["showFooterActions", "Footer Action"], ["schedulePanelVisible", i18n("auto.m0333")]] as
-        const).map(([key, label]) => <Toggle key={key} label={label} checked={settings.roomOverview[key]} onChange={(value) => updateRoom({ [key]: value })} />)}</CardContent></Card>
-    <Card><CardHeader className="flex-row items-center justify-between"><CardTitle className="text-base">{i18n("auto.m0334")}</CardTitle><Button type="button" variant="ghost" size="sm" onClick={() => resetSection("debug")}><RotateCcw />{i18n("auto.m0313")}</Button></CardHeader><CardContent className="space-y-3"><Toggle label={i18n("technical.debugMode")} checked={settings.debug.enabled} onChange={(enabled) => updateDebug({ enabled })} description={i18n("auto.m0335")} /><div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">{([["showRoomId", i18n("technical.roomId")], ["showReservationId", i18n("technical.reservationId")], ["showCalendarSourceId", i18n("technical.calendarSourceId")], ["showInternalStatus", i18n("auto.m0336")], ["showProviderRawValue", i18n("auto.m0337")], ["showRenderReferenceTime", i18n("auto.m0338")], ["showReservationCount", i18n("auto.m0339")]] as const).map(([key, label]) => <Toggle key={key} label={label} checked={settings.debug[key]} disabled={!settings.debug.enabled} onChange={(value) => updateDebug({ [key]: value })} />)}</div></CardContent></Card>
-    <Card><CardHeader><CardTitle className="text-base">{i18n("auto.m0340")}</CardTitle></CardHeader><CardContent className="grid gap-3 md:grid-cols-3"><Toggle label={i18n("auto.m0341")} checked={false} disabled onChange={() => undefined} description={i18n("auto.m0342")} /><Toggle label={i18n("auto.m0343")} checked={false} disabled onChange={() => undefined} description={i18n("auto.m0342")} /><Toggle label={i18n("auto.m0344")} checked={false} disabled onChange={() => undefined} description={i18n("auto.m0342")} /></CardContent></Card>
+    <Card>
+      <CardHeader className="flex-row items-center justify-between"><CardTitle className="text-base">{i18n("auto.m0312")}</CardTitle><Button type="button" variant="ghost" size="sm" onClick={() => resetSection("roomOverview")}><RotateCcw />{i18n("auto.m0313")}</Button></CardHeader>
+      <CardContent className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">{ROOM_DENSITIES.map((density) => <Button key={density} type="button" variant={settings.roomOverview.density === density ? "default" : "outline"} onClick={() => applyPreset(density)}>{densityLabels[density]}</Button>)}</CardContent>
+    </Card>
+    <Card>
+      <CardHeader><CardTitle className="text-base">{i18n("auto.m0314")}</CardTitle></CardHeader>
+      <CardContent className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <NumberControl field="cardMinWidth" label={i18n("auto.m0315")} value={settings.roomOverview.cardMinWidth} onChange={(value) => updateRoom({ cardMinWidth: value })} />
+        <NumberControl field="cardMinHeight" label={i18n("auto.m0316")} value={settings.roomOverview.cardMinHeight} onChange={(value) => updateRoom({ cardMinHeight: value })} />
+        <NumberControl field="gridGap" label={i18n("auto.m0317")} value={settings.roomOverview.gridGap} onChange={(value) => updateRoom({ gridGap: value })} />
+        <NumberControl field="bodyPadding" label={i18n("auto.m0318")} value={settings.roomOverview.bodyPadding} onChange={(value) => updateRoom({ bodyPadding: value })} />
+        <NumberControl field="statusBarHeight" label={i18n("auto.m0319")} value={settings.roomOverview.statusBarHeight} onChange={(value) => updateRoom({ statusBarHeight: value })} />
+        <NumberControl field="propertyFontSize" label={i18n("auto.m0320")} value={settings.roomOverview.propertyFontSize} onChange={(value) => updateRoom({ propertyFontSize: value })} />
+        <NumberControl field="roomFontSize" label={i18n("auto.m0321")} value={settings.roomOverview.roomFontSize} onChange={(value) => updateRoom({ roomFontSize: value })} />
+        <NumberControl field="schedulePanelWidth" label={i18n("auto.m0322")} value={settings.roomOverview.schedulePanelWidth} onChange={(value) => updateRoom({ schedulePanelWidth: value })} />
+        <label className="space-y-2 rounded-lg border p-3"><span className="block text-sm font-medium">{i18n("technical.providerBadge")}</span><select value={settings.roomOverview.providerBadgeSize} onChange={(event) => updateRoom({ providerBadgeSize: event.target.value as "sm" | "md" })} className="h-8 w-full rounded-md border bg-background px-2 text-sm"><option value="sm">{i18n("auto.m0323")}</option><option value="md">{i18n("auto.m0324")}</option></select></label>
+      </CardContent>
+    </Card>
+    <Card>
+      <CardHeader><CardTitle className="text-base">{i18n("auto.m0325")}</CardTitle></CardHeader>
+      <CardContent className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">{([
+        ["showPropertyName", i18n("auto.m0326")], ["showProviderBadges", "Provider Badge"], ["showGuestName", i18n("auto.m0327")], ["showStayDates", i18n("auto.m0328")], ["showNightCount", i18n("auto.m0329")], ["showNextReservation", i18n("auto.m0330")], ["showSyncWarnings", i18n("auto.m0331")], ["showNoConflictText", i18n("auto.m0332", { value0: i18n("conflict.none") })], ["showFooterActions", "Footer Action"], ["schedulePanelVisible", i18n("auto.m0333")],
+      ] as const).map(([key, label]) => <Toggle key={key} label={label} checked={settings.roomOverview[key]} onChange={(value) => updateRoom({ [key]: value })} />)}</CardContent>
+    </Card>
+
+    <Card>
+      <CardHeader><CardTitle className="text-base">{i18n("auto.m0340")}</CardTitle></CardHeader>
+      <CardContent><StaffMobileDashboardPreferenceEditor key={staffMobileDashboard.selectedCompanyId ?? "none"} data={staffMobileDashboard} /></CardContent>
+    </Card>
+
+    <Card>
+      <CardHeader className="flex-row items-center justify-between"><CardTitle className="text-base">{i18n("auto.m0334")}</CardTitle><Button type="button" variant="ghost" size="sm" onClick={() => resetSection("debug")}><RotateCcw />{i18n("auto.m0313")}</Button></CardHeader>
+      <CardContent className="space-y-3"><Toggle label={i18n("technical.debugMode")} checked={settings.debug.enabled} onChange={(enabled) => updateDebug({ enabled })} description={i18n("auto.m0335")} /><div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">{([
+        ["showRoomId", i18n("technical.roomId")], ["showReservationId", i18n("technical.reservationId")], ["showCalendarSourceId", i18n("technical.calendarSourceId")], ["showInternalStatus", i18n("auto.m0336")], ["showProviderRawValue", i18n("auto.m0337")], ["showRenderReferenceTime", i18n("auto.m0338")], ["showReservationCount", i18n("auto.m0339")],
+      ] as const).map(([key, label]) => <Toggle key={key} label={label} checked={settings.debug[key]} disabled={!settings.debug.enabled} onChange={(value) => updateDebug({ [key]: value })} />)}</div></CardContent>
+    </Card>
     <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-card p-3"><p className="text-xs text-muted-foreground">{i18n("auto.m0345")}</p><div className="flex gap-2"><Button nativeButton={false} render={<Link href="/room-overview" />} variant="outline">{i18n("auto.m0346")}</Button><Button type="button" variant="destructive" onClick={resetAll}><RotateCcw />{i18n("auto.m0347")}</Button></div></div>
   </div>;
 }

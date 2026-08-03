@@ -19,6 +19,8 @@ import { DashboardCleaningCard } from "@/features/dashboard/components/dashboard
 import { getDashboardSummary } from "@/features/dashboard/dashboard.repository";
 import type { DashboardStatCardData } from "@/features/dashboard/dashboard-stat-card";
 import { getDashboardDateInput } from "@/features/dashboard/dashboard-time";
+import { getVisibleStaffMobileDashboardCardIds } from "@/features/dashboard-preferences/domain/dashboard-preference";
+import { getStaffMobileDashboardPreference } from "@/features/dashboard-preferences/server/dashboard-preference.service";
 import { getDemoDashboardData } from "@/features/demo";
 
 export const dynamic = "force-dynamic";
@@ -93,6 +95,9 @@ export default async function DashboardPage() {
     },
   };
   const dashboardCards = getDashboardCardIds(dashboardRole);
+  const staffMobileDashboardCards = dashboardRole === "STAFF" && context?.activeCompanyId
+    ? getVisibleStaffMobileDashboardCardIds(await getStaffMobileDashboardPreference(context.activeCompanyId))
+    : dashboardCards;
 
   const canManageProperties = hasPermission(dashboardRole, PERMISSIONS.PROPERTY_MANAGE);
   const propertyAction = canManageProperties
@@ -103,12 +108,27 @@ export default async function DashboardPage() {
 
   return <div className="space-y-5">
     <PageHeader eyebrow="OVERVIEW" title={i18n("common.dashboard")} description={i18n("auto.m0071")} action={propertyAction} />
-    <section aria-label={i18n("auto.m0072")} className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-3">
+    {dashboardRole === "STAFF" ? <>
+      <section aria-label={i18n("auto.m0072")} className="grid grid-cols-2 gap-2 sm:gap-3 lg:hidden">
+        {staffMobileDashboardCards.map((cardId) => (
+          cardId === "priority-cleaning" || cardId === "flexible-cleaning"
+            ? <DashboardCleaningCard key={cardId} data={cards[cardId]} />
+            : <StatCard key={cardId} data={cards[cardId]} />
+        ))}
+      </section>
+      <section aria-label={i18n("auto.m0072")} className="hidden gap-3 lg:grid lg:grid-cols-3">
+        {dashboardCards.map((cardId) => (
+          cardId === "priority-cleaning" || cardId === "flexible-cleaning"
+            ? <DashboardCleaningCard key={cardId} data={cards[cardId]} />
+            : <StatCard key={cardId} data={cards[cardId]} />
+        ))}
+      </section>
+    </> : <section aria-label={i18n("auto.m0072")} className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-3">
       {dashboardCards.map((cardId) => (
         cardId === "priority-cleaning" || cardId === "flexible-cleaning"
           ? <DashboardCleaningCard key={cardId} data={cards[cardId]} />
           : <StatCard key={cardId} data={cards[cardId]} />
       ))}
-    </section>
+    </section>}
   </div>;
 }

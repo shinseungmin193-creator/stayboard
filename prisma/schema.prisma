@@ -90,6 +90,11 @@ enum MembershipStatus {
   DISABLED
 }
 
+enum DashboardViewport {
+  MOBILE
+  DESKTOP
+}
+
 enum InvitationCodeStatus {
   ACTIVE
   USED
@@ -97,25 +102,41 @@ enum InvitationCodeStatus {
 }
 
 model Company {
-  id                    String                 @id @default(cuid())
-  name                  String
-  isActive              Boolean                @default(true)
-  suspendedAt           DateTime?
-  suspendedById         String?
-  suspensionReason      String?
-  createdAt             DateTime               @default(now())
-  updatedAt             DateTime               @updatedAt
-  properties            Property[]
-  settings              CompanySettings?
-  memberships           CompanyMembership[]
-  invitationCodes       InvitationCode[]
-  cleaningTasks         CleaningTask[]
-  developerRoleSessions DeveloperRoleSession[]
-  suspendedBy           User?                  @relation("CompanySuspendedBy", fields: [suspendedById], references: [id], onDelete: SetNull)
-  auditLogs             AuditLog[]
+  id                       String                    @id @default(cuid())
+  name                     String
+  isActive                 Boolean                   @default(true)
+  suspendedAt              DateTime?
+  suspendedById            String?
+  suspensionReason         String?
+  createdAt                DateTime                  @default(now())
+  updatedAt                DateTime                  @updatedAt
+  properties               Property[]
+  settings                 CompanySettings?
+  memberships              CompanyMembership[]
+  invitationCodes          InvitationCode[]
+  cleaningTasks            CleaningTask[]
+  developerRoleSessions    DeveloperRoleSession[]
+  dashboardRolePreferences DashboardRolePreference[]
+  suspendedBy              User?                     @relation("CompanySuspendedBy", fields: [suspendedById], references: [id], onDelete: SetNull)
+  auditLogs                AuditLog[]
 
   @@index([isActive, name])
   @@index([suspendedById])
+}
+
+model DashboardRolePreference {
+  id            String            @id @default(cuid())
+  companyId     String
+  role          CompanyMemberRole
+  viewport      DashboardViewport
+  cardOrder     Json
+  hiddenCardIds Json
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+  company       Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, role, viewport])
+  @@index([companyId])
 }
 
 model CompanySettings {

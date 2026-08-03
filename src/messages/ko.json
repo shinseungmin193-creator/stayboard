@@ -1149,6 +1149,46 @@
     "m0668": "필터 결과가 없습니다",
     "m0669": "숙소 또는 객실 검색 조건을 변경해 보세요."
   },
+  "dashboardPreferences": {
+    "title": "직원 모바일 홈 화면 설정",
+    "description": "선택한 회사의 직원 모바일 대시보드 카드 순서와 노출 여부를 설정합니다.",
+    "company": "적용 회사",
+    "selectCompany": "회사를 선택해 주세요",
+    "selectCompanyPrompt": "설정할 회사를 선택하면 카드 편집기가 활성화됩니다.",
+    "noCompanies": "설정할 수 있는 활성 회사가 없습니다.",
+    "visibleCount": "노출 카드 {count}개",
+    "dirty": "저장되지 않은 변경",
+    "visible": "노출",
+    "hidden": "숨김",
+    "showCard": "{label} 카드 노출",
+    "hideCard": "{label} 카드 숨김",
+    "position": "{position}번째",
+    "dragHandle": "{label} 카드 순서 이동",
+    "mobileOnlyNotice": "이 설정은 해당 회사의 STAFF 모바일 홈과 DEVELOPER의 STAFF 권한 테스트 모바일 홈에만 적용됩니다.",
+    "previewNotice": "PC에서 미리보기할 때는 브라우저의 모바일 화면 모드로 전환해 확인해 주세요.",
+    "unsavedCompanyChange": "저장하지 않은 변경사항이 있습니다. 다른 회사로 이동할까요?",
+    "save": "저장",
+    "reset": "기본값 복원",
+    "preview": "직원 화면 미리보기",
+    "cancel": "취소",
+    "processing": "처리 중",
+    "resetDialog": {
+      "title": "기본 카드 구성으로 복원",
+      "description": "선택한 회사의 직원 모바일 홈 설정을 기본 순서와 노출 상태로 되돌립니다."
+    },
+    "messages": {
+      "unauthenticated": "로그인 후 사용할 수 있습니다.",
+      "forbidden": "개발자 모드의 DEVELOPER만 이 설정을 변경할 수 있습니다.",
+      "companyUnavailable": "활성 회사를 찾을 수 없습니다.",
+      "invalidInput": "카드 순서와 노출 설정을 확인해 주세요.",
+      "atLeastOneVisible": "최소 한 개의 카드는 노출해야 합니다.",
+      "saveBeforePreview": "미리보기 전에 변경사항을 저장해 주세요.",
+      "previewUnavailable": "권한 테스트 기능이 비활성화되어 있어 미리보기를 시작할 수 없습니다.",
+      "failed": "직원 모바일 홈 설정을 처리하지 못했습니다.",
+      "saved": "직원 모바일 홈 설정을 저장했습니다.",
+      "reset": "직원 모바일 홈 설정을 기본값으로 복원했습니다."
+    }
+  },
   "developerRoleSwitch": {
     "title": "권한 테스트",
     "modeTitle": "권한 테스트 모드",
