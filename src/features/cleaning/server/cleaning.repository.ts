@@ -4,6 +4,7 @@ import { companyScopeIds, propertyScopeWhere, roomScopeWhere, type AccessContext
 import type { Prisma } from "@/lib/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import type {
+  CleaningAssigneeAccount,
   CleaningFilters,
   CleaningPageData,
   CleaningSectionData,
@@ -201,7 +202,11 @@ export async function listCleaningPage(context: AccessContext, filters: Cleaning
         || membership.propertyAccesses.some((access) => access.propertyId === task.propertyId)
         || membership.user.assignments.some((assignment) => assignment.propertyId === task.propertyId || assignment.roomId === task.roomId)
       ))
-      .map((membership) => ({ id: membership.user.id, name: membership.user.name }));
+      .map((membership) => ({
+        id: membership.user.id,
+        name: membership.user.name,
+        role: membership.role,
+      } satisfies CleaningAssigneeAccount));
     const assigneeName = task.assigneeName ?? task.assignedTo?.name ?? null;
     const completedByName = task.completedByName ?? task.completedBy?.name ?? null;
     return {
@@ -260,7 +265,11 @@ export async function listCleaningPage(context: AccessContext, filters: Cleaning
   })) as Record<CleaningSection, CleaningSectionData>;
 
   const propertyMap = new Map(rooms.map((room) => [room.property.id, room.property]));
-  const assigneeMap = new Map(memberships.map((membership) => [membership.user.id, { id: membership.user.id, name: membership.user.name }]));
+  const assigneeMap = new Map(memberships.map((membership) => [membership.user.id, {
+    id: membership.user.id,
+    name: membership.user.name,
+    role: membership.role,
+  } satisfies CleaningAssigneeAccount]));
   return {
     sections: sectionData,
     summary: { urgent: urgentCount, flexible: flexibleCount, unassigned: unassignedCount, completed: completedCount },

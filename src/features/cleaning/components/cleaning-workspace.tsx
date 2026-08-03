@@ -76,10 +76,10 @@ export function CleaningWorkspace({
     if (result.success || result.code === "CONFLICT" || result.code === "ALREADY_ASSIGNED") router.refresh();
   };
 
-  const runWorkflow = (input: { task: CleaningTaskViewModel; mode: CleaningWorkflowMode; workerName: string; assigneeUserId?: string | null }) => {
+  const runWorkflow = (input: { task: CleaningTaskViewModel; mode: CleaningWorkflowMode; workerName: string; assigneeUserId?: string }) => {
     startTransition(async () => {
       const result = input.mode === "assign" || input.mode === "reassign"
-        ? await assignCleaningTaskAction({ taskId: input.task.id, workerName: input.workerName, assigneeUserId: input.assigneeUserId })
+        ? await assignCleaningTaskAction({ taskId: input.task.id, workerName: input.workerName, assigneeUserId: input.assigneeUserId ?? currentUserId })
         : input.mode === "start"
           ? await startCleaningTaskAction({ taskId: input.task.id, workerName: input.workerName })
           : await completeCleaningTaskAction({ taskId: input.task.id, workerName: input.workerName });

@@ -1,12 +1,14 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import { cleaningTaskAssignmentSchema } from "../cleaning.schemas";
 import {
   CleaningWorkflowError,
   normalizeCleaningWorkerName,
   planCleaningAssignment,
   planCleaningCompletion,
   planCleaningStart,
+  resolveCleaningAssignmentWorkerName,
   type CleaningWorkflowSnapshot,
 } from "../domain/cleaning-workflow";
 
@@ -20,6 +22,46 @@ test("self assignment and directly entered worker names are normalized", () => {
 test("empty or oversized worker names are rejected", () => {
   assert.throws(() => normalizeCleaningWorkerName("  "), (error) => error instanceof CleaningWorkflowError && error.code === "NAME_REQUIRED");
   assert.throws(() => normalizeCleaningWorkerName("가".repeat(31)), (error) => error instanceof CleaningWorkflowError && error.code === "NAME_REQUIRED");
+});
+
+test("staff assignments use the entered worker name as a task snapshot", () => {
+  assert.equal(resolveCleaningAssignmentWorkerName({
+    assigneeRole: "STAFF",
+    accountName: "공용 청소 계정",
+    workerName: "  김민수  ",
+  }), "김민수");
+});
+
+test("admin and developer assignments use the trusted account name", () => {
+  assert.equal(resolveCleaningAssignmentWorkerName({
+    assigneeRole: "ADMIN",
+    accountName: "신텐 관리자",
+    workerName: "임의 이름",
+  }), "신텐 관리자");
+  assert.equal(resolveCleaningAssignmentWorkerName({
+    assigneeRole: "DEVELOPER",
+    accountName: "StayBoard Developer",
+  }), "StayBoard Developer");
+});
+
+test("staff assignments require an actual worker name", () => {
+  assert.throws(
+    () => resolveCleaningAssignmentWorkerName({ assigneeRole: "STAFF", accountName: "공용 청소 계정" }),
+    (error) => error instanceof CleaningWorkflowError && error.code === "NAME_REQUIRED",
+  );
+});
+
+test("assignments require a real account id and reject null account ids", () => {
+  assert.equal(cleaningTaskAssignmentSchema.safeParse({
+    taskId: "task-a",
+    assigneeUserId: "staff-a",
+    workerName: "김민수",
+  }).success, true);
+  assert.equal(cleaningTaskAssignmentSchema.safeParse({
+    taskId: "task-a",
+    assigneeUserId: null,
+    workerName: "김민수",
+  }).success, false);
 });
 
 test("starting an unassigned task plans assignment and start as one workflow", () => {

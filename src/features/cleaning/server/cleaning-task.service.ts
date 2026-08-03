@@ -229,7 +229,7 @@ export async function recordCleaningPhotoAdded(tx: Prisma.TransactionClient, inp
   await createLog(tx, { taskId: input.taskId, action: "PHOTO_ADDED", actorUserId: input.actorUserId, workerName: input.workerName, auditMetadata: input.auditMetadata });
 }
 
-export async function isEligibleCleaningAssignee(input: { userId: string; companyId: string; propertyId: string; roomId: string }) {
+export async function getEligibleCleaningAssignee(input: { userId: string; companyId: string; propertyId: string; roomId: string }) {
   const membership = await prisma.companyMembership.findFirst({
     where: {
       userId: input.userId,
@@ -242,7 +242,7 @@ export async function isEligibleCleaningAssignee(input: { userId: string; compan
         { user: { assignments: { some: { OR: [{ propertyId: input.propertyId }, { roomId: input.roomId }] } } } },
       ],
     },
-    select: { id: true },
+    select: { role: true, user: { select: { id: true, name: true } } },
   });
-  return Boolean(membership);
+  return membership ? { id: membership.user.id, name: membership.user.name, role: membership.role } : null;
 }

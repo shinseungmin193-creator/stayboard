@@ -12,11 +12,12 @@ import {
   cleaningTaskStartSchema,
 } from "./cleaning.schemas";
 import { canWorkOnCleaningTask } from "./domain/cleaning-access-policy";
+import { resolveCleaningAssignmentWorkerName } from "./domain/cleaning-workflow";
 import { CleaningTaskStateError, requireCleaningTaskAccess } from "./server/cleaning-task-access";
 import {
   assignCleaningTask,
   completeCleaningTask,
-  isEligibleCleaningAssignee,
+  getEligibleCleaningAssignee,
   saveCleaningTaskNote,
   startCleaningTask,
 } from "./server/cleaning-task.service";
@@ -69,34 +70,48 @@ function actor(context: AccessContext, workerName?: string) {
 
 export async function assignCleaningTaskAction(input: {
   taskId: string;
-  workerName: string;
-  assigneeUserId?: string | null;
+  workerName?: string;
+  assigneeUserId: string;
 }): Promise<CleaningActionResult> {
   const parsed = cleaningTaskAssignmentSchema.safeParse(input);
   const t = await getTranslations("cleaning.messages");
   if (!parsed.success) return { success: false, message: t("invalidName"), code: "INVALID_NAME" };
   try {
     const { context, task } = await requireCleaningTaskAccess(parsed.data.taskId, PERMISSIONS.CLEANING_MANAGE);
-    let assigneeUserId: string | null = context.userId;
+    let assignee = {
+      id: context.userId,
+      name: context.name?.trim() ?? "",
+      role: context.role,
+    };
     let replaceExisting = false;
-    if (context.role !== "STAFF") {
+    if (context.role === "STAFF") {
+      if (parsed.data.assigneeUserId !== context.userId) throw new CleaningTaskStateError("INVALID_ASSIGNEE");
+    } else {
       if (!hasPermission(context.role, PERMISSIONS.CLEANING_ASSIGN)) return { success: false, message: t("forbidden"), code: "FORBIDDEN" };
-      assigneeUserId = parsed.data.assigneeUserId ?? context.userId;
       replaceExisting = Boolean(task.assignedToId || task.assigneeName);
-      if (parsed.data.assigneeUserId === null) assigneeUserId = null;
-      const developerSelfAssignment = context.role === "DEVELOPER" && assigneeUserId === context.userId;
-      if (assigneeUserId && !developerSelfAssignment && !await isEligibleCleaningAssignee({
-        userId: assigneeUserId,
-        companyId: task.companyId,
-        propertyId: task.propertyId,
-        roomId: task.roomId,
-      })) throw new CleaningTaskStateError("INVALID_ASSIGNEE");
+      const developerSelfAssignment = context.actualRole === "DEVELOPER" && parsed.data.assigneeUserId === context.userId;
+      if (!developerSelfAssignment) {
+        const eligibleAssignee = await getEligibleCleaningAssignee({
+          userId: parsed.data.assigneeUserId,
+          companyId: task.companyId,
+          propertyId: task.propertyId,
+          roomId: task.roomId,
+        });
+        if (!eligibleAssignee) throw new CleaningTaskStateError("INVALID_ASSIGNEE");
+        assignee = eligibleAssignee;
+      }
     }
 
-    await assignCleaningTask(parsed.data.taskId, {
-      ...actor(context, parsed.data.workerName),
+    const workerName = resolveCleaningAssignmentWorkerName({
+      assigneeRole: assignee.role,
+      accountName: assignee.name,
       workerName: parsed.data.workerName,
-      assigneeUserId: assigneeUserId || null,
+    });
+
+    await assignCleaningTask(parsed.data.taskId, {
+      ...actor(context, workerName),
+      workerName,
+      assigneeUserId: assignee.id,
       replaceExisting,
     });
     revalidateCleaning();

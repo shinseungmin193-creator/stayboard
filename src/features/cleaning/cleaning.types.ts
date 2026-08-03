@@ -1,5 +1,12 @@
+import type { UserRole } from "@/features/access-control";
 import type { CleaningSection } from "./domain/cleaning-meta";
 import type { CleaningPriority } from "./domain/cleaning-priority";
+
+export interface CleaningAssigneeAccount {
+  id: string;
+  name: string;
+  role: UserRole;
+}
 
 export type CleaningSectionFilter = "all" | CleaningSection;
 export type CleaningStatusFilter = "UNASSIGNED" | "WAITING" | "IN_PROGRESS" | "COMPLETED";
@@ -61,7 +68,7 @@ export interface CleaningTaskViewModel {
   photoCount: number;
   photos: CleaningPhotoViewModel[];
   logs: CleaningTaskLogViewModel[];
-  eligibleAssignees: Array<{ id: string; name: string }>;
+  eligibleAssignees: CleaningAssigneeAccount[];
 }
 
 export interface CleaningSectionData {
@@ -80,5 +87,5 @@ export interface CleaningPageData {
   companies: Array<{ id: string; name: string }>;
   properties: Array<{ id: string; name: string; companyId: string }>;
   rooms: Array<{ id: string; name: string; propertyId: string }>;
-  assignees: Array<{ id: string; name: string }>;
+  assignees: CleaningAssigneeAccount[];
 }

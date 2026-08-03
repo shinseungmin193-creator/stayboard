@@ -26,6 +26,14 @@ export function normalizeCleaningWorkerName(value: string | null | undefined) {
   return normalized;
 }
 
+export function resolveCleaningAssignmentWorkerName(input: {
+  assigneeRole: "DEVELOPER" | "ADMIN" | "STAFF";
+  accountName: string;
+  workerName?: string | null;
+}) {
+  return normalizeCleaningWorkerName(input.assigneeRole === "STAFF" ? input.workerName : input.accountName);
+}
+
 export function hasCleaningAssignee(task: Pick<CleaningWorkflowSnapshot, "assigneeUserId" | "assigneeName">) {
   return Boolean(task.assigneeUserId || task.assigneeName?.trim());
 }

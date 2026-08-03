@@ -30,20 +30,33 @@ export function CleaningWorkflowDialog({
   currentUserName: string;
   pending: boolean;
   onClose: () => void;
-  onSubmit: (input: { task: CleaningTaskViewModel; mode: CleaningWorkflowMode; workerName: string; assigneeUserId?: string | null }) => void;
+  onSubmit: (input: { task: CleaningTaskViewModel; mode: CleaningWorkflowMode; workerName: string; assigneeUserId?: string }) => void;
 }) {
   const t = useTranslations("cleaning.workflow");
+  const assignmentMode = mode === "assign" || mode === "reassign";
   const options = useMemo(() => {
     const map = new Map((task?.eligibleAssignees ?? []).map((assignee) => [assignee.id, assignee]));
-    if (currentUserName) map.set(currentUserId, { id: currentUserId, name: currentUserName });
+    if (currentUserName) map.set(currentUserId, { id: currentUserId, name: currentUserName, role });
     return [...map.values()];
-  }, [currentUserId, currentUserName, task]);
-  const defaultName = task?.assignee?.name || currentUserName;
+  }, [currentUserId, currentUserName, role, task]);
+  const defaultSelectedUserId = assignmentMode
+    && task?.assignee?.userId
+    && options.some((option) => option.id === task.assignee?.userId)
+    ? task.assignee.userId
+    : currentUserId;
+  const defaultAssignee = options.find((option) => option.id === defaultSelectedUserId);
+  const defaultName = assignmentMode
+    ? defaultAssignee?.role === "STAFF"
+      ? task?.assignee?.userId === defaultAssignee.id ? task.assignee.name : ""
+      : defaultAssignee?.name ?? ""
+    : task?.assignee?.name || currentUserName;
   const [workerName, setWorkerName] = useState(defaultName);
-  const [selectedUserId, setSelectedUserId] = useState(currentUserId);
+  const [selectedUserId, setSelectedUserId] = useState(defaultSelectedUserId);
+  const selectedAssignee = options.find((option) => option.id === selectedUserId);
+  const showWorkerNameInput = !assignmentMode || selectedAssignee?.role === "STAFF";
   const normalizedName = workerName.trim();
-  const valid = normalizedName.length >= 1 && normalizedName.length <= 30;
-  const assignmentMode = mode === "assign" || mode === "reassign";
+  const validName = normalizedName.length >= 1 && normalizedName.length <= 30;
+  const valid = assignmentMode ? Boolean(selectedAssignee) && (!showWorkerNameInput || validName) : validName;
 
   return (
     <Dialog open={Boolean(task && mode)} onOpenChange={(open) => { if (!open) onClose(); }}>
@@ -62,31 +75,38 @@ export function CleaningWorkflowDialog({
                   const id = event.target.value;
                   setSelectedUserId(id);
                   const selected = options.find((option) => option.id === id);
-                  if (selected) setWorkerName(selected.name);
+                  if (!selected) return;
+                  const existingSnapshot = task.assignee?.userId === selected.id ? task.assignee.name : "";
+                  setWorkerName(selected.role === "STAFF" ? existingSnapshot : selected.name);
                 }}
                 className="h-11 w-full rounded-lg border border-input bg-background px-3 text-sm text-foreground"
               >
                 {options.map((option) => <option key={option.id} value={option.id}>{option.name}</option>)}
-                <option value="external">{t("externalWorker")}</option>
               </select>
             </label>}
-            <div className="space-y-1.5">
+            {showWorkerNameInput && <div className="space-y-1.5">
               <div className="flex items-center justify-between gap-3">
                 <Label htmlFor="cleaning-worker-name">{t("workerName")}</Label>
-                <Button type="button" variant="ghost" size="xs" onClick={() => setWorkerName(currentUserName)} disabled={!currentUserName}>
+                {!assignmentMode && <Button type="button" variant="ghost" size="xs" onClick={() => setWorkerName(currentUserName)} disabled={!currentUserName}>
                   <UserRound />{t("useMyName")}
-                </Button>
+                </Button>}
               </div>
+              {assignmentMode && <p className="text-xs text-muted-foreground">{t("workerNameDescription")}</p>}
               <Input id="cleaning-worker-name" value={workerName} onChange={(event) => setWorkerName(event.target.value)} maxLength={30} autoComplete="name" placeholder={t("namePlaceholder")} />
-              <div className="flex justify-between text-xs text-muted-foreground"><span>{t("nameHint")}</span><span>{normalizedName.length}/30</span></div>
-            </div>
+              <div className="flex justify-end text-xs text-muted-foreground"><span>{normalizedName.length}/30</span></div>
+            </div>}
           </div>
           <div className="grid grid-cols-2 gap-2 pt-2">
             <Button type="button" variant="outline" onClick={onClose} disabled={pending}>{t("cancel")}</Button>
             <Button
               type="button"
               disabled={pending || !valid}
-              onClick={() => onSubmit({ task, mode, workerName: normalizedName, ...(assignmentMode ? { assigneeUserId: selectedUserId === "external" ? null : selectedUserId } : {}) })}
+              onClick={() => onSubmit({
+                task,
+                mode,
+                workerName: showWorkerNameInput ? normalizedName : selectedAssignee?.name ?? "",
+                ...(assignmentMode ? { assigneeUserId: selectedUserId } : {}),
+              })}
             >
               {pending ? t("saving") : t(`submit.${mode}`)}
             </Button>
