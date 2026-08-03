@@ -1,7 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { CircleCheck, Clock3, Sparkles } from "lucide-react";
+import { Clock3, Sparkles } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import type { UserRole } from "@/features/access-control";
@@ -11,7 +11,7 @@ import { getCleaningSectionTone, type CleaningSection as CleaningSectionName } f
 import type { CleaningWorkflowMode } from "./cleaning-workflow-dialog";
 import { CleaningTaskCard } from "./cleaning-task-card";
 
-const icons = { urgent: Sparkles, flexible: Clock3, completed: CircleCheck } as const;
+const icons = { urgent: Sparkles, flexible: Clock3 } as const;
 
 export function CleaningSection({
   section,

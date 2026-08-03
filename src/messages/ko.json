@@ -245,10 +245,9 @@
     "sections": {
       "urgent": "우선 청소",
       "flexible": "여유 청소",
-      "completed": "청소 완료",
       "viewAll": "전체 보기",
       "allSections": "전체 섹션",
-      "empty": { "urgent": "우선 청소 작업이 없습니다.", "flexible": "여유 청소 작업이 없습니다.", "completed": "완료된 청소 작업이 없습니다." }
+      "empty": { "urgent": "우선 청소 작업이 없습니다.", "flexible": "여유 청소 작업이 없습니다." }
     },
     "card": { "checkoutAt": "체크아웃 {time}", "targetTime": "목표 시간", "timeStatus": "남은 시간" },
     "time": {

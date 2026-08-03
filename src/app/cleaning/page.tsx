@@ -4,6 +4,7 @@ import { PageHeader } from "@/components/shared/page-header";
 import { AccessDenied, authorizeAccess, getCurrentAccessContext, PERMISSIONS } from "@/features/access-control";
 import { CleaningWorkspace } from "@/features/cleaning/components/cleaning-workspace";
 import type { CleaningFilters } from "@/features/cleaning/cleaning.types";
+import { isCleaningSection } from "@/features/cleaning/domain/cleaning-meta";
 import { listCleaningPage } from "@/features/cleaning/server/cleaning.repository";
 
 export const dynamic = "force-dynamic";
@@ -36,7 +37,7 @@ function parseFilters(params: Record<string, string | string[] | undefined>): Cl
       : null,
     priority: requestedPriority === "urgent" || requestedPriority === "flexible" ? requestedPriority : null,
     unassignedOnly: value(params, "unassignedOnly") === "true",
-    section: requestedSection === "urgent" || requestedSection === "flexible" || requestedSection === "completed" ? requestedSection : "all",
+    section: isCleaningSection(requestedSection) ? requestedSection : "all",
     page: Number.isInteger(requestedPage) && requestedPage > 0 ? requestedPage : 1,
   };
 }

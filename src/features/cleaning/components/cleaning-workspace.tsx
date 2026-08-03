@@ -15,7 +15,7 @@ import {
 } from "../cleaning.actions";
 import type { CleaningFilters, CleaningPageData, CleaningTaskViewModel } from "../cleaning.types";
 import { getCleaningDateInput, shiftCleaningDate } from "../domain/cleaning-date";
-import type { CleaningSection as CleaningSectionName } from "../domain/cleaning-meta";
+import { CLEANING_SECTIONS, type CleaningSection as CleaningSectionName } from "../domain/cleaning-meta";
 import { CleaningFilterSheet } from "./cleaning-filter-sheet";
 import { CleaningSection } from "./cleaning-section";
 import { CleaningSummaryGrid } from "./cleaning-summary-grid";
@@ -88,7 +88,7 @@ export function CleaningWorkspace({
     });
   };
 
-  const sections = (filters.section === "all" ? ["urgent", "flexible", "completed"] : [filters.section]) as CleaningSectionName[];
+  const sections: readonly CleaningSectionName[] = filters.section === "all" ? CLEANING_SECTIONS : [filters.section];
   const selectedData = filters.section !== "all" ? data.sections[filters.section] : null;
 
   return (

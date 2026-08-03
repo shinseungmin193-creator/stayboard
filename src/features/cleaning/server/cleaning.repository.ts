@@ -12,7 +12,7 @@ import type {
   CleaningTaskViewModel,
 } from "../cleaning.types";
 import { parseCleaningDate } from "../domain/cleaning-date";
-import type { CleaningSection } from "../domain/cleaning-meta";
+import { CLEANING_LIST_STATUSES, CLEANING_SECTIONS, type CleaningSection } from "../domain/cleaning-meta";
 import { classifyCleaningPriority } from "../domain/cleaning-priority";
 import { getCleaningPhotoStorage } from "../storage/local-file-storage-provider";
 
@@ -91,13 +91,9 @@ export async function listCleaningPage(context: AccessContext, filters: Cleaning
     AND: [
       ...sharedAnd,
       visibleStatus,
-      section === "completed" ? { status: "COMPLETED" } : { status: { in: ["PENDING", "IN_PROGRESS"] } },
-      section === "completed"
-        ? filters.priority ? priorityWhere(filters.priority) : {}
-        : priorityWhere(section),
-      filters.priority && section !== "completed" && filters.priority !== section ? { id: "__hidden_section__" } : {},
-      filters.status === "COMPLETED" && section !== "completed" ? { id: "__hidden_section__" } : {},
-      filters.status && filters.status !== "COMPLETED" && section === "completed" ? { id: "__hidden_section__" } : {},
+      { status: { in: [...CLEANING_LIST_STATUSES] } },
+      priorityWhere(section),
+      filters.priority && filters.priority !== section ? { id: "__hidden_section__" } : {},
     ],
   });
   const summaryBase = { AND: sharedAnd } satisfies Prisma.CleaningTaskWhereInput;
@@ -174,20 +170,18 @@ export async function listCleaningPage(context: AccessContext, filters: Cleaning
     _count: { select: { photos: true } },
   } satisfies Prisma.CleaningTaskSelect;
 
-  const [visibleUrgentCount, visibleFlexibleCount, visibleCompletedCount] = await Promise.all([
+  const [visibleUrgentCount, visibleFlexibleCount] = await Promise.all([
     prisma.cleaningTask.count({ where: sectionWhere("urgent") }),
     prisma.cleaningTask.count({ where: sectionWhere("flexible") }),
-    prisma.cleaningTask.count({ where: sectionWhere("completed") }),
   ]);
-  const counts = { urgent: visibleUrgentCount, flexible: visibleFlexibleCount, completed: visibleCompletedCount };
-  const sections = ["urgent", "flexible", "completed"] as const;
-  const sectionRows = await Promise.all(sections.map(async (section) => {
+  const counts = { urgent: visibleUrgentCount, flexible: visibleFlexibleCount } satisfies Record<CleaningSection, number>;
+  const sectionRows = await Promise.all(CLEANING_SECTIONS.map(async (section) => {
     if (filters.section !== "all" && filters.section !== section) return [];
     const page = filters.section === section ? Math.min(filters.page, Math.max(1, Math.ceil(counts[section] / SECTION_PAGE_SIZE))) : 1;
     return prisma.cleaningTask.findMany({
       where: sectionWhere(section),
       select: taskSelect,
-      orderBy: section === "completed" ? [{ completedAt: "desc" }, { id: "desc" }] : [{ scheduledDate: "asc" }, { id: "asc" }],
+      orderBy: [{ scheduledDate: "asc" }, { id: "asc" }],
       skip: filters.section === section ? (page - 1) * SECTION_PAGE_SIZE : 0,
       take: filters.section === section ? SECTION_PAGE_SIZE : SECTION_PREVIEW_SIZE,
     });
@@ -257,7 +251,7 @@ export async function listCleaningPage(context: AccessContext, filters: Cleaning
       eligibleAssignees,
     };
   };
-  const sectionData = Object.fromEntries(sections.map((section, index) => {
+  const sectionData = Object.fromEntries(CLEANING_SECTIONS.map((section, index) => {
     const totalCount = counts[section];
     const totalPages = Math.max(1, Math.ceil(totalCount / SECTION_PAGE_SIZE));
     const page = filters.section === section ? Math.min(filters.page, totalPages) : 1;

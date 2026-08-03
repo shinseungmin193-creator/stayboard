@@ -245,10 +245,9 @@
     "sections": {
       "urgent": "優先清掃",
       "flexible": "余裕清掃",
-      "completed": "清掃完了",
       "viewAll": "すべて見る",
       "allSections": "全セクション",
-      "empty": { "urgent": "優先清掃タスクはありません。", "flexible": "余裕清掃タスクはありません。", "completed": "完了した清掃タスクはありません。" }
+      "empty": { "urgent": "優先清掃タスクはありません。", "flexible": "余裕清掃タスクはありません。" }
     },
     "card": { "checkoutAt": "チェックアウト {time}", "targetTime": "目標時刻", "timeStatus": "残り時間" },
     "time": {

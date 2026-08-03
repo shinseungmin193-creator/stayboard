@@ -1,7 +1,14 @@
 import type { CleaningPriority } from "./cleaning-priority";
 
-export type CleaningSection = "urgent" | "flexible" | "completed";
+export const CLEANING_SECTIONS = ["urgent", "flexible"] as const;
+export const CLEANING_LIST_STATUSES = ["PENDING", "IN_PROGRESS", "COMPLETED"] as const;
+
+export type CleaningSection = (typeof CLEANING_SECTIONS)[number];
 export type CleaningDisplayStatus = "unassigned" | "waiting" | "inProgress" | "completed" | "cancelled";
+
+export function isCleaningSection(value: string | undefined): value is CleaningSection {
+  return CLEANING_SECTIONS.includes(value as CleaningSection);
+}
 
 const SECTION_META = {
   urgent: {
@@ -19,14 +26,6 @@ const SECTION_META = {
     border: "border-amber-200 dark:border-amber-900/70",
     background: "bg-amber-50 dark:bg-amber-950/30",
     button: "bg-amber-500 text-white hover:bg-amber-600",
-  },
-  completed: {
-    labelKey: "sections.completed",
-    icon: "circle-check",
-    accent: "text-green-700 dark:text-green-400",
-    border: "border-green-200 dark:border-green-900/70",
-    background: "bg-green-50 dark:bg-green-950/30",
-    button: "bg-green-600 text-white hover:bg-green-700",
   },
 } as const;
 
