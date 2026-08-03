@@ -249,17 +249,18 @@ fi
 node scripts/ensure-developer-role-switch-env.mjs "$ENV_FILE"
 node scripts/ensure-developer-role-switch-env.mjs --check "$ENV_FILE"
 export ENABLE_DEVELOPER_ROLE_SWITCH=true
-export NODE_ENV=production
 echo "[환경 확인] 권한 테스트 모드가 활성화되어 있습니다."
 
 echo "[5/11] 의존성 설치 필요 여부를 확인합니다."
 NPM_CI_RAN=0
 if [[ ! -d node_modules || "$PACKAGE_CHANGED" -eq 1 ]]; then
-  npm ci
+  npm ci --include=dev
   NPM_CI_RAN=1
 else
   echo "[생략] node_modules가 있고 패키지 파일 변경이 없습니다."
 fi
+
+export NODE_ENV=production
 
 echo "[6/11] Prisma 변경 여부를 확인합니다."
 if [[ "$NPM_CI_RAN" -eq 1 || "$PRISMA_GENERATE_CHANGED" -eq 1 ]]; then

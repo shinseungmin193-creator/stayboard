@@ -1,4 +1,4 @@
-export type StatIconName = "checkin" | "checkout" | "priority-cleaning" | "flexible-cleaning" | "overbooking" | "sync-failure";
+export type StatIconName = "checkin" | "checkout" | "priority-cleaning" | "flexible-cleaning" | "cleaning-management" | "overbooking" | "sync-failure";
 
 export interface DashboardRoomSummary {
   id: string;
