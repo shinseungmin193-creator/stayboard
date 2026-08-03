@@ -5,6 +5,7 @@ import test from "node:test";
 import { hasPermission, PERMISSIONS } from "../../access-control/domain/access-control";
 import {
   canUseDeveloperRoleSwitch,
+  isDeveloperRoleSwitchEnabled,
   parseDeveloperRolePropertyScope,
   validateDeveloperRoleScope,
 } from "../domain/developer-role-switch.policy";
@@ -12,10 +13,16 @@ import {
 const enabledEnvironment = { NODE_ENV: "production", ENABLE_DEVELOPER_ROLE_SWITCH: "true" };
 const activeDeveloper = { actualRole: "DEVELOPER", status: "ACTIVE", isActive: true };
 
-test("an active DEVELOPER can use the switch in production only with the exact opt-in flag", () => {
+test("the role-switch flag is normalized once for UI options and Server Actions", () => {
+  assert.equal(isDeveloperRoleSwitchEnabled({ ENABLE_DEVELOPER_ROLE_SWITCH: "true" }), true);
+  assert.equal(isDeveloperRoleSwitchEnabled({ ENABLE_DEVELOPER_ROLE_SWITCH: " true " }), true);
+  assert.equal(isDeveloperRoleSwitchEnabled({ ENABLE_DEVELOPER_ROLE_SWITCH: "TRUE" }), true);
+  assert.equal(isDeveloperRoleSwitchEnabled({ ENABLE_DEVELOPER_ROLE_SWITCH: "false" }), false);
+  assert.equal(isDeveloperRoleSwitchEnabled({}), false);
+
   assert.equal(canUseDeveloperRoleSwitch(enabledEnvironment, activeDeveloper), true);
+  assert.equal(canUseDeveloperRoleSwitch({ NODE_ENV: "development", ENABLE_DEVELOPER_ROLE_SWITCH: " true " }, activeDeveloper), true);
   assert.equal(canUseDeveloperRoleSwitch({ NODE_ENV: "production", ENABLE_DEVELOPER_ROLE_SWITCH: "false" }, activeDeveloper), false);
-  assert.equal(canUseDeveloperRoleSwitch({ NODE_ENV: "production", ENABLE_DEVELOPER_ROLE_SWITCH: "TRUE" }, activeDeveloper), false);
   assert.equal(canUseDeveloperRoleSwitch({ NODE_ENV: "development" }, activeDeveloper), false);
 });
 
@@ -99,6 +106,8 @@ test("the session cookie is opaque, hashed in storage, HttpOnly, basePath-aware,
 
 test("service persists only token hashes and never mutates User or CompanyMembership roles", () => {
   const source = readFileSync("src/features/developer-role-switch/server/developer-role-switch.service.ts", "utf8");
+  assert.match(source, /isDeveloperRoleSwitchEnabled\(process\.env\)/);
+  assert.doesNotMatch(source, /process\.env\.ENABLE_DEVELOPER_ROLE_SWITCH\s*[!=]==?\s*"true"/);
   assert.match(source, /tokenHash/);
   assert.doesNotMatch(source, /data:\s*\{\s*systemRole/);
   assert.doesNotMatch(source, /companyMembership\.(update|create|delete)/);

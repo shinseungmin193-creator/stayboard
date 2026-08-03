@@ -19,11 +19,15 @@ export function isDeveloperRolePropertyScopeMode(value: unknown): value is Devel
   return typeof value === "string" && DEVELOPER_ROLE_PROPERTY_SCOPE_MODES.includes(value as DeveloperRolePropertyScopeMode);
 }
 
+export function isDeveloperRoleSwitchEnabled(environment: DeveloperRoleSwitchEnvironment) {
+  return environment.ENABLE_DEVELOPER_ROLE_SWITCH?.trim().toLowerCase() === "true";
+}
+
 export function canUseDeveloperRoleSwitch(
   environment: DeveloperRoleSwitchEnvironment,
   user: { actualRole: string; status?: string; isActive?: boolean },
 ) {
-  return environment.ENABLE_DEVELOPER_ROLE_SWITCH === "true"
+  return isDeveloperRoleSwitchEnabled(environment)
     && user.actualRole === "DEVELOPER"
     && user.status === "ACTIVE"
     && user.isActive === true;

@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/features/auth/server/get-current-user";
 import {
   canUseDeveloperRoleSwitch,
+  isDeveloperRoleSwitchEnabled,
   parseDeveloperRolePropertyScope,
   validateDeveloperRoleScope,
 } from "../domain/developer-role-switch.policy";
@@ -53,7 +54,7 @@ function assertDeveloperActor(actor: DeveloperActor | null | undefined) {
     status: actor.status,
     isActive: actor.isActive,
   })) {
-    if (process.env.ENABLE_DEVELOPER_ROLE_SWITCH !== "true") throw new DeveloperRoleSwitchError("DISABLED");
+    if (!isDeveloperRoleSwitchEnabled(process.env)) throw new DeveloperRoleSwitchError("DISABLED");
     throw new DeveloperRoleSwitchError("FORBIDDEN");
   }
 }
