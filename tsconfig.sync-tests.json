@@ -9,6 +9,7 @@
     "src/features/calendar-connections/lib/**/*.ts", "src/features/calendar-connections/types/**/*.ts", "src/features/calendar-connections/tests/**/*.ts", "src/features/calendar-sources/calendar-source-url.ts",
     "src/features/cleaning/domain/**/*.ts", "src/features/cleaning/tests/**/*.ts",
     "src/features/dashboard/dashboard.constants.ts", "src/features/dashboard/dashboard-time.ts", "src/features/dashboard/dashboard-cleaning.ts", "src/features/dashboard/tests/**/*.ts",
+    "src/features/mobile-navigation-preferences/domain/**/*.ts", "src/features/mobile-navigation-preferences/tests/**/*.ts",
     "src/features/developer-settings/domain/**/*.ts", "src/features/developer-settings/storage/**/*.ts", "src/features/developer-settings/tests/**/*.ts",
     "src/features/developer-management/domain/**/*.ts", "src/features/developer-management/tests/**/*.ts",
     "src/features/sidebar-preferences/domain/**/*.ts", "src/features/sidebar-preferences/tests/**/*.ts",

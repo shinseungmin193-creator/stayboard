@@ -1149,44 +1149,41 @@
     "m0668": "フィルタ結果がありません",
     "m0669": "宿泊施設や部屋の検索条件を変更してみてください。"
   },
-  "dashboardPreferences": {
-    "title": "スタッフのモバイルホーム画面設定",
-    "description": "選択した会社のスタッフ用モバイルダッシュボードで、カードの順序と表示状態を設定します。",
+  "mobileNavigationPreferences": {
+    "title": "スタッフ用モバイル下部ナビゲーション設定",
+    "description": "選択した会社のスタッフ用モバイル下部メニュー4件と順序を設定します。",
     "company": "対象会社",
     "selectCompany": "会社を選択してください",
-    "selectCompanyPrompt": "設定する会社を選択すると、カードエディターが有効になります。",
+    "selectCompanyPrompt": "設定する会社を選択すると、下部メニューエディターが有効になります。",
     "noCompanies": "設定できる有効な会社がありません。",
-    "visibleCount": "表示カード {count}件",
+    "menuCount": "設定メニュー {count}件",
     "dirty": "未保存の変更",
-    "visible": "表示",
-    "hidden": "非表示",
-    "showCard": "{label}カードを表示",
-    "hideCard": "{label}カードを非表示",
     "position": "{position}番目",
-    "dragHandle": "{label}カードの順序を移動",
-    "mobileOnlyNotice": "この設定は、対象会社のSTAFFモバイルホームと、DEVELOPERによるSTAFF権限テストのモバイルホームにのみ適用されます。",
+    "dragHandle": "{label}下部メニューの順序を移動",
+    "menuForPosition": "{position}番目の下部メニュー",
+    "fixed": "常に固定",
+    "staffOnlyNotice": "5番目の「その他」は常に固定され、この設定は対象会社のSTAFFとSTAFF権限テストモードにのみ適用されます。",
     "previewNotice": "PCでプレビューする場合は、ブラウザーをモバイル表示モードに切り替えて確認してください。",
     "unsavedCompanyChange": "保存していない変更があります。別の会社へ移動しますか？",
     "save": "保存",
     "reset": "初期設定に戻す",
-    "preview": "スタッフ画面をプレビュー",
+    "preview": "スタッフのモバイルメニューをプレビュー",
     "cancel": "キャンセル",
     "processing": "処理中",
     "resetDialog": {
-      "title": "標準のカード構成に戻す",
-      "description": "選択した会社のスタッフ用モバイルホーム設定を、標準の順序と表示状態に戻します。"
+      "title": "標準の下部メニューに戻す",
+      "description": "ダッシュボード、客室状況、予約、客室状況ボードの順序に戻します。「その他」は5番目に固定されたままです。"
     },
     "messages": {
       "unauthenticated": "ログイン後に利用できます。",
       "forbidden": "開発者モードのDEVELOPERのみこの設定を変更できます。",
       "companyUnavailable": "有効な会社が見つかりません。",
-      "invalidInput": "カードの順序と表示設定を確認してください。",
-      "atLeastOneVisible": "少なくとも1枚のカードを表示してください。",
+      "invalidInput": "異なる下部メニュー4件と順序を確認してください。",
       "saveBeforePreview": "プレビューする前に変更を保存してください。",
       "previewUnavailable": "権限テスト機能が無効のため、プレビューを開始できません。",
-      "failed": "スタッフ用モバイルホーム設定を処理できませんでした。",
-      "saved": "スタッフ用モバイルホーム設定を保存しました。",
-      "reset": "スタッフ用モバイルホーム設定を初期設定に戻しました。"
+      "failed": "スタッフ用モバイル下部ナビゲーション設定を処理できませんでした。",
+      "saved": "スタッフ用モバイル下部ナビゲーション設定を保存しました。",
+      "reset": "スタッフ用モバイル下部ナビゲーション設定を初期設定に戻しました。"
     }
   },
   "developerRoleSwitch": {

@@ -10,6 +10,8 @@ import { AccountLogoutButton } from "@/features/auth/components/account-menu";
 import { DeveloperRoleSwitchBanner, DeveloperRoleSwitchProvider, DeveloperRoleSwitchTrigger, getCurrentDeveloperRoleSwitchOptions, type ActiveDeveloperRoleSwitch } from "@/features/developer-role-switch";
 import { DEFAULT_SIDEBAR_PREFERENCE, SidebarPreferenceProvider } from "@/features/sidebar-preferences";
 import { findSidebarPreference } from "@/features/sidebar-preferences/infrastructure/sidebar-preference.repository";
+import { DEFAULT_STAFF_MOBILE_BOTTOM_NAVIGATION_MENU_IDS } from "@/features/mobile-navigation-preferences/domain/mobile-navigation-preference";
+import { getStaffMobileNavigationPreference } from "@/features/mobile-navigation-preferences/server/mobile-navigation-preference.service";
 import { DesktopSidebar } from "./desktop-sidebar";
 import { MobileNavigation } from "./mobile-navigation";
 
@@ -19,6 +21,9 @@ export async function AppShell({ children }: Readonly<{ children: React.ReactNod
     getTranslations(),
   ]);
   const sidebarPreference = accessContext ? await findSidebarPreference(accessContext.userId) : DEFAULT_SIDEBAR_PREFERENCE;
+  const staffMobileNavigation = accessContext?.effectiveRole === "STAFF" && accessContext.activeCompanyId
+    ? await getStaffMobileNavigationPreference(accessContext.activeCompanyId)
+    : { itemOrder: [...DEFAULT_STAFF_MOBILE_BOTTOM_NAVIGATION_MENU_IDS] };
   const roleSwitchAvailable = accessContext?.actualRole === "DEVELOPER";
   const roleSwitchOptions = roleSwitchAvailable ? await getCurrentDeveloperRoleSwitchOptions() : null;
   const activeRoleSwitch: ActiveDeveloperRoleSwitch | null = accessContext?.isRoleSwitchActive
@@ -81,7 +86,7 @@ export async function AppShell({ children }: Readonly<{ children: React.ReactNod
               {children}
             </main>
           </div>
-          <MobileNavigation role={accessContext?.role ?? null} userName={accessContext?.name} companyName={accessContext?.activeCompanyName} />
+          <MobileNavigation role={accessContext?.effectiveRole ?? null} userName={accessContext?.name} companyName={accessContext?.activeCompanyName} staffPrimaryMenuIds={staffMobileNavigation.itemOrder} />
           </div>
         </DeveloperRoleSwitchProvider>
       </SidebarPreferenceProvider>

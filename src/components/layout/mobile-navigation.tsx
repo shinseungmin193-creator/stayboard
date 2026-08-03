@@ -4,19 +4,19 @@ import Link from "next/link";
 import { useState } from "react";
 import { Menu, MoreHorizontal, ShieldCheck } from "lucide-react";
 import { useTranslations } from "next-intl";
-import type { UserRole } from "@/features/access-control";
+import { hasPermission, type UserRole } from "@/features/access-control/domain/access-control";
 import { AccountLogoutButton } from "@/features/auth/components/account-menu";
 import { AuthTrigger } from "@/features/auth/components/auth-trigger";
-import { PUBLIC_DEMO_MENU_IDS, SIDEBAR_MENU_GROUPS, SIDEBAR_MENU_ITEMS } from "@/features/sidebar-preferences/domain/sidebar-menu";
+import { PUBLIC_DEMO_MENU_IDS, SIDEBAR_MENU_GROUPS, SIDEBAR_MENU_ITEMS, type SidebarMenuId } from "@/features/sidebar-preferences/domain/sidebar-menu";
 import { getAuthorizedSidebarMenus, orderSidebarMenus, useSidebarPreference } from "@/features/sidebar-preferences";
 import { Sheet, SheetClose, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { NavigationLink } from "./navigation-link";
 import { Button } from "@/components/ui/button";
 import { useDeveloperRoleSwitch } from "@/features/developer-role-switch/components/developer-role-switch-provider";
 
-const PRIMARY_MOBILE_IDS = ["dashboard", "room-overview", "reservations", "room-status"];
+export const PRIMARY_MOBILE_IDS = ["dashboard", "room-overview", "reservations", "room-status"] as const satisfies readonly SidebarMenuId[];
 
-export function MobileNavigation({ role, userName, companyName }: { role: UserRole | null; userName?: string | null; companyName?: string | null }) {
+export function MobileNavigation({ role, userName, companyName, staffPrimaryMenuIds }: { role: UserRole | null; userName?: string | null; companyName?: string | null; staffPrimaryMenuIds?: readonly SidebarMenuId[] }) {
   const { preference } = useSidebarPreference();
   const t = useTranslations();
   const [open, setOpen] = useState(false);
@@ -27,9 +27,13 @@ export function MobileNavigation({ role, userName, companyName }: { role: UserRo
   const allItems = role
     ? getAuthorizedSidebarMenus(SIDEBAR_MENU_ITEMS, preference, role)
     : orderSidebarMenus(SIDEBAR_MENU_ITEMS, preference).filter((item) => PUBLIC_DEMO_MENU_IDS.has(item.id));
-  const primaryItems = PRIMARY_MOBILE_IDS
-    .map((id) => allItems.find((item) => item.id === id))
-    .filter((item): item is (typeof allItems)[number] => Boolean(item));
+  const primaryIds = role === "STAFF" && staffPrimaryMenuIds?.length === 4 ? staffPrimaryMenuIds : PRIMARY_MOBILE_IDS;
+  const primaryItems = primaryIds
+    .map((id) => SIDEBAR_MENU_ITEMS.find((item) => item.id === id))
+    .filter((item): item is (typeof SIDEBAR_MENU_ITEMS)[number] => {
+      if (!item) return false;
+      return role ? hasPermission(role, item.requiredPermission) : PUBLIC_DEMO_MENU_IDS.has(item.id);
+    });
   const grouped = Object.entries(SIDEBAR_MENU_GROUPS)
     .map(([key]) => ({ key, items: allItems.filter((item) => item.group === key) }))
     .filter((group) => group.items.length);
@@ -38,7 +42,7 @@ export function MobileNavigation({ role, userName, companyName }: { role: UserRo
     <Sheet open={open} onOpenChange={setOpen}>
       <nav className="fixed inset-x-0 bottom-0 z-40 border-t bg-background/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden" aria-label={t("navigation.mobilePrimaryMenu")}>
         <div className="grid h-16 grid-cols-5">
-          {primaryItems.slice(0, 4).map((item) => <NavigationLink key={item.href} label={menuLabel(item)} href={item.href} icon={item.icon} mobile />)}
+          {primaryItems.slice(0, 4).map((item) => <NavigationLink key={item.id} label={menuLabel(item)} href={item.href} icon={item.icon} mobile />)}
           <SheetTrigger render={<button type="button" className="flex min-w-0 flex-col items-center justify-center gap-1 text-[11px] font-medium text-muted-foreground" aria-label={t("navigation.allMenuOpen")} />}>
             <MoreHorizontal className="size-5" /><span>{t("navigation.more")}</span>
           </SheetTrigger>

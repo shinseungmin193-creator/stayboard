@@ -7,9 +7,9 @@ import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
-  StaffMobileDashboardPreferenceEditor,
-  type StaffMobileDashboardPreferenceEditorData,
-} from "@/features/dashboard-preferences";
+  StaffMobileNavigationPreferenceEditor,
+  type StaffMobileNavigationPreferenceEditorData,
+} from "@/features/mobile-navigation-preferences";
 import { SidebarMenuOrderCard } from "@/features/sidebar-preferences/components/sidebar-menu-order-card";
 import {
   ROOM_DENSITIES,
@@ -46,7 +46,7 @@ function NumberControl({ field, label, value, onChange }: {
   </label>;
 }
 
-export function DeveloperSettingsForm({ staffMobileDashboard }: { staffMobileDashboard: StaffMobileDashboardPreferenceEditorData }) {
+export function DeveloperSettingsForm({ staffMobileNavigation }: { staffMobileNavigation: StaffMobileNavigationPreferenceEditorData }) {
   const i18n = useTranslations();
   const densityLabels: Record<RoomDensity, string> = {
     comfortable: i18n("auto.m0636"),
@@ -87,7 +87,7 @@ export function DeveloperSettingsForm({ staffMobileDashboard }: { staffMobileDas
 
     <Card>
       <CardHeader><CardTitle className="text-base">{i18n("auto.m0340")}</CardTitle></CardHeader>
-      <CardContent><StaffMobileDashboardPreferenceEditor key={staffMobileDashboard.selectedCompanyId ?? "none"} data={staffMobileDashboard} /></CardContent>
+      <CardContent><StaffMobileNavigationPreferenceEditor key={staffMobileNavigation.selectedCompanyId ?? "none"} data={staffMobileNavigation} /></CardContent>
     </Card>
 
     <Card>
