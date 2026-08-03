@@ -1,4 +1,4 @@
-const DEFAULT_CLEANING_TIME_ZONE = "Asia/Tokyo";
+export const DEFAULT_CLEANING_TIME_ZONE = "Asia/Tokyo";
 
 function safeTimeZone(timeZone: string) {
   try {
@@ -61,4 +61,32 @@ export function shiftCleaningDate(dateInput: string, days: number) {
   const current = new Date(`${parseCleaningDate(dateInput).dateInput}T00:00:00Z`);
   current.setUTCDate(current.getUTCDate() + days);
   return current.toISOString().slice(0, 10);
+}
+
+export function formatCleaningSelectedDate({
+  date,
+  locale,
+  timeZone = DEFAULT_CLEANING_TIME_ZONE,
+}: {
+  date: string;
+  locale: string;
+  timeZone?: string;
+}) {
+  const parsed = parseCleaningDate(date, new Date(0), timeZone);
+  const localeTag = locale === "ja" || locale.startsWith("ja-") ? "ja-JP" : "ko-KR";
+  const parts = new Intl.DateTimeFormat(localeTag, {
+    timeZone: parsed.timeZone,
+    year: "numeric",
+    month: "numeric",
+    day: "numeric",
+    weekday: "short",
+  }).formatToParts(parsed.start);
+  const value = (type: Intl.DateTimeFormatPartTypes) => parts.find((part) => part.type === type)?.value ?? "";
+  const year = value("year");
+  const month = value("month");
+  const day = value("day");
+  const weekday = value("weekday");
+  return localeTag === "ja-JP"
+    ? `${year}年${month}月${day}日（${weekday}）`
+    : `${year}년 ${month}월 ${day}일 (${weekday})`;
 }

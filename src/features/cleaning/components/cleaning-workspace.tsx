@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { usePathname, useRouter } from "next/navigation";
 import { CalendarDays, ChevronLeft, ChevronRight, LoaderCircle } from "lucide-react";
@@ -14,7 +14,7 @@ import {
   type CleaningActionResult,
 } from "../cleaning.actions";
 import type { CleaningFilters, CleaningPageData, CleaningTaskViewModel } from "../cleaning.types";
-import { getCleaningDateInput, shiftCleaningDate } from "../domain/cleaning-date";
+import { formatCleaningSelectedDate, getCleaningDateInput, shiftCleaningDate } from "../domain/cleaning-date";
 import { CLEANING_SECTIONS, type CleaningSection as CleaningSectionName } from "../domain/cleaning-meta";
 import { CleaningFilterSheet } from "./cleaning-filter-sheet";
 import { CleaningSection } from "./cleaning-section";
@@ -46,8 +46,8 @@ export function CleaningWorkspace({
   const [notice, setNotice] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const noticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const day = useMemo(() => new Intl.DateTimeFormat(localeTag, { timeZone: "UTC", year: "numeric", month: "long", day: "numeric" }), [localeTag]);
   const today = getCleaningDateInput(new Date(), data.timeZone);
+  const selectedDateLabel = formatCleaningSelectedDate({ date: filters.date, locale, timeZone: data.timeZone });
 
   const showNotice = (message: string) => {
     if (noticeTimer.current) clearTimeout(noticeTimer.current);
@@ -98,7 +98,7 @@ export function CleaningWorkspace({
           <Button type="button" variant="ghost" size="icon-sm" aria-label={t("date.previous")} disabled={isPending} onClick={() => navigate({ date: shiftCleaningDate(filters.date, -1), page: 1 })}><ChevronLeft /></Button>
           <label className="relative flex min-w-0 items-center gap-2 px-1.5">
             <CalendarDays className="size-4 shrink-0 text-muted-foreground" />
-            <span className="truncate text-sm font-semibold">{day.format(new Date(`${filters.date}T00:00:00Z`))}</span>
+            <span className="truncate text-sm font-semibold">{selectedDateLabel}</span>
             <input type="date" value={filters.date} aria-label={t("date.select")} onChange={(event) => navigate({ date: event.target.value, page: 1 })} className="absolute inset-0 cursor-pointer opacity-0" />
           </label>
           <Button type="button" variant="ghost" size="icon-sm" aria-label={t("date.next")} disabled={isPending} onClick={() => navigate({ date: shiftCleaningDate(filters.date, 1), page: 1 })}><ChevronRight /></Button>
