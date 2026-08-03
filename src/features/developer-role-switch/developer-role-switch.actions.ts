@@ -98,7 +98,7 @@ export async function endDeveloperRoleSessionAction(): Promise<ActionResult<{ re
     await revokeDeveloperRoleSessionByToken(token, "MANUAL_RETURN");
     await clearDeveloperRoleSwitchCookie();
     revalidatePath("/", "layout");
-    return { success: true, message: (await getTranslations("developerRoleSwitch.messages"))("ended"), data: { redirectPath: "/" } };
+    return { success: true, message: (await getTranslations("developerRoleSwitch.messages"))("ended"), data: { redirectPath: "/developer/settings" } };
   } catch {
     return { success: false, message: (await getTranslations("developerRoleSwitch.messages"))("failed") };
   }

@@ -13,16 +13,22 @@ import type { ActiveDeveloperRoleSwitch, DeveloperRolePropertyScopeMode, Develop
 export function DeveloperRoleSwitchForm({
   options,
   active,
+  initialRole,
+  roleLocked = false,
+  onCancel,
   onSuccess,
 }: {
   options: DeveloperRoleSwitchOptions;
   active: ActiveDeveloperRoleSwitch | null;
+  initialRole?: DeveloperRoleSwitchRole;
+  roleLocked?: boolean;
+  onCancel(): void;
   onSuccess(path: string): void;
 }) {
   const t = useTranslations("developerRoleSwitch");
   const [companySearch, setCompanySearch] = useState("");
-  const [companyId, setCompanyId] = useState(active?.companyId ?? options.companies[0]?.id ?? "");
-  const [previewRole, setPreviewRole] = useState<DeveloperRoleSwitchRole>(active?.previewRole ?? "ADMIN");
+  const [companyId, setCompanyId] = useState(active?.companyId ?? "");
+  const [previewRole, setPreviewRole] = useState<DeveloperRoleSwitchRole>(initialRole ?? active?.previewRole ?? "ADMIN");
   const [scopeMode, setScopeMode] = useState<DeveloperRolePropertyScopeMode>(active?.propertyScope.mode ?? "ALL");
   const [propertyIds, setPropertyIds] = useState<string[]>(active?.propertyScope.propertyIds ?? []);
   const [message, setMessage] = useState<string>();
@@ -74,7 +80,7 @@ export function DeveloperRoleSwitchForm({
       </div>
     </section>
 
-    <fieldset className="space-y-2">
+    {!roleLocked && <fieldset className="space-y-2">
       <legend className="text-sm font-semibold">{t("fields.role")}</legend>
       <div className="grid grid-cols-2 gap-2">
         {(["ADMIN", "STAFF"] as const).map((role) => <label key={role} className={cn("flex cursor-pointer items-center gap-3 rounded-lg border p-3", previewRole === role && "border-primary bg-primary/5 ring-1 ring-primary/20")}>
@@ -83,7 +89,7 @@ export function DeveloperRoleSwitchForm({
           <span><strong className="block text-sm">{t(`roles.${role}.title`)}</strong><span className="text-xs text-muted-foreground">{t(`roles.${role}.description`)}</span></span>
         </label>)}
       </div>
-    </fieldset>
+    </fieldset>}
 
     {previewRole === "STAFF" && <fieldset className="space-y-3">
       <legend className="text-sm font-semibold">{t("fields.propertyScope")}</legend>
@@ -103,8 +109,11 @@ export function DeveloperRoleSwitchForm({
     </fieldset>}
 
     {message && <p role="alert" className="text-sm text-destructive">{message}</p>}
-    <Button type="button" className="w-full" disabled={pending || !companyId || (previewRole === "STAFF" && scopeMode === "SELECTED" && !propertyIds.length)} onClick={submit}>
-      <ShieldCheck />{pending ? t("actions.processing") : active ? t("actions.update") : t("actions.start")}
-    </Button>
+    <div className="grid grid-cols-2 gap-2">
+      <Button type="button" variant="outline" disabled={pending} onClick={onCancel}>{t("actions.cancel")}</Button>
+      <Button type="button" disabled={pending || !companyId || (previewRole === "STAFF" && scopeMode === "SELECTED" && !propertyIds.length)} onClick={submit}>
+        <ShieldCheck />{pending ? t("actions.processing") : active ? t("actions.update") : previewRole === "ADMIN" ? t("actions.startAdmin") : t("actions.startStaff")}
+      </Button>
+    </div>
   </div>;
 }

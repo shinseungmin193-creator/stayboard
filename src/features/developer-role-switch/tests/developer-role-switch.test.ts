@@ -147,6 +147,56 @@ test("global banner can always return to developer mode and logout revokes the c
   assert.match(resetRoute, /path: AUTH_COOKIE_PATH/);
 });
 
+test("developer settings renders a visible three-mode card before the existing settings UI", () => {
+  const page = readFileSync("src/app/developer/settings/page.tsx", "utf8");
+  const card = readFileSync("src/features/developer-role-switch/components/developer-role-switch-card.tsx", "utf8");
+  assert.match(page, /<PageHeader[\s\S]*<DeveloperRoleSwitchCard \/>[\s\S]*<DeveloperSettingsProvider>/);
+  assert.match(card, /if \(!available\) return null/);
+  assert.doesNotMatch(card, /if \(!enabled\) return null/);
+  assert.match(card, /modeButton\("DEVELOPER"/);
+  assert.match(card, /modeButton\("ADMIN"/);
+  assert.match(card, /modeButton\("STAFF"/);
+  assert.match(card, /grid grid-cols-3/);
+  assert.match(card, /ENABLE_DEVELOPER_ROLE_SWITCH=true/);
+});
+
+test("ADMIN and STAFF mode buttons open a role-specific real switch dialog", () => {
+  const card = readFileSync("src/features/developer-role-switch/components/developer-role-switch-card.tsx", "utf8");
+  const provider = readFileSync("src/features/developer-role-switch/components/developer-role-switch-provider.tsx", "utf8");
+  const form = readFileSync("src/features/developer-role-switch/components/developer-role-switch-form.tsx", "utf8");
+  assert.match(card, /open\(mode\)/);
+  assert.match(provider, /requestedRole/);
+  assert.match(provider, /roleLocked=\{requestedRole !== null\}/);
+  assert.match(provider, /<DeveloperRoleSwitchForm/);
+  assert.match(form, /startDeveloperRoleSessionAction/);
+  assert.match(form, /actions\.startAdmin/);
+  assert.match(form, /actions\.startStaff/);
+  assert.match(form, /actions\.cancel/);
+  assert.match(form, /active\?\.companyId \?\? ""/);
+});
+
+test("role switch availability is server-derived from actualRole and developer return targets settings", () => {
+  const shell = readFileSync("src/components/layout/app-shell.tsx", "utf8");
+  const actions = readFileSync("src/features/developer-role-switch/developer-role-switch.actions.ts", "utf8");
+  assert.match(shell, /roleSwitchAvailable = accessContext\?\.actualRole === "DEVELOPER"/);
+  assert.match(shell, /available=\{roleSwitchAvailable\}/);
+  assert.match(actions, /redirectPath: "\/developer\/settings"/);
+});
+
+test("Korean and Japanese messages include the mode controls and disabled-state guidance", () => {
+  const ko = JSON.parse(readFileSync("src/messages/ko.json", "utf8")).developerRoleSwitch;
+  const ja = JSON.parse(readFileSync("src/messages/ja.json", "utf8")).developerRoleSwitch;
+  assert.equal(ko.modeTitle, "권한 테스트 모드");
+  assert.equal(ko.developerMode, "개발자 모드");
+  assert.equal(ko.modes.ADMIN, "관리자 모드");
+  assert.equal(ko.modes.STAFF, "직원 모드");
+  assert.match(ko.card.disabled, /비활성화/);
+  assert.equal(ja.modeTitle, "権限テストモード");
+  assert.equal(ja.modes.ADMIN, "管理者モード");
+  assert.equal(ja.modes.STAFF, "スタッフモード");
+  assert.match(ja.card.disabled, /無効/);
+});
+
 test("important role-switched writes record actual/effective role and session metadata", () => {
   const access = readFileSync("src/features/access-control/domain/access-control.ts", "utf8");
   const users = readFileSync("src/features/user-management/user-management.actions.ts", "utf8");

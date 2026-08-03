@@ -1153,9 +1153,14 @@
   },
   "developerRoleSwitch": {
     "title": "권한 테스트",
+    "modeTitle": "권한 테스트 모드",
     "description": "실제 계정 권한은 변경하지 않고 선택한 회사 범위에서 관리자 또는 직원 권한을 테스트합니다.",
     "developerMode": "개발자 모드",
     "propertyCount": "{count}개 숙소",
+    "modes": {
+      "ADMIN": "관리자 모드",
+      "STAFF": "직원 모드"
+    },
     "fields": {
       "company": "테스트 회사",
       "singleCompany": "한 번에 한 회사",
@@ -1179,6 +1184,9 @@
       "open": "권한 테스트 열기",
       "settings": "권한 테스트 설정",
       "return": "개발자 모드로 복귀",
+      "startAdmin": "관리자 모드 시작",
+      "startStaff": "직원 모드 시작",
+      "cancel": "취소",
       "processing": "처리 중"
     },
     "banner": {
@@ -1188,9 +1196,13 @@
       "properties": "접근 숙소: {count}개"
     },
     "card": {
-      "description": "로그아웃이나 별도 테스트 계정 없이 ADMIN/STAFF 권한과 데이터 범위를 검증합니다.",
+      "description": "로그아웃하지 않고 관리자 또는 직원 화면과 권한을 테스트합니다.",
       "actualRole": "실제 권한",
       "currentMode": "현재 모드",
+      "currentModeValue": "현재 모드: {mode}",
+      "currentCompany": "현재 회사",
+      "modeButtons": "권한 테스트 모드 선택",
+      "disabled": "권한 테스트 기능이 비활성화되어 있습니다. 다음 서버 환경변수 설정이 필요합니다.",
       "notSelected": "선택 안 함"
     },
     "messages": {

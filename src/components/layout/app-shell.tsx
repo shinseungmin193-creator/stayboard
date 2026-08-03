@@ -19,7 +19,8 @@ export async function AppShell({ children }: Readonly<{ children: React.ReactNod
     getTranslations(),
   ]);
   const sidebarPreference = accessContext ? await findSidebarPreference(accessContext.userId) : DEFAULT_SIDEBAR_PREFERENCE;
-  const roleSwitchOptions = accessContext?.actualRole === "DEVELOPER" ? await getCurrentDeveloperRoleSwitchOptions() : null;
+  const roleSwitchAvailable = accessContext?.actualRole === "DEVELOPER";
+  const roleSwitchOptions = roleSwitchAvailable ? await getCurrentDeveloperRoleSwitchOptions() : null;
   const activeRoleSwitch: ActiveDeveloperRoleSwitch | null = accessContext?.isRoleSwitchActive
     && (accessContext.previewRole === "ADMIN" || accessContext.previewRole === "STAFF")
     && accessContext.activeCompanyId
@@ -39,7 +40,13 @@ export async function AppShell({ children }: Readonly<{ children: React.ReactNod
   return (
     <AuthDialogProvider>
       <SidebarPreferenceProvider initialPreference={sidebarPreference}>
-        <DeveloperRoleSwitchProvider options={roleSwitchOptions} active={activeRoleSwitch} staleCookie={accessContext?.roleSwitchCookieStatus === "STALE"}>
+        <DeveloperRoleSwitchProvider
+          available={roleSwitchAvailable}
+          options={roleSwitchOptions}
+          active={activeRoleSwitch}
+          currentCompanyName={accessContext?.activeCompanyName ?? null}
+          staleCookie={accessContext?.roleSwitchCookieStatus === "STALE"}
+        >
           <div className="min-h-dvh bg-muted/30">
           <DesktopSidebar
             role={accessContext?.role ?? null}

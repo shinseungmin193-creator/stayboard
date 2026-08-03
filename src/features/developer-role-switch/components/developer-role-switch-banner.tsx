@@ -32,7 +32,7 @@ export function DeveloperRoleSwitchBanner() {
       <span className="min-w-0 truncate text-xs">{t("banner.company", { company: active.companyName })}</span>
       {active.previewRole === "STAFF" && <span className="text-xs">{t("banner.properties", { count: active.allowedPropertyIds.length })}</span>}
       <div className="ml-auto flex items-center gap-1">
-        <Button type="button" size="xs" variant="outline" className="border-amber-400 bg-background/80" onClick={open}><Settings2 />{t("actions.settings")}</Button>
+        <Button type="button" size="xs" variant="outline" className="border-amber-400 bg-background/80" onClick={() => open()}><Settings2 />{t("actions.settings")}</Button>
         <Button type="button" size="xs" className="bg-amber-900 text-white hover:bg-amber-800 dark:bg-amber-200 dark:text-amber-950" disabled={pending} onClick={end}><RotateCcw />{pending ? t("actions.processing") : t("actions.return")}</Button>
       </div>
       {message && <span role="alert" className="w-full text-xs text-destructive">{message}</span>}

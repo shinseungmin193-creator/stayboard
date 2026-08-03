@@ -1153,9 +1153,14 @@
   },
   "developerRoleSwitch": {
     "title": "権限テスト",
+    "modeTitle": "権限テストモード",
     "description": "実際のアカウント権限を変更せず、選択した会社の範囲で管理者またはスタッフ権限をテストします。",
     "developerMode": "開発者モード",
     "propertyCount": "宿泊施設 {count}件",
+    "modes": {
+      "ADMIN": "管理者モード",
+      "STAFF": "スタッフモード"
+    },
     "fields": {
       "company": "テスト会社",
       "singleCompany": "1回につき1社",
@@ -1179,6 +1184,9 @@
       "open": "権限テストを開く",
       "settings": "権限テスト設定",
       "return": "開発者モードに戻る",
+      "startAdmin": "管理者モードを開始",
+      "startStaff": "スタッフモードを開始",
+      "cancel": "キャンセル",
       "processing": "処理中"
     },
     "banner": {
@@ -1188,9 +1196,13 @@
       "properties": "アクセス可能な宿泊施設: {count}件"
     },
     "card": {
-      "description": "ログアウトや別のテストアカウントを使わずに、ADMIN/STAFF権限とデータ範囲を検証します。",
+      "description": "ログアウトせずに、管理者またはスタッフの画面と権限をテストします。",
       "actualRole": "実際の権限",
       "currentMode": "現在のモード",
+      "currentModeValue": "現在のモード: {mode}",
+      "currentCompany": "現在の会社",
+      "modeButtons": "権限テストモードを選択",
+      "disabled": "権限テスト機能が無効です。次のサーバー環境変数を設定してください。",
       "notSelected": "未選択"
     },
     "messages": {
