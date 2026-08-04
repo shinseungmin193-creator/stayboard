@@ -44,6 +44,11 @@ yarn-error.log*
 .env.backup-*
 !.env.example
 
+# server DB pull (local-only configuration and generated dumps)
+.env.server-db-pull
+/tmp/db/
+/backups/db/*.dump
+
 # vercel
 .vercel
 

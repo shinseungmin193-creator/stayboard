@@ -65,7 +65,7 @@ export function CleaningTaskDetailDialog({
             </section>
             <section className="space-y-3 rounded-2xl border p-4">
               <h3 className="flex items-center gap-2 font-semibold"><Camera className="size-4" />{t("photos.title")}</h3>
-              {actionable && canWork
+              {actionable
                 ? <CleaningPhotoUploader taskId={task.id} initialPhotos={task.photos} disabled={pending} onResult={onResult} onUploaded={onRefresh} />
                 : task.photos.length > 0
                   ? <CleaningPhotoUploader taskId={task.id} initialPhotos={task.photos} readOnly onResult={onResult} />

@@ -126,14 +126,7 @@ export async function startCleaningTaskAction(input: { taskId: string; workerNam
   const t = await getTranslations("cleaning.messages");
   if (!parsed.success) return { success: false, message: t("invalidName"), code: "INVALID_NAME" };
   try {
-    const { context, task } = await requireCleaningTaskAccess(parsed.data.taskId, PERMISSIONS.CLEANING_MANAGE);
-    if (!canWorkOnCleaningTask({
-      role: context.role,
-      userId: context.userId,
-      assignedToId: task.assignedToId,
-      assigneeName: task.assigneeName,
-      assignedById: task.assignedById,
-    })) return { success: false, message: t("forbidden"), code: "FORBIDDEN" };
+    const { context } = await requireCleaningTaskAccess(parsed.data.taskId, PERMISSIONS.CLEANING_MANAGE);
     await startCleaningTask(parsed.data.taskId, {
       ...actor(context, parsed.data.workerName),
       workerName: parsed.data.workerName,

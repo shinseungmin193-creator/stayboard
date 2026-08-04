@@ -68,6 +68,11 @@ test("starting an unassigned task plans assignment and start as one workflow", (
   assert.deepEqual(planCleaningStart(unassigned, "당일 직원"), { shouldAssign: true, workerName: "당일 직원" });
 });
 
+test("starting an assigned pending task does not require the actor to own the assignment", () => {
+  const assigned = { ...unassigned, assigneeUserId: "staff-a", assigneeName: "담당 직원" };
+  assert.deepEqual(planCleaningStart(assigned), { shouldAssign: false, workerName: "담당 직원" });
+});
+
 test("completing an unassigned task plans assignment and completion together", () => {
   assert.deepEqual(planCleaningCompletion(unassigned, "완료 직원"), { shouldAssign: true, workerName: "완료 직원" });
 });

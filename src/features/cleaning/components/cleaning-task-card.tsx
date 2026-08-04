@@ -56,13 +56,12 @@ export function CleaningTaskCard({
     ? { label: t("actions.details"), icon: FileClock, run: () => onOpenDetails(task, "logs"), variant: "outline" as const }
     : task.status === "IN_PROGRESS"
       ? { label: t("actions.complete"), icon: CircleCheck, run: () => onWorkflow(task, "complete"), variant: "default" as const }
-      : hasAssignee
-        ? { label: t("actions.start"), icon: Play, run: () => onWorkflow(task, "start"), variant: "default" as const }
-        : { label: role === "STAFF" ? t("actions.claimSelf") : t("actions.assign"), icon: UserRoundPlus, run: () => onWorkflow(task, "assign"), variant: "default" as const };
+      : { label: t("actions.start"), icon: Play, run: () => onWorkflow(task, "start"), variant: "default" as const };
   const ActionIcon = action.icon;
+  const primaryActionDisabled = pending || (task.status === "IN_PROGRESS" && !canWork);
 
   return (
-    <article className={cn("min-w-0 rounded-2xl border bg-card p-3 shadow-sm transition-shadow hover:shadow-md sm:p-4", meta.border)}>
+    <article data-cleaning-task-id={task.id} className={cn("min-w-0 rounded-2xl border bg-card p-3 shadow-sm transition-shadow hover:shadow-md sm:p-4", meta.border)}>
       <div className="grid min-w-0 gap-3 lg:grid-cols-[minmax(12rem,1.2fr)_minmax(16rem,1fr)_auto] lg:items-center">
         <button type="button" className="min-w-0 text-left outline-none" onClick={() => onOpenDetails(task)}>
           <div className="flex min-w-0 items-start justify-between gap-2 lg:block">
@@ -81,12 +80,13 @@ export function CleaningTaskCard({
           <div className="col-span-2 min-w-0 sm:col-span-1"><p className="text-muted-foreground">{t("fields.assignee")}</p><p className="mt-0.5 truncate font-semibold">{task.assignee?.name ?? t("status.unassigned")}</p></div>
         </div>
 
-        <div className="relative z-10 flex min-w-0 items-center justify-end gap-2">
-          {task.status === "IN_PROGRESS" && <Button type="button" size="sm" variant="outline" disabled={pending || !canWork} onClick={() => onOpenDetails(task, "photos")}><Camera />{t("actions.addPhoto")}</Button>}
+        <div className="flex min-w-0 items-center justify-end gap-2">
+          {task.status === "IN_PROGRESS" && <Button type="button" size="sm" variant="outline" data-cleaning-photo-action={task.id} disabled={pending} onClick={() => onOpenDetails(task, "photos")}><Camera />{t("actions.addPhoto")}</Button>}
           <button
             type="button"
+            data-cleaning-primary-action={task.id}
             className={cn(buttonVariants({ size: "sm", variant: action.variant }), action.variant === "default" && meta.button)}
-            disabled={pending || (task.status !== "COMPLETED" && !canWork)}
+            disabled={primaryActionDisabled}
             onClick={(event) => {
               event.stopPropagation();
               action.run();
@@ -95,7 +95,7 @@ export function CleaningTaskCard({
             <ActionIcon />{action.label}
           </button>
           <DropdownMenu>
-            <DropdownMenuTrigger render={<Button type="button" size="icon-sm" variant="ghost" aria-label={t("actions.more")} />}><Ellipsis /></DropdownMenuTrigger>
+            <DropdownMenuTrigger render={<Button type="button" size="icon-sm" variant="ghost" data-cleaning-menu-action={task.id} aria-label={t("actions.more")} />}><Ellipsis /></DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-40">
               <DropdownMenuItem onClick={() => onOpenDetails(task)}><FileClock />{t("actions.details")}</DropdownMenuItem>
               {task.status !== "COMPLETED" && role !== "STAFF" && <DropdownMenuItem onClick={() => onWorkflow(task, "reassign")}><UserRoundPlus />{t("actions.changeAssignee")}</DropdownMenuItem>}

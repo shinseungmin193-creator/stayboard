@@ -15,21 +15,41 @@ test("completion workflow requires the shared photo uploader to finish before co
 
 test("mobile photo uploader provides separate camera and multiple gallery inputs", () => {
   const uploader = source("src/features/cleaning/components/cleaning-photo-uploader.tsx");
-  const galleryInput = uploader.match(/<input ref=\{galleryInputRef\}[^>]*>/)?.[0];
+  const validation = source("src/features/cleaning/domain/cleaning-photo-validation.ts");
+  const galleryInput = uploader.match(/<input id=\{galleryInputId\}[^>]*>/)?.[0];
   assert.match(uploader, /capture="environment"/);
   assert.match(uploader, /ref=\{galleryInputRef\}[^>]*multiple/);
   assert.ok(galleryInput);
   assert.doesNotMatch(galleryInput, /capture=/);
   assert.match(uploader, /accept=\{CLEANING_PHOTO_ACCEPT\}/);
+  assert.match(validation, /CLEANING_PHOTO_ACCEPT = "image\/\*"/);
+  assert.match(uploader, /captureInputId = `cleaning-photo-capture-\$\{safeTaskId\}-\$\{inputInstanceId\}`/);
+  assert.match(uploader, /galleryInputId = `cleaning-photo-gallery-\$\{safeTaskId\}-\$\{inputInstanceId\}`/);
+  assert.match(uploader, /htmlFor=\{captureInputId\}/);
+  assert.match(uploader, /htmlFor=\{galleryInputId\}/);
+  assert.match(uploader, /className="sr-only"/);
   assert.match(uploader, /xhr\.upload\.onprogress/);
   assert.match(uploader, /withBasePath\(`\/api\/cleaning\/tasks\/\$\{input\.taskId\}\/photos`\)/);
 });
 
-test("desktop cleaning primary action uses an unobstructed native button", () => {
+test("pending cleaning tasks expose an unobstructed start button independent of assignment", () => {
   const card = source("src/features/cleaning/components/cleaning-task-card.tsx");
-  assert.match(card, /relative z-10 flex min-w-0 items-center justify-end/);
+  assert.match(card, /: \{ label: t\("actions\.start"\), icon: Play/);
+  assert.match(card, /primaryActionDisabled = pending \|\| \(task\.status === "IN_PROGRESS" && !canWork\)/);
+  assert.match(card, /data-cleaning-primary-action=\{task\.id\}/);
   assert.match(card, /<button\s+type="button"[\s\S]*?event\.stopPropagation\(\);[\s\S]*?action\.run\(\);/);
   assert.doesNotMatch(card, /<Link[^>]*>[\s\S]*?<button/);
+  assert.doesNotMatch(card, /relative z-10 flex min-w-0 items-center justify-end/);
+});
+
+test("start and photo endpoints rely on scoped CLEANING_MANAGE access rather than assignment ownership", () => {
+  const actions = source("src/features/cleaning/cleaning.actions.ts");
+  const route = source("src/app/api/cleaning/tasks/[taskId]/photos/route.ts");
+  const startAction = actions.slice(actions.indexOf("export async function startCleaningTaskAction"), actions.indexOf("export async function completeCleaningTaskAction"));
+  assert.match(startAction, /requireCleaningTaskAccess\(parsed\.data\.taskId, PERMISSIONS\.CLEANING_MANAGE\)/);
+  assert.doesNotMatch(startAction, /canWorkOnCleaningTask/);
+  assert.match(route, /requireCleaningTaskAccess\(routeTaskId, PERMISSIONS\.CLEANING_MANAGE\)/);
+  assert.doesNotMatch(route, /canWorkOnCleaningTask/);
 });
 
 test("upload retries retain a client id and the server enforces idempotency", () => {

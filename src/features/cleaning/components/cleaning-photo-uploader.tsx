@@ -1,11 +1,11 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { Camera, CircleCheck, ImagePlus, LoaderCircle, RotateCcw, Trash2, Upload } from "lucide-react";
 import { useTranslations } from "next-intl";
 
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { withBasePath } from "@/lib/base-path";
 import { cn } from "@/lib/utils";
 import {
@@ -114,6 +114,11 @@ export function CleaningPhotoUploader({
   const [uploadedPhotos, setUploadedPhotos] = useState<CleaningPhotoViewModel[]>([]);
   const [items, setItems] = useState<UploadItem[]>([]);
   const [isUploading, setIsUploading] = useState(false);
+  const inputInstanceId = useId().replace(/:/g, "");
+  const safeTaskId = taskId.replace(/[^A-Za-z0-9_-]/g, "-");
+  const captureInputId = `cleaning-photo-capture-${safeTaskId}-${inputInstanceId}`;
+  const galleryInputId = `cleaning-photo-gallery-${safeTaskId}-${inputInstanceId}`;
+  const pickerDisabled = disabled || isUploading;
 
   useEffect(() => () => {
     activeRequestRef.current?.abort();
@@ -257,11 +262,11 @@ export function CleaningPhotoUploader({
     {!activePhotos.length && !items.length && <p className="rounded-xl bg-muted/50 px-3 py-5 text-center text-sm text-muted-foreground">{t("photos.required")}</p>}
 
     {!readOnly && <>
-      <input ref={captureInputRef} type="file" accept={CLEANING_PHOTO_ACCEPT} capture="environment" className="sr-only" onChange={(event) => addFiles(event.target.files)} />
-      <input ref={galleryInputRef} type="file" accept={CLEANING_PHOTO_ACCEPT} multiple className="sr-only" onChange={(event) => addFiles(event.target.files)} />
+      <input id={captureInputId} data-cleaning-photo-input={`${taskId}:camera`} ref={captureInputRef} type="file" accept={CLEANING_PHOTO_ACCEPT} capture="environment" className="sr-only" disabled={pickerDisabled} onChange={(event) => addFiles(event.target.files)} />
+      <input id={galleryInputId} data-cleaning-photo-input={`${taskId}:gallery`} ref={galleryInputRef} type="file" accept={CLEANING_PHOTO_ACCEPT} multiple className="sr-only" disabled={pickerDisabled} onChange={(event) => addFiles(event.target.files)} />
       <div className="grid grid-cols-2 gap-2">
-        <Button type="button" variant="outline" disabled={disabled || isUploading} onClick={() => captureInputRef.current?.click()}><Camera />{t("photos.capture")}</Button>
-        <Button type="button" variant="outline" disabled={disabled || isUploading} onClick={() => galleryInputRef.current?.click()}><ImagePlus />{t("photos.select")}</Button>
+        <label htmlFor={captureInputId} data-cleaning-photo-trigger={`${taskId}:camera`} aria-disabled={pickerDisabled} className={cn(buttonVariants({ variant: "outline" }), pickerDisabled ? "pointer-events-none opacity-50" : "cursor-pointer")}><Camera />{t("photos.capture")}</label>
+        <label htmlFor={galleryInputId} data-cleaning-photo-trigger={`${taskId}:gallery`} aria-disabled={pickerDisabled} className={cn(buttonVariants({ variant: "outline" }), pickerDisabled ? "pointer-events-none opacity-50" : "cursor-pointer")}><ImagePlus />{t("photos.select")}</label>
       </div>
       {items.some((item) => item.uploadable && (item.status === "selected" || item.status === "failed")) && <Button type="button" className="w-full" disabled={disabled || isUploading} onClick={uploadSelected}>
         {isUploading ? <><LoaderCircle className="animate-spin" />{t("photos.uploadingFiles")}</> : hasFailedFiles ? <><RotateCcw />{t("photos.retryUpload")}</> : <><Upload />{t("photos.uploadSelected")}</>}

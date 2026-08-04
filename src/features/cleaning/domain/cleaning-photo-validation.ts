@@ -11,7 +11,7 @@ export const CLEANING_PHOTO_EXTENSIONS: Record<CleaningPhotoMimeType, "jpg" | "p
   "image/heif": "heif",
 };
 
-export const CLEANING_PHOTO_ACCEPT = CLEANING_PHOTO_MIME_TYPES.join(",");
+export const CLEANING_PHOTO_ACCEPT = "image/*";
 export const MAX_CLEANING_PHOTO_REQUEST_SIZE = MAX_CLEANING_PHOTO_SIZE + 512 * 1024;
 
 function startsWith(bytes: Uint8Array, signature: readonly number[]) {

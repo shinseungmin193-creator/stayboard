@@ -5,7 +5,6 @@ import {
   MAX_CLEANING_PHOTO_REQUEST_SIZE,
   validateCleaningPhoto,
 } from "@/features/cleaning/domain/cleaning-photo-validation";
-import { canWorkOnCleaningTask } from "@/features/cleaning/domain/cleaning-access-policy";
 import {
   CleaningTaskNotFoundError,
   CleaningTaskStateError,
@@ -88,15 +87,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ tas
     const { taskId: routeTaskId } = await params;
     taskId = routeTaskId;
     const { context, task } = await requireCleaningTaskAccess(routeTaskId, PERMISSIONS.CLEANING_MANAGE);
-    if (!canWorkOnCleaningTask({
-      role: context.role,
-      userId: context.userId,
-      assignedToId: task.assignedToId,
-      assigneeName: task.assigneeName,
-      assignedById: task.assignedById,
-    })) {
-      return Response.json({ success: false, message: t("forbidden") }, { status: 403 });
-    }
     const contentType = request.headers.get("content-type")?.toLowerCase() ?? "";
     if (!contentType.startsWith("multipart/form-data;")) {
       return Response.json({ success: false, message: t("photoInvalidType") }, { status: 415 });
