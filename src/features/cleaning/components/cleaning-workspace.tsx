@@ -121,7 +121,7 @@ export function CleaningWorkspace({
         <Button type="button" variant="outline" size="sm" disabled={selectedData.page >= selectedData.totalPages || isPending} onClick={() => navigate({ page: selectedData.page + 1 })}>{t("pagination.next")}</Button>
       </nav>}
 
-      {workflow && <CleaningWorkflowDialog key={`${workflow.task.id}-${workflow.mode}`} task={workflow.task} mode={workflow.mode} role={role} currentUserId={currentUserId} currentUserName={currentUserName} pending={isPending} onClose={() => setWorkflow(null)} onSubmit={runWorkflow} />}
+      {workflow && <CleaningWorkflowDialog key={`${workflow.task.id}-${workflow.mode}`} task={workflow.task} mode={workflow.mode} role={role} currentUserId={currentUserId} currentUserName={currentUserName} pending={isPending} onClose={() => setWorkflow(null)} onSubmit={runWorkflow} onUploadResult={handleResult} onPhotoUploaded={() => router.refresh()} />}
       {detail && <CleaningTaskDetailDialog key={`${detail.task.id}-${detail.focus ?? "details"}`} task={detail.task} focus={detail.focus} role={role} currentUserId={currentUserId} locale={localeTag} timeZone={data.timeZone} pending={isPending} onClose={() => setDetail(null)} onResult={handleResult} onRefresh={() => router.refresh()} />}
       {notice && <div className="fixed inset-x-4 bottom-[calc(5.25rem+env(safe-area-inset-bottom))] z-[70] mx-auto max-w-sm rounded-xl bg-foreground px-4 py-3 text-center text-sm font-medium text-background shadow-lg lg:bottom-6" role="status" aria-live="polite">{notice}</div>}
     </div>

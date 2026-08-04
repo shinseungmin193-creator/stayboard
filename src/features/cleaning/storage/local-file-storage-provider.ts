@@ -29,7 +29,7 @@ export class LocalFileStorageProvider implements FileStorageProvider {
   }
 
   private resolveStorageKey(storageKey: string) {
-    if (!/^[A-Za-z0-9_-]+\/[A-Za-z0-9-]+\.(?:jpg|png|webp)$/.test(storageKey)) {
+    if (!/^[A-Za-z0-9_-]+\/[A-Za-z0-9-]+\.(?:jpg|png|webp|heic|heif)$/.test(storageKey)) {
       throw new Error("Invalid cleaning photo storage key.");
     }
     const resolved = path.resolve(this.rootDirectory, storageKey);
@@ -41,7 +41,7 @@ export class LocalFileStorageProvider implements FileStorageProvider {
 
   async upload(file: StoredFileUpload) {
     if (!/^[A-Za-z0-9_-]+$/.test(file.taskId)) throw new Error("Invalid cleaning task id.");
-    if (!/^(?:jpg|png|webp)$/.test(file.extension)) throw new Error("Invalid cleaning photo extension.");
+    if (!/^(?:jpg|png|webp|heic|heif)$/.test(file.extension)) throw new Error("Invalid cleaning photo extension.");
     const storageKey = `${file.taskId}/${randomUUID()}.${file.extension}`;
     const destination = this.resolveStorageKey(storageKey);
     await mkdir(path.dirname(destination), { recursive: true });

@@ -4,7 +4,7 @@ import { useMemo } from "react";
 import { useTranslations } from "next-intl";
 import { Camera, CircleCheck, Clock3, Ellipsis, FileClock, MessageSquareText, Play, UserRoundPlus } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import type { UserRole } from "@/features/access-control";
 import { cn } from "@/lib/utils";
@@ -81,9 +81,19 @@ export function CleaningTaskCard({
           <div className="col-span-2 min-w-0 sm:col-span-1"><p className="text-muted-foreground">{t("fields.assignee")}</p><p className="mt-0.5 truncate font-semibold">{task.assignee?.name ?? t("status.unassigned")}</p></div>
         </div>
 
-        <div className="flex min-w-0 items-center justify-end gap-2">
+        <div className="relative z-10 flex min-w-0 items-center justify-end gap-2">
           {task.status === "IN_PROGRESS" && <Button type="button" size="sm" variant="outline" disabled={pending || !canWork} onClick={() => onOpenDetails(task, "photos")}><Camera />{t("actions.addPhoto")}</Button>}
-          <Button type="button" size="sm" variant={action.variant} className={cn(action.variant === "default" && meta.button)} disabled={pending || (task.status !== "COMPLETED" && !canWork)} onClick={action.run}><ActionIcon />{action.label}</Button>
+          <button
+            type="button"
+            className={cn(buttonVariants({ size: "sm", variant: action.variant }), action.variant === "default" && meta.button)}
+            disabled={pending || (task.status !== "COMPLETED" && !canWork)}
+            onClick={(event) => {
+              event.stopPropagation();
+              action.run();
+            }}
+          >
+            <ActionIcon />{action.label}
+          </button>
           <DropdownMenu>
             <DropdownMenuTrigger render={<Button type="button" size="icon-sm" variant="ghost" aria-label={t("actions.more")} />}><Ellipsis /></DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-40">

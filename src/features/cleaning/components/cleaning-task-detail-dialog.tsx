@@ -1,16 +1,15 @@
 "use client";
 
-import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
-import { Camera, FileClock, MessageSquareText, Upload, UserRound } from "lucide-react";
+import { Camera, FileClock, MessageSquareText, UserRound } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import type { UserRole } from "@/features/access-control";
-import { withBasePath } from "@/lib/base-path";
 import { saveCleaningTaskNoteAction, type CleaningActionResult } from "../cleaning.actions";
-import type { CleaningPhotoViewModel, CleaningTaskViewModel } from "../cleaning.types";
+import type { CleaningTaskViewModel } from "../cleaning.types";
+import { CleaningPhotoUploader } from "./cleaning-photo-uploader";
 import { CleaningTaskStatusBadge } from "./cleaning-task-status-badge";
 
 export function CleaningTaskDetailDialog({
@@ -37,39 +36,12 @@ export function CleaningTaskDetailDialog({
   onRefresh: () => void;
 }) {
   const t = useTranslations("cleaning");
-  const [photos, setPhotos] = useState<CleaningPhotoViewModel[]>(task?.photos ?? []);
   const [note, setNote] = useState(task?.note ?? "");
-  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
   const noteRef = useRef<HTMLTextAreaElement>(null);
   useEffect(() => { if (focus === "note") setTimeout(() => noteRef.current?.focus(), 50); }, [focus, task]);
   const dateTime = useMemo(() => new Intl.DateTimeFormat(locale, { timeZone, year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }), [locale, timeZone]);
   const actionable = task?.status === "PENDING" || task?.status === "IN_PROGRESS";
   const canWork = Boolean(task && (role !== "STAFF" || !task.assignee || task.assignee.userId === currentUserId || (task.assignee.userId === null && task.assignee.assignedById === currentUserId)));
-
-  const uploadPhoto = (file: File) => {
-    if (!task) return;
-    const formData = new FormData();
-    formData.set("photo", file);
-    const xhr = new XMLHttpRequest();
-    setUploadProgress(0);
-    xhr.open("POST", withBasePath(`/api/cleaning/tasks/${task.id}/photos`));
-    xhr.upload.onprogress = (event) => { if (event.lengthComputable) setUploadProgress(Math.round((event.loaded / event.total) * 100)); };
-    xhr.onload = () => {
-      try {
-        const result = JSON.parse(xhr.responseText) as CleaningActionResult & { photo?: { id: string; url: string } };
-        onResult(result);
-        if (xhr.status >= 200 && xhr.status < 300 && result.photo) {
-          setPhotos((current) => [...current, { id: result.photo!.id, url: result.photo!.url, mimeType: file.type, size: file.size, originalName: file.name, createdAt: new Date().toISOString(), deleteAfter: null, deletedAt: null }]);
-          onRefresh();
-        }
-      } catch { onResult({ success: false, message: t("messages.uploadFailed") }); }
-      setUploadProgress(null);
-      if (inputRef.current) inputRef.current.value = "";
-    };
-    xhr.onerror = () => { setUploadProgress(null); onResult({ success: false, message: t("messages.uploadFailed") }); };
-    xhr.send(formData);
-  };
 
   return (
     <Dialog open={Boolean(task)} onOpenChange={(open) => { if (!open) onClose(); }}>
@@ -93,11 +65,11 @@ export function CleaningTaskDetailDialog({
             </section>
             <section className="space-y-3 rounded-2xl border p-4">
               <h3 className="flex items-center gap-2 font-semibold"><Camera className="size-4" />{t("photos.title")}</h3>
-              {photos.length > 0 ? <div className="grid grid-cols-2 gap-2">{photos.map((photo) => photo.url ? <div key={photo.id} className="relative aspect-[4/3] overflow-hidden rounded-xl bg-muted"><Image unoptimized src={photo.url} alt={t("photos.alt")} fill sizes="(max-width: 640px) 45vw, 240px" className="object-cover" /></div> : <div key={photo.id} className="flex aspect-[4/3] items-center justify-center rounded-xl bg-muted px-2 text-center text-xs text-muted-foreground">{t("photos.deleted")}</div>)}</div> : <p className="rounded-xl bg-muted/50 px-3 py-6 text-center text-sm text-muted-foreground">{t("photos.required")}</p>}
-              {actionable && canWork && <>
-                <input ref={inputRef} type="file" accept="image/*" capture="environment" className="sr-only" onChange={(event) => { const file = event.target.files?.[0]; if (file) uploadPhoto(file); }} />
-                <Button type="button" variant="outline" className="w-full" disabled={uploadProgress !== null || pending} onClick={() => inputRef.current?.click()}>{uploadProgress === null ? <><Camera />{t("actions.addPhoto")}</> : <><Upload className="animate-pulse" />{t("photos.uploading", { progress: uploadProgress })}</>}</Button>
-              </>}
+              {actionable && canWork
+                ? <CleaningPhotoUploader taskId={task.id} initialPhotos={task.photos} disabled={pending} onResult={onResult} onUploaded={onRefresh} />
+                : task.photos.length > 0
+                  ? <CleaningPhotoUploader taskId={task.id} initialPhotos={task.photos} readOnly onResult={onResult} />
+                  : <p className="rounded-xl bg-muted/50 px-3 py-6 text-center text-sm text-muted-foreground">{t("photos.required")}</p>}
             </section>
           </div>
           <section className="space-y-3 rounded-2xl border p-4">

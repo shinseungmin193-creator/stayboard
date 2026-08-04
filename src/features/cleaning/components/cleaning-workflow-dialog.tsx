@@ -2,14 +2,16 @@
 
 import { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
-import { UserRound } from "lucide-react";
+import { Camera, UserRound } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { UserRole } from "@/features/access-control";
+import type { CleaningActionResult } from "../cleaning.actions";
 import type { CleaningTaskViewModel } from "../cleaning.types";
+import { CleaningPhotoUploader, type CleaningPhotoUploadState } from "./cleaning-photo-uploader";
 
 export type CleaningWorkflowMode = "assign" | "reassign" | "start" | "complete";
 
@@ -22,6 +24,8 @@ export function CleaningWorkflowDialog({
   pending,
   onClose,
   onSubmit,
+  onUploadResult,
+  onPhotoUploaded,
 }: {
   task: CleaningTaskViewModel | null;
   mode: CleaningWorkflowMode | null;
@@ -31,6 +35,8 @@ export function CleaningWorkflowDialog({
   pending: boolean;
   onClose: () => void;
   onSubmit: (input: { task: CleaningTaskViewModel; mode: CleaningWorkflowMode; workerName: string; assigneeUserId?: string }) => void;
+  onUploadResult: (result: CleaningActionResult) => void;
+  onPhotoUploaded: () => void;
 }) {
   const t = useTranslations("cleaning.workflow");
   const assignmentMode = mode === "assign" || mode === "reassign";
@@ -52,15 +58,24 @@ export function CleaningWorkflowDialog({
     : task?.assignee?.name || currentUserName;
   const [workerName, setWorkerName] = useState(defaultName);
   const [selectedUserId, setSelectedUserId] = useState(defaultSelectedUserId);
+  const initialPhotoCount = task?.photos.filter((photo) => photo.url && !photo.deletedAt).length ?? 0;
+  const [photoState, setPhotoState] = useState<CleaningPhotoUploadState>({
+    persistedPhotoCount: initialPhotoCount,
+    hasUnuploadedFiles: false,
+    hasFailedFiles: false,
+    isUploading: false,
+    readyForCompletion: initialPhotoCount > 0,
+  });
   const selectedAssignee = options.find((option) => option.id === selectedUserId);
   const showWorkerNameInput = !assignmentMode || selectedAssignee?.role === "STAFF";
   const normalizedName = workerName.trim();
   const validName = normalizedName.length >= 1 && normalizedName.length <= 30;
-  const valid = assignmentMode ? Boolean(selectedAssignee) && (!showWorkerNameInput || validName) : validName;
+  const identityValid = assignmentMode ? Boolean(selectedAssignee) && (!showWorkerNameInput || validName) : validName;
+  const valid = identityValid && (mode !== "complete" || photoState.readyForCompletion);
 
   return (
     <Dialog open={Boolean(task && mode)} onOpenChange={(open) => { if (!open) onClose(); }}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="max-h-[92dvh] overflow-y-auto sm:max-w-md">
         {task && mode && <>
           <DialogHeader>
             <DialogTitle>{t(`titles.${mode}`)}</DialogTitle>
@@ -95,12 +110,25 @@ export function CleaningWorkflowDialog({
               <Input id="cleaning-worker-name" value={workerName} onChange={(event) => setWorkerName(event.target.value)} maxLength={30} autoComplete="name" placeholder={t("namePlaceholder")} />
               <div className="flex justify-end text-xs text-muted-foreground"><span>{normalizedName.length}/30</span></div>
             </div>}
+            {mode === "complete" && <section className="space-y-3 rounded-xl border p-3">
+              <h3 className="flex items-center gap-2 text-sm font-semibold"><Camera className="size-4" />{t("completionPhotos")}</h3>
+              <p className="text-xs text-muted-foreground">{t("completionPhotosDescription")}</p>
+              <CleaningPhotoUploader
+                taskId={task.id}
+                initialPhotos={task.photos}
+                disabled={pending}
+                onResult={onUploadResult}
+                onUploaded={onPhotoUploaded}
+                onStateChange={setPhotoState}
+              />
+              {!photoState.readyForCompletion && <p className="text-xs font-medium text-amber-700 dark:text-amber-300">{t(photoState.hasFailedFiles ? "photoUploadFailedHint" : photoState.hasUnuploadedFiles || photoState.isUploading ? "photoUploadPendingHint" : "photoRequiredHint")}</p>}
+            </section>}
           </div>
           <div className="grid grid-cols-2 gap-2 pt-2">
             <Button type="button" variant="outline" onClick={onClose} disabled={pending}>{t("cancel")}</Button>
             <Button
               type="button"
-              disabled={pending || !valid}
+              disabled={pending || photoState.isUploading || !valid}
               onClick={() => onSubmit({
                 task,
                 mode,

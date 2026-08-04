@@ -1,6 +1,6 @@
 export interface StoredFileUpload {
   taskId: string;
-  extension: string;
+  extension: "jpg" | "png" | "webp" | "heic" | "heif";
   data: Uint8Array;
 }
 

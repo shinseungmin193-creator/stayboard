@@ -186,7 +186,7 @@ BRANCH="${2:?배포 브랜치가 필요합니다.}"
 PM2_APP="${3:?PM2 앱 이름이 필요합니다.}"
 SERVICE_URL="${4:?서비스 확인 주소가 필요합니다.}"
 
-echo "[1/11] 프로젝트 경로와 안전 백업 대상을 확인합니다."
+echo "[1/14] 프로젝트 경로와 안전 백업 대상을 확인합니다."
 if [[ ! -d "$REMOTE_PATH" ]]; then
   echo "[배포 실패] 프로젝트 경로가 없습니다: $REMOTE_PATH" >&2
   exit 1
@@ -210,14 +210,14 @@ fi
 
 OLD_COMMIT="$(git rev-parse HEAD)"
 
-echo "[2/11] 최신 코드를 fast-forward 방식으로 반영합니다."
+echo "[2/14] 최신 코드를 fast-forward 방식으로 반영합니다."
 git fetch origin "$BRANCH"
 git checkout "$BRANCH"
 git pull --ff-only origin "$BRANCH"
 
 NEW_COMMIT="$(git rev-parse HEAD)"
 
-echo "[3/11] 변경된 파일을 분석합니다."
+echo "[3/14] 변경된 파일을 분석합니다."
 CHANGED_FILES="$(git diff --name-only "$OLD_COMMIT" "$NEW_COMMIT" || true)"
 if [[ -n "$CHANGED_FILES" ]]; then
   printf '%s\n' "$CHANGED_FILES"
@@ -236,7 +236,7 @@ if grep -Eq '^(prisma/schema\.prisma|prisma\.config\.ts|prisma/migrations/)' <<<
   PRISMA_GENERATE_CHANGED=1
 fi
 
-echo "[4/11] 운영 환경 파일과 권한 테스트 설정을 확인합니다."
+echo "[4/14] 운영 환경 파일과 권한 테스트 설정을 확인합니다."
 ENV_FILE="$REMOTE_PATH/.env"
 if [[ ! -f "$ENV_FILE" ]]; then
   echo "[배포 실패] 실제 운영 환경 파일이 없습니다: $ENV_FILE" >&2
@@ -251,7 +251,51 @@ node scripts/ensure-developer-role-switch-env.mjs --check "$ENV_FILE"
 export ENABLE_DEVELOPER_ROLE_SWITCH=true
 echo "[환경 확인] 권한 테스트 모드가 활성화되어 있습니다."
 
-echo "[5/11] 의존성 설치 필요 여부를 확인합니다."
+echo "[5/14] 청소 사진 영구 저장 경로와 쓰기 권한을 확인합니다."
+if [[ ! -f scripts/verify-cleaning-photo-storage.mjs ]]; then
+  echo "[배포 실패] 청소 사진 저장소 검증 도구를 찾을 수 없습니다." >&2
+  exit 1
+fi
+PHOTO_STORAGE_DIR="$(node --env-file="$ENV_FILE" scripts/verify-cleaning-photo-storage.mjs)"
+if [[ -z "$PHOTO_STORAGE_DIR" || ! -d "$PHOTO_STORAGE_DIR" ]]; then
+  echo "[배포 실패] 청소 사진 저장 경로를 준비하지 못했습니다." >&2
+  exit 1
+fi
+export CLEANING_PHOTO_STORAGE_DIR="$PHOTO_STORAGE_DIR"
+echo "[저장소 확인] CLEANING_PHOTO_STORAGE_DIR=$PHOTO_STORAGE_DIR"
+
+echo "[6/14] Nginx 업로드 허용 크기를 확인합니다."
+if command -v nginx >/dev/null 2>&1 && [[ -d /etc/nginx/conf.d ]]; then
+  NGINX_UPLOAD_CONFIG="/etc/nginx/conf.d/stayboard-cleaning-upload.conf"
+  NGINX_UPLOAD_BACKUP="$(mktemp /tmp/stayboard-nginx-upload.XXXXXX)"
+  NGINX_UPLOAD_EXISTED=0
+  if [[ -f "$NGINX_UPLOAD_CONFIG" ]]; then
+    cp -- "$NGINX_UPLOAD_CONFIG" "$NGINX_UPLOAD_BACKUP"
+    NGINX_UPLOAD_EXISTED=1
+  fi
+  install -m 0644 deploy/nginx/stayboard-cleaning-upload.conf "$NGINX_UPLOAD_CONFIG"
+  if ! nginx -t; then
+    if [[ "$NGINX_UPLOAD_EXISTED" -eq 1 ]]; then
+      cp -- "$NGINX_UPLOAD_BACKUP" "$NGINX_UPLOAD_CONFIG"
+    else
+      rm -f -- "$NGINX_UPLOAD_CONFIG"
+    fi
+    rm -f -- "$NGINX_UPLOAD_BACKUP"
+    echo "[배포 실패] Nginx 업로드 설정 검증에 실패하여 기존 설정을 복구했습니다." >&2
+    exit 1
+  fi
+  rm -f -- "$NGINX_UPLOAD_BACKUP"
+  if command -v systemctl >/dev/null 2>&1; then
+    systemctl reload nginx
+  else
+    nginx -s reload
+  fi
+  echo "[Nginx 확인] client_max_body_size=12m"
+else
+  echo "[주의] Nginx conf.d를 찾지 못했습니다. 후속 실제 요청 크기 검사로 413 여부를 확인합니다."
+fi
+
+echo "[7/14] 의존성 설치 필요 여부를 확인합니다."
 NPM_CI_RAN=0
 if [[ ! -d node_modules || "$PACKAGE_CHANGED" -eq 1 ]]; then
   npm ci --include=dev
@@ -262,7 +306,7 @@ fi
 
 export NODE_ENV=production
 
-echo "[6/11] Prisma 변경 여부를 확인합니다."
+echo "[8/14] Prisma 변경 여부를 확인합니다."
 if [[ "$NPM_CI_RAN" -eq 1 || "$PRISMA_GENERATE_CHANGED" -eq 1 ]]; then
   npx prisma generate
 else
@@ -272,20 +316,20 @@ fi
 echo "[적용] 미적용 Prisma migration을 확인하고 적용합니다."
 npx prisma migrate deploy
 
-echo "[7/11] Production Build를 실행합니다."
+echo "[9/14] Production Build를 실행합니다."
 NODE_OPTIONS="--max-old-space-size=4096" npm run build
 
-echo "[8/11] Build 성공 후 PM2 앱을 갱신된 환경으로 재시작합니다."
+echo "[10/14] Build 성공 후 PM2 앱을 갱신된 환경으로 재시작합니다."
 pm2 restart "$PM2_APP" --update-env
 pm2 save
 
-echo "[9/11] PM2 앱 상태와 최소 환경값을 확인합니다."
+echo "[11/14] PM2 앱 상태와 최소 환경값을 확인합니다."
 pm2 status "$PM2_APP"
 pm2 jlist 2>/dev/null | node -e '
 let data = "";
 process.stdin.on("data", (chunk) => data += chunk);
 process.stdin.on("end", () => {
-  const [appName, expectedCwd] = process.argv.slice(1);
+  const [appName, expectedCwd, expectedPhotoStorage] = process.argv.slice(1);
   const app = JSON.parse(data).find((item) => item.name === appName);
   if (!app) throw new Error(`PM2 앱을 찾을 수 없습니다: ${appName}`);
   const env = app.pm2_env || {};
@@ -294,14 +338,44 @@ process.stdin.on("end", () => {
   if (env.pm_cwd !== expectedCwd) throw new Error(`PM2 cwd가 올바르지 않습니다: ${env.pm_cwd || "unset"}`);
   if (env.NODE_ENV !== "production") throw new Error(`PM2 NODE_ENV가 production이 아닙니다: ${env.NODE_ENV || "unset"}`);
   if (!roleSwitchEnabled) throw new Error("PM2 프로세스에 권한 테스트 환경변수가 반영되지 않았습니다.");
+  if (env.CLEANING_PHOTO_STORAGE_DIR !== expectedPhotoStorage) throw new Error(`PM2 청소 사진 저장 경로가 올바르지 않습니다: ${env.CLEANING_PHOTO_STORAGE_DIR || "unset"}`);
   console.log(`[환경 확인] PM2 status=${env.status}`);
   console.log(`[환경 확인] PM2 cwd=${env.pm_cwd}`);
   console.log(`[환경 확인] PM2 NODE_ENV=${env.NODE_ENV}`);
   console.log("[환경 확인] ENABLE_DEVELOPER_ROLE_SWITCH=true");
+  console.log(`[환경 확인] CLEANING_PHOTO_STORAGE_DIR=${env.CLEANING_PHOTO_STORAGE_DIR}`);
 });
-' "$PM2_APP" "$REMOTE_PATH"
+' "$PM2_APP" "$REMOTE_PATH" "$PHOTO_STORAGE_DIR"
 
-echo "[10/11] 서비스 응답을 확인합니다."
+echo "[12/14] 서비스 응답과 업로드 요청 크기를 확인합니다."
 curl --fail --silent --show-error --max-time 20 "$SERVICE_URL" >/dev/null
+UPLOAD_PROBE="$(mktemp /tmp/stayboard-upload-probe.XXXXXX)"
+truncate -s 10485760 "$UPLOAD_PROBE"
+set +e
+UPLOAD_STATUS="$(curl --silent --show-error --max-time 30 --output /dev/null --write-out '%{http_code}' -H 'Expect:' -F "photo=@$UPLOAD_PROBE;type=image/jpeg" "$SERVICE_URL/api/cleaning/tasks/upload-size-probe/photos")"
+UPLOAD_CURL_EXIT=$?
+set -e
+rm -f -- "$UPLOAD_PROBE"
+if [[ "$UPLOAD_CURL_EXIT" -ne 0 ]]; then
+  echo "[배포 실패] 청소 사진 업로드 크기 검사 요청이 실패했습니다. curl exit=$UPLOAD_CURL_EXIT" >&2
+  exit "$UPLOAD_CURL_EXIT"
+fi
+if [[ "$UPLOAD_STATUS" == "413" ]]; then
+  echo "[배포 실패] Nginx 또는 상위 프록시가 10 MiB 청소 사진 요청을 413으로 거부했습니다." >&2
+  exit 1
+fi
+echo "[업로드 크기 확인] 10 MiB 요청이 프록시를 통과했습니다. HTTP=$UPLOAD_STATUS"
 
-echo "[11/11] 배포 후 환경 및 서비스 확인이 완료되었습니다."
+echo "[13/14] 청소 사진 7일 보관 정리 작업을 등록합니다."
+NODE_BIN_DIR="$(dirname "$(command -v node)")"
+NPM_BIN="$(command -v npm)"
+CLEANUP_CRON="/etc/cron.d/stayboard-cleaning-photos"
+printf '%s\n' \
+  'SHELL=/bin/bash' \
+  "PATH=$NODE_BIN_DIR:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin" \
+  "17 3 * * * root cd \"$REMOTE_PATH\" && \"$NPM_BIN\" run cleanup:cleaning-photos >> /var/log/stayboard-cleaning-photo-cleanup.log 2>&1" \
+  > "$CLEANUP_CRON"
+chmod 0644 "$CLEANUP_CRON"
+echo "[보관 정책 확인] 매일 03:17 cleanup:cleaning-photos 실행"
+
+echo "[14/14] 배포 후 환경 및 서비스 확인이 완료되었습니다."

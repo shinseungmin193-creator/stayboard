@@ -531,6 +531,7 @@ model CleaningTaskLog {
 model CleaningPhoto {
   id             String       @id @default(cuid())
   taskId         String
+  clientUploadId String?
   storageKey     String?      @unique
   originalName   String
   mimeType       String
@@ -544,6 +545,7 @@ model CleaningPhoto {
   task           CleaningTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
   uploadedBy     User         @relation("CleaningPhotoUploader", fields: [uploadedById], references: [id], onDelete: Restrict)
 
+  @@unique([taskId, clientUploadId])
   @@index([taskId, createdAt])
   @@index([deleteAfter, deletedAt])
   @@index([uploadedById, createdAt])
