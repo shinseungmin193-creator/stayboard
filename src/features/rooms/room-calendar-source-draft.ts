@@ -103,6 +103,13 @@ export function removeNewCalendarSourceDraft(
   return drafts.filter((draft) => draft.kind !== "new" || draft.key !== key);
 }
 
+export function removeExistingCalendarSourceDraft(
+  drafts: readonly CalendarSourceDraft[],
+  calendarSourceId: string,
+): CalendarSourceDraft[] {
+  return drafts.filter((draft) => draft.kind !== "existing" || draft.id !== calendarSourceId);
+}
+
 export function createInitialCalendarSourceDrafts(sources: RoomCalendarSourceSummary[]): CalendarSourceDraft[] {
   return sources.map((source) => ({
     kind: "existing",
@@ -124,6 +131,7 @@ export function createInitialCalendarSourceDrafts(sources: RoomCalendarSourceSum
       latestSyncCompletedAt: source.latestSyncCompletedAt,
       latestFetchedCount: source.latestFetchedCount,
       latestErrorSummary: source.latestErrorSummary,
+      isSyncing: source.isSyncing,
     },
   }));
 }

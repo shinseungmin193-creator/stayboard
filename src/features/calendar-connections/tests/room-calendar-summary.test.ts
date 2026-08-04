@@ -59,11 +59,11 @@ test("캘린더 연결 삭제 권한은 effective role이 ADMIN 또는 DEVELOPER
   assert.equal(hasPermission("STAFF", PERMISSIONS.CALENDAR_SOURCE_MANAGE), false);
 });
 
-test("연결 이름 또는 현재 언어의 삭제 확인어만 최종 삭제를 허용한다", () => {
-  assert.equal(isCalendarSourceDeleteConfirmationValid("Booking.com", "Booking.com"), true);
-  assert.equal(isCalendarSourceDeleteConfirmationValid(" 삭제 ", "Booking.com"), true);
-  assert.equal(isCalendarSourceDeleteConfirmationValid("削除", "Booking.com"), true);
-  assert.equal(isCalendarSourceDeleteConfirmationValid("delete", "Booking.com"), false);
+test("현재 언어의 삭제 확인어를 정확히 입력해야 최종 삭제를 허용한다", () => {
+  assert.equal(isCalendarSourceDeleteConfirmationValid(" 삭제 "), true);
+  assert.equal(isCalendarSourceDeleteConfirmationValid("削除"), true);
+  assert.equal(isCalendarSourceDeleteConfirmationValid("Booking.com"), false);
+  assert.equal(isCalendarSourceDeleteConfirmationValid("delete"), false);
 });
 
 test("최근 RUNNING 로그만 실제 동기화 중으로 판정한다", () => {
@@ -114,4 +114,21 @@ test("삭제 UI는 권한 prop, 영향 count, 확인 입력과 한일 메시지�
   assert.match(dialog, /confirmationValid/);
   assert.equal(ko.title, "캘린더 연결을 삭제하시겠습니까?");
   assert.equal(ja.title, "カレンダー連携を削除しますか？");
+});
+
+test("객실 수정 OTA 연결 행에 연결 해제와 실제 삭제가 함께 렌더링된다", () => {
+  const editor = readFileSync("src/features/rooms/components/room-calendar-source-editor.tsx", "utf8");
+  const roomDialog = readFileSync("src/features/rooms/components/room-form-dialog.tsx", "utf8");
+  const roomsPage = readFileSync("src/app/rooms/page.tsx", "utf8");
+  const actions = readFileSync("src/features/calendar-sources/calendar-source.actions.ts", "utf8");
+  assert.match(editor, /CalendarSourceDeleteDialog/);
+  assert.match(editor, /i18n\("auto\.m0565"\)/);
+  assert.match(editor, /canDelete && <CalendarSourceDeleteDialog/);
+  assert.match(editor, /flex flex-wrap items-center justify-end gap-2/);
+  assert.match(editor, /calendarSourceDeletion\.emptyProvider/);
+  assert.match(editor, /changeCalendarSourceActiveAction/);
+  assert.match(roomDialog, /<RoomCalendarSourceEditor[^>]+canManageCalendarSources/);
+  assert.match(roomDialog, /removeExistingCalendarSourceDraft/);
+  assert.match(roomsPage, /hasPermission\(access\.context\.role, PERMISSIONS\.CALENDAR_SOURCE_MANAGE\)/);
+  assert.match(actions, /revalidatePath\("\/rooms"\)/);
 });

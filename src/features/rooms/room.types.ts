@@ -12,6 +12,7 @@ export interface RoomCalendarSourceSummary {
   latestSyncCompletedAt: Date | null;
   latestFetchedCount: number;
   latestErrorSummary: string | null;
+  isSyncing: boolean;
 }
 
 export interface RoomListItem {

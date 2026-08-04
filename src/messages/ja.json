@@ -150,12 +150,18 @@
     },
     "deactivationDifference": "無効化では連携と予約が保持されますが、削除するとこの連携と同期予約・競合・履歴が完全に削除されます。",
     "confirmationLabel": "削除の確認",
-    "confirmationHint": "確認のため連携名または「削除」と入力してください。",
+    "confirmationHint": "確認のため「削除」と入力してください。",
     "confirmationPlaceholder": "削除",
     "cancel": "キャンセル",
     "confirm": "カレンダー連携を削除",
     "success": "カレンダー連携を削除しました。",
     "successWithCount": "{sourceName}の連携と同期予約{count}件を削除しました。",
+    "connectionCount": "{count}件の連携",
+    "emptyProvider": "連携されたカレンダーはありません。",
+    "activeChange": {
+      "activated": "カレンダー連携を再度有効にしました。",
+      "deactivated": "カレンダー連携を無効にしました。既存の予約データは保持されます。"
+    },
     "errors": {
       "invalidRequest": "カレンダー連携の削除リクエストが正しくありません。",
       "confirmation": "削除確認の入力が一致しません。",

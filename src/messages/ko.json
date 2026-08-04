@@ -150,12 +150,18 @@
     },
     "deactivationDifference": "비활성화는 연결과 예약을 유지하지만, 삭제는 이 연결과 동기화 예약·충돌·이력을 영구 제거합니다.",
     "confirmationLabel": "삭제 확인",
-    "confirmationHint": "확인을 위해 연결 이름 또는 ‘삭제’를 입력해 주세요.",
+    "confirmationHint": "확인을 위해 ‘삭제’를 입력해 주세요.",
     "confirmationPlaceholder": "삭제",
     "cancel": "취소",
     "confirm": "캘린더 연결 삭제",
     "success": "캘린더 연결을 삭제했습니다.",
     "successWithCount": "{sourceName} 연결과 동기화 예약 {count}건을 삭제했습니다.",
+    "connectionCount": "{count}개 연결",
+    "emptyProvider": "연결된 캘린더가 없습니다.",
+    "activeChange": {
+      "activated": "캘린더 연결을 다시 활성화했습니다.",
+      "deactivated": "캘린더 연결을 비활성화했습니다. 기존 예약 데이터는 유지됩니다."
+    },
     "errors": {
       "invalidRequest": "잘못된 캘린더 연결 삭제 요청입니다.",
       "confirmation": "삭제 확인 문구가 일치하지 않습니다.",

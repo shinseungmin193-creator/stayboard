@@ -7,6 +7,7 @@ import type { RoomRegistrationInput } from "./create-room-registration";
 import type { RoomOperationalStatus } from "@/lib/generated/prisma/enums";
 import type { RoomWithCalendarSourcesAtomicInput } from "./update-room-with-calendar-sources";
 import { formatRoomDisplayName } from "./room-display";
+import { CALENDAR_SYNC_STALE_RUNNING_MS } from "@/features/calendar-sync/calendar-sync.constants";
 
 type RoomWriteInput = { propertyId: string; name: string; capacity: number };
 const internalRoomCode = () => `room_${randomUUID()}`;
@@ -41,6 +42,7 @@ export async function listRooms(propertyId?: string, companyIds?: readonly strin
   });
   const syncStates = await findCalendarSourceSyncStates(rooms.flatMap((room) => room.calendarSources.map((source) => source.id)));
   const syncStateBySourceId = new Map(syncStates.map((state) => [state.sourceId, state]));
+  const staleRunningCutoff = Date.now() - CALENDAR_SYNC_STALE_RUNNING_MS;
   return rooms.map(({ property, _count, calendarSources, ...room }) => ({
     ...room,
     name: formatRoomDisplayName(room),
@@ -56,6 +58,8 @@ export async function listRooms(propertyId?: string, companyIds?: readonly strin
         latestSyncCompletedAt: syncState?.latestSyncCompletedAt ?? null,
         latestFetchedCount: syncState?.latestFetchedCount ?? 0,
         latestErrorSummary: summarizeSyncError(syncState?.latestFailedErrorMessage ?? syncState?.latestErrorMessage),
+        isSyncing: syncState?.latestSyncStatus === "RUNNING"
+          && Boolean(syncState.latestSyncStartedAt && syncState.latestSyncStartedAt.getTime() >= staleRunningCutoff),
       };
     }),
   }));

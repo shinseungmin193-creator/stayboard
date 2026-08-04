@@ -2,11 +2,9 @@ export const CALENDAR_SOURCE_DELETE_CONFIRMATION_KEYWORDS = ["삭제", "削除"]
 
 export function isCalendarSourceDeleteConfirmationValid(
   confirmationText: string,
-  sourceName: string,
 ): boolean {
   const confirmation = confirmationText.trim();
-  return confirmation === sourceName.trim()
-    || CALENDAR_SOURCE_DELETE_CONFIRMATION_KEYWORDS.some((keyword) => confirmation === keyword);
+  return CALENDAR_SOURCE_DELETE_CONFIRMATION_KEYWORDS.some((keyword) => confirmation === keyword);
 }
 
 export function isCalendarSourceSyncRunning(

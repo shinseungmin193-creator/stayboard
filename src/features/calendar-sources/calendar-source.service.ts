@@ -48,7 +48,7 @@ export async function deleteCalendarSourceSafely(input: {
   context: AccessContext;
   now?: Date;
 }) {
-  if (!isCalendarSourceDeleteConfirmationValid(input.confirmationText, input.target.sourceName)) {
+  if (!isCalendarSourceDeleteConfirmationValid(input.confirmationText)) {
     throw new CalendarSourceServiceError("CONFIRMATION_MISMATCH", "삭제 확인 문구가 일치하지 않습니다.");
   }
   try {

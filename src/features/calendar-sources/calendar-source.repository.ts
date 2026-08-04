@@ -164,7 +164,7 @@ export async function deleteCalendarSourceTransaction(input: {
       || source.room.propertyId !== input.target.propertyId
       || source.room.property.companyId !== input.target.companyId
     ) throw new CalendarSourceDeletionRepositoryError("SCOPE_CHANGED");
-    if (!isCalendarSourceDeleteConfirmationValid(input.confirmationText, source.name)) {
+    if (!isCalendarSourceDeleteConfirmationValid(input.confirmationText)) {
       throw new CalendarSourceDeletionRepositoryError("CONFIRMATION_MISMATCH");
     }
 

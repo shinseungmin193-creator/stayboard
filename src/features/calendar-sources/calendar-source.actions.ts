@@ -27,11 +27,31 @@ export async function updateCalendarSourceAction(_state: ActionResult, formData:
   catch (error) { return await serviceFailure(error, "updateCalendarSource"); }
 }
 
+async function applyCalendarSourceActiveChange(id: string, isActive: boolean): Promise<ActionResult> {
+  const t = await getTranslations("calendarSourceDeletion");
+  try {
+    await requireCalendarSourceAccess(id, PERMISSIONS.CALENDAR_SOURCE_MANAGE);
+    await changeCalendarSourceActive(id, isActive);
+    revalidatePath("/calendar-sources");
+    revalidatePath("/rooms");
+    revalidatePath("/room-overview");
+    revalidatePath("/room-status");
+    return { success: true, message: isActive ? t("activeChange.activated") : t("activeChange.deactivated") };
+  } catch (error) {
+    return await serviceFailure(error, "setCalendarSourceActive");
+  }
+}
+
 export async function setCalendarSourceActiveAction(_state: ActionResult, formData: FormData): Promise<ActionResult> {
   const parsed = calendarSourceActiveSchema.safeParse({ id: formData.get("id"), isActive: formData.get("isActive") });
   if (!parsed.success) return { success: false, message: "잘못된 상태 변경 요청입니다." };
-  try { await requireCalendarSourceAccess(parsed.data.id, PERMISSIONS.CALENDAR_SOURCE_MANAGE); await changeCalendarSourceActive(parsed.data.id, parsed.data.isActive); revalidatePath("/calendar-sources"); return { success: true, message: parsed.data.isActive ? "캘린더 연결을 활성화했습니다." : "캘린더 연결을 비활성화했습니다. 기존 예약 데이터는 유지됩니다." }; }
-  catch (error) { return await serviceFailure(error, "setCalendarSourceActive"); }
+  return applyCalendarSourceActiveChange(parsed.data.id, parsed.data.isActive);
+}
+
+export async function changeCalendarSourceActiveAction(input: { id: string; isActive: boolean }): Promise<ActionResult> {
+  const parsed = calendarSourceActiveSchema.safeParse({ id: input.id, isActive: String(input.isActive) });
+  if (!parsed.success) return { success: false, message: "잘못된 상태 변경 요청입니다." };
+  return applyCalendarSourceActiveChange(parsed.data.id, parsed.data.isActive);
 }
 
 export async function testCalendarSourceAction(_state: ActionResult<CalendarConnectionResult>, formData: FormData): Promise<ActionResult<CalendarConnectionResult>> {
@@ -80,6 +100,7 @@ export async function deleteCalendarSourceAction(input: {
     const context = await requireRoomAccess(target.roomId, PERMISSIONS.CALENDAR_SOURCE_MANAGE);
     const data = await deleteCalendarSourceSafely({ target, confirmationText: parsed.data.confirmationText, context });
     revalidatePath("/calendar-sources");
+    revalidatePath("/rooms");
     revalidatePath("/reservations");
     revalidatePath("/room-overview");
     revalidatePath("/room-status");

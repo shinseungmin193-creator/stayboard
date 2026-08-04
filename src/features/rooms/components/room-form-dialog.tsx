@@ -1,6 +1,6 @@
 "use client";import { useTranslations } from "next-intl";
 
-import { type FormEvent, useState, useTransition } from "react";
+import { type FormEvent, useEffect, useState, useTransition } from "react";
 import { CalendarClock, LoaderCircle, Settings2 } from "lucide-react";
 import type { PropertyOption } from "@/features/properties";
 import type { RoomListItem } from "../room.types";
@@ -8,6 +8,7 @@ import { updateRoomWithCalendarSourcesAction, type UpdateRoomWithCalendarSources
 import {
   calendarSourceDraftSubmitErrors,
   createInitialCalendarSourceDrafts,
+  removeExistingCalendarSourceDraft,
   toCalendarSourceUpdateDrafts,
   type CalendarSourceDraft } from
 "../room-calendar-source-draft";
@@ -21,7 +22,7 @@ import { RoomCalendarSourceEditor } from "./room-calendar-source-editor";
 
 const initialResult: UpdateRoomWithCalendarSourcesActionResult = { success: true, message: "" };
 
-export function RoomFormDialog({ properties, room }: {properties: PropertyOption[];room: RoomListItem;}) {const i18n = useTranslations();
+export function RoomFormDialog({ properties, room, canManageCalendarSources }: {properties: PropertyOption[];room: RoomListItem;canManageCalendarSources: boolean;}) {const i18n = useTranslations();
   const [open, setOpen] = useState(false);
   const [propertyId, setPropertyId] = useState(room.propertyId);
   const [name, setName] = useState(room.name);
@@ -29,16 +30,29 @@ export function RoomFormDialog({ properties, room }: {properties: PropertyOption
   const [drafts, setDrafts] = useState<CalendarSourceDraft[]>(() => createInitialCalendarSourceDrafts(room.calendarSources));
   const [result, setResult] = useState<UpdateRoomWithCalendarSourcesActionResult>(initialResult);
   const [sourceErrors, setSourceErrors] = useState<Record<string, string[]>>({});
+  const [deletedSourceIds, setDeletedSourceIds] = useState<ReadonlySet<string>>(() => new Set());
+  const [notice, setNotice] = useState<{message: string;success: boolean;} | null>(null);
   const [pending, startTransition] = useTransition();
 
   const reset = () => {
     setPropertyId(room.propertyId);
     setName(room.name);
     setCapacity(String(room.capacity));
-    setDrafts(createInitialCalendarSourceDrafts(room.calendarSources));
+    setDrafts(createInitialCalendarSourceDrafts(room.calendarSources.filter((source) => !deletedSourceIds.has(source.id))));
     setResult(initialResult);
     setSourceErrors({});
   };
+  const handleSourceDeleted = (calendarSourceId: string, message: string) => {
+    setDeletedSourceIds((current) => new Set(current).add(calendarSourceId));
+    setDrafts((current) => removeExistingCalendarSourceDraft(current, calendarSourceId));
+    setNotice({ message, success: true });
+  };
+  const handleNotice = (message: string, success: boolean) => setNotice({ message, success });
+  useEffect(() => {
+    if (!notice) return;
+    const timeout = window.setTimeout(() => setNotice(null), 4000);
+    return () => window.clearTimeout(timeout);
+  }, [notice]);
   const handleOpenChange = (nextOpen: boolean) => {
     if (nextOpen) reset();
     setOpen(nextOpen);
@@ -86,7 +100,7 @@ export function RoomFormDialog({ properties, room }: {properties: PropertyOption
           </section>
           <section className="space-y-3 border-t pt-4">
             <div className="flex items-start gap-2"><CalendarClock className="mt-0.5 size-4 text-muted-foreground" /><div><h3 className="text-sm font-semibold">{i18n("auto.m0580")}</h3><p className="text-xs text-muted-foreground">{i18n("auto.m0586")}</p></div></div>
-            <RoomCalendarSourceEditor roomName={name} drafts={drafts} onDraftsChange={setDrafts} sourceErrors={sourceErrors} />
+            <RoomCalendarSourceEditor roomName={name} drafts={drafts} onDraftsChange={setDrafts} onSourceDeleted={handleSourceDeleted} onNotice={handleNotice} canManageCalendarSources={canManageCalendarSources} sourceErrors={sourceErrors} />
           </section>
           <ActionMessage result={result} />
         </div>
@@ -96,5 +110,6 @@ export function RoomFormDialog({ properties, room }: {properties: PropertyOption
         </div>
       </form>
     </DialogContent>
+    {notice && <div role={notice.success ? "status" : "alert"} aria-live="polite" className={`fixed right-4 bottom-[calc(1rem+env(safe-area-inset-bottom))] z-[70] max-w-[calc(100vw-2rem)] rounded-lg border bg-popover px-4 py-3 text-sm text-popover-foreground shadow-lg ${notice.success ? "border-emerald-500/30" : "border-destructive/40 text-destructive"}`}>{notice.message}</div>}
   </Dialog>;
 }

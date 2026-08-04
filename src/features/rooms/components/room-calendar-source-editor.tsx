@@ -1,6 +1,7 @@
 ﻿"use client";import { useTranslations, useLocale } from "next-intl";
 
 import { type Dispatch, type SetStateAction, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { CheckCircle2, Circle, LoaderCircle, Plus, RotateCcw, Trash2, XCircle } from "lucide-react";
 import { testRoomCalendarUrlAction } from "../room.actions";
 import { ROOM_CALENDAR_PROVIDER_CONFIG, type RoomCalendarProvider } from "../room-calendar-draft";
@@ -19,6 +20,8 @@ import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { getReservationSyncStatusLabel } from "@/features/reservations/reservation-status-meta";
 import { getProviderLabel } from "@/features/reservations/provider-visuals";
+import { changeCalendarSourceActiveAction } from "@/features/calendar-sources/calendar-source.actions";
+import { CalendarSourceDeleteDialog } from "@/features/calendar-sources/components/calendar-source-delete-dialog";
 
 
 
@@ -47,7 +50,12 @@ function SourceRow({
   supported,
   onChange,
   onRequestDisconnect,
+  onRequestReconnect,
   onRemoveNew,
+  onSourceDeleted,
+  roomName,
+  canDelete,
+  sourceActionPending,
   errors
 
 
@@ -56,10 +64,10 @@ function SourceRow({
 
 
 
-}: {draft: CalendarSourceDraft;supported: boolean;onChange: (update: (current: CalendarSourceDraft) => CalendarSourceDraft) => void;onRequestDisconnect: () => void;onRemoveNew: () => void;errors?: string[];}) {const locale = useLocale(),localeTag = locale === "ja" ? "ja-JP" : "ko-KR";const i18n = useTranslations();
+}: {draft: CalendarSourceDraft;supported: boolean;onChange: (update: (current: CalendarSourceDraft) => CalendarSourceDraft) => void;onRequestDisconnect: () => void;onRequestReconnect: () => void;onRemoveNew: () => void;onSourceDeleted: (calendarSourceId: string, message: string) => void;roomName: string;canDelete: boolean;sourceActionPending: boolean;errors?: string[];}) {const locale = useLocale(),localeTag = locale === "ja" ? "ja-JP" : "ko-KR";const i18n = useTranslations();
   const [testing, startTesting] = useTransition();
   const status = draftStatus(draft, i18n);
-  const disabled = testing || draft.kind === "existing" && draft.markedForDeletion;
+  const disabled = testing || sourceActionPending || draft.kind === "existing" && draft.markedForDeletion;
   const testConnection = () => {
     if (!supported || !draft.url.trim() || testing) return;
     const testedUrl = draft.url.trim();
@@ -134,11 +142,19 @@ function SourceRow({
         {draft.kind === "existing" && <div className="space-y-0.5 text-muted-foreground"><p>{draft.sync.latestSyncStatus ? getReservationSyncStatusLabel(draft.sync.latestSyncStatus, i18n) : i18n("auto.m0562")} · {i18n("technical.vevent")} {draft.sync.latestFetchedCount}{i18n("auto.m0563")}{formatDate(draft.sync.latestSyncStartedAt, localeTag, i18n)}</p>{draft.sync.latestErrorSummary && <p className="truncate text-destructive" title={draft.sync.latestErrorSummary}>{draft.sync.latestErrorSummary}</p>}</div>}
         {errors?.map((error) => <p key={error} className="mt-1 text-destructive">{error}</p>)}
       </div>
-      {draft.kind === "existing" ? draft.markedForDeletion ?
-      <Button type="button" variant="outline" size="xs" onClick={() => onChange((current) => current.kind === "existing" ? { ...current, isActive: current.originalIsActive, markedForDeletion: false } : current)}>{i18n("auto.m0564")}</Button> :
-      draft.isActive ?
-      <Button type="button" variant="destructive" size="xs" onClick={onRequestDisconnect}><Trash2 />{i18n("auto.m0565")}</Button> :
-      <Button type="button" variant="outline" size="xs" onClick={() => onChange((current) => current.kind === "existing" ? { ...current, isActive: true } : current)}>{i18n("auto.m0566")}</Button> :
+      {draft.kind === "existing" ? <div className="flex flex-wrap items-center justify-end gap-2">
+        {draft.markedForDeletion ?
+        <Button type="button" variant="outline" size="xs" disabled={sourceActionPending} onClick={() => onChange((current) => current.kind === "existing" ? { ...current, isActive: current.originalIsActive, markedForDeletion: false } : current)}>{i18n("auto.m0564")}</Button> :
+        draft.isActive ?
+        <Button type="button" variant="outline" size="xs" className="border-amber-500/40 text-amber-700 hover:bg-amber-500/10 hover:text-amber-800 dark:text-amber-300" disabled={sourceActionPending} onClick={onRequestDisconnect}>{sourceActionPending && <LoaderCircle className="animate-spin" />}{i18n("auto.m0565")}</Button> :
+        <Button type="button" variant="outline" size="xs" disabled={sourceActionPending} onClick={onRequestReconnect}>{sourceActionPending && <LoaderCircle className="animate-spin" />}{i18n("auto.m0566")}</Button>}
+        {canDelete && <CalendarSourceDeleteDialog
+          source={{ id: draft.id, name: draft.name, roomName, isSyncing: draft.sync.isSyncing }}
+          onDeleted={onSourceDeleted}
+          compact
+          showButtonLabelOnMobile
+        />}
+      </div> :
       <Button type="button" variant="ghost" size="xs" onClick={onRemoveNew}><Trash2 />{i18n("auto.m0567")}</Button>}
     </div>
   </div>;
@@ -148,14 +164,21 @@ export function RoomCalendarSourceEditor({
   roomName,
   drafts,
   onDraftsChange,
+  onSourceDeleted,
+  onNotice,
+  canManageCalendarSources,
   sourceErrors
 
 
 
 
 
-}: {roomName: string;drafts: CalendarSourceDraft[];onDraftsChange: Dispatch<SetStateAction<CalendarSourceDraft[]>>;sourceErrors?: Record<string, string[]>;}) {const i18n = useTranslations();
+}: {roomName: string;drafts: CalendarSourceDraft[];onDraftsChange: Dispatch<SetStateAction<CalendarSourceDraft[]>>;onSourceDeleted: (calendarSourceId: string, message: string) => void;onNotice: (message: string, success: boolean) => void;canManageCalendarSources: boolean;sourceErrors?: Record<string, string[]>;}) {const i18n = useTranslations();
+  const router = useRouter();
   const [disconnectKey, setDisconnectKey] = useState<string | null>(null);
+  const [activeSourceId, setActiveSourceId] = useState<string | null>(null);
+  const [activeError, setActiveError] = useState<string | null>(null);
+  const [activeChangePending, startActiveChange] = useTransition();
   const disconnectDraft = drafts.find(
     (draft): draft is Extract<CalendarSourceDraft, {kind: "existing";}> => draft.key === disconnectKey && draft.kind === "existing"
   );
@@ -172,33 +195,75 @@ export function RoomCalendarSourceEditor({
       clientId
     })]);
   };
+  const changeActiveState = (draft: Extract<CalendarSourceDraft, {kind: "existing";}>, isActive: boolean) => {
+    if (activeChangePending) return;
+    setActiveSourceId(draft.id);
+    setActiveError(null);
+    startActiveChange(async () => {
+      const result = await changeCalendarSourceActiveAction({ id: draft.id, isActive });
+      if (!result.success) {
+        setActiveError(result.message);
+        if (isActive) onNotice(result.message, false);
+        setActiveSourceId(null);
+        return;
+      }
+      changeDraft(draft.key, (current) => current.kind === "existing" ? {
+        ...current,
+        isActive,
+        originalIsActive: isActive,
+        markedForDeletion: false,
+        testState: { status: "idle" }
+      } : current);
+      setDisconnectKey(null);
+      setActiveSourceId(null);
+      onNotice(result.message ?? i18n(isActive ? "calendarSourceDeletion.activeChange.activated" : "calendarSourceDeletion.activeChange.deactivated"), true);
+      router.refresh();
+    });
+  };
   const confirmDisconnect = () => {
     if (!disconnectDraft) return;
-    changeDraft(disconnectDraft.key, (current) => current.kind === "existing" ?
-    { ...current, isActive: false, markedForDeletion: true, testState: { status: "idle" } } :
-    current);
-    setDisconnectKey(null);
+    changeActiveState(disconnectDraft, false);
+  };
+  const handleSourceDeleted = (calendarSourceId: string, message: string) => {
+    if (disconnectDraft?.id === calendarSourceId) setDisconnectKey(null);
+    onSourceDeleted(calendarSourceId, message);
   };
 
   return <>
     <div className="space-y-2">
       {ROOM_CALENDAR_PROVIDER_CONFIG.map((config) => {
         const providerDrafts = drafts.filter((draft) => draft.provider === config.provider);
+        const existingSourceCount = providerDrafts.filter((draft) => draft.kind === "existing").length;
         return <section key={config.provider} data-provider-group={config.provider} className="rounded-lg border bg-muted/20 p-2.5">
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <h4 className="text-sm font-semibold">{config.label}</h4>
             <Badge variant="outline">{providerDrafts.some((draft) => draft.kind === "existing" && draft.isActive && !draft.markedForDeletion) ? i18n("auto.m0513") : i18n("auto.m0559")}</Badge>
+            <Badge variant="outline">{i18n("calendarSourceDeletion.connectionCount", { count: existingSourceCount })}</Badge>
             {!config.supported && <span className="text-[11px] text-muted-foreground">{i18n("auto.m0552")}</span>}
             <Button type="button" variant="ghost" size="xs" className="ml-auto" disabled={!config.supported} onClick={() => addDraft(config.provider, config.label)}><Plus />{config.label}{i18n("auto.m0568")}</Button>
           </div>
-          {providerDrafts.length > 0 && <div className="mt-2 space-y-2">{providerDrafts.map((draft) => <SourceRow key={draft.key} draft={draft} supported={config.supported} onChange={(update) => changeDraft(draft.key, update)} onRequestDisconnect={() => setDisconnectKey(draft.key)} onRemoveNew={() => onDraftsChange((current) => removeNewCalendarSourceDraft(current, draft.key))} errors={sourceErrors?.[draft.key]} />)}</div>}
+          {providerDrafts.length > 0 ? <div className="mt-2 space-y-2">{providerDrafts.map((draft) => <SourceRow
+            key={draft.key}
+            draft={draft}
+            supported={config.supported}
+            roomName={roomName}
+            canDelete={canManageCalendarSources}
+            sourceActionPending={activeChangePending && activeSourceId === (draft.kind === "existing" ? draft.id : null)}
+            onChange={(update) => changeDraft(draft.key, update)}
+            onRequestDisconnect={() => {setActiveError(null);setDisconnectKey(draft.key);}}
+            onRequestReconnect={() => {if (draft.kind === "existing") changeActiveState(draft, true);}}
+            onRemoveNew={() => onDraftsChange((current) => removeNewCalendarSourceDraft(current, draft.key))}
+            onSourceDeleted={handleSourceDeleted}
+            errors={sourceErrors?.[draft.key]}
+          />)}</div> : <p className="mt-2 rounded-md border border-dashed px-3 py-2 text-xs text-muted-foreground">{i18n("calendarSourceDeletion.emptyProvider")}</p>}
         </section>;
       })}
     </div>
-    <Dialog open={Boolean(disconnectDraft)} onOpenChange={(open) => {if (!open) setDisconnectKey(null);}}>
-      <DialogContent className="sm:max-w-md" showCloseButton={false}>
+    <Dialog open={Boolean(disconnectDraft)} onOpenChange={(open) => {if (!open && !activeChangePending) {setDisconnectKey(null);setActiveError(null);}}}>
+      <DialogContent className="sm:max-w-md" showCloseButton={!activeChangePending}>
         <DialogHeader><DialogTitle>{i18n("auto.m0569")}</DialogTitle><DialogDescription>{i18n("auto.m0570")}</DialogDescription></DialogHeader>
-        <div className="flex justify-end gap-2"><Button type="button" variant="outline" onClick={() => setDisconnectKey(null)}>{i18n("common.cancel")}</Button><Button type="button" variant="destructive" onClick={confirmDisconnect}>{i18n("auto.m0565")}</Button></div>
+        {activeError && <p role="alert" className="rounded-md bg-destructive/10 px-3 py-2 text-xs text-destructive">{activeError}</p>}
+        <div className="flex flex-wrap justify-end gap-2"><Button type="button" variant="outline" onClick={() => {setDisconnectKey(null);setActiveError(null);}} disabled={activeChangePending}>{i18n("common.cancel")}</Button><Button type="button" variant="outline" className="border-amber-500/40 text-amber-700 hover:bg-amber-500/10 hover:text-amber-800 dark:text-amber-300" onClick={confirmDisconnect} disabled={activeChangePending}>{activeChangePending && <LoaderCircle className="animate-spin" />}{i18n("auto.m0565")}</Button></div>
       </DialogContent>
     </Dialog>
   </>;

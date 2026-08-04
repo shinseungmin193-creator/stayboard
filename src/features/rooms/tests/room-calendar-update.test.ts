@@ -7,6 +7,7 @@ import {
   createCalendarSourceClientId,
   createInitialCalendarSourceDrafts,
   createNewCalendarSourceDraft,
+  removeExistingCalendarSourceDraft,
   removeNewCalendarSourceDraft,
   updateCalendarSourceDraftByKey,
   type CalendarSourceDraft,
@@ -174,7 +175,7 @@ test("빈 신규 Source는 무시한다", async () => {
 });
 
 test("Source URL 변경 시 이전 테스트 상태를 저장 증명으로 사용하지 않는다", () => {
-  const [draft] = createInitialCalendarSourceDrafts([{ id: "source-1", provider: "AIRBNB", name: "Airbnb", calendarUrl: oldUrl, isActive: true, lastSyncedAt: null, latestSyncStatus: null, latestSyncStartedAt: null, latestSyncCompletedAt: null, latestFetchedCount: 0, latestErrorSummary: null }]);
+  const [draft] = createInitialCalendarSourceDrafts([{ id: "source-1", provider: "AIRBNB", name: "Airbnb", calendarUrl: oldUrl, isActive: true, lastSyncedAt: null, latestSyncStatus: null, latestSyncStartedAt: null, latestSyncCompletedAt: null, latestFetchedCount: 0, latestErrorSummary: null, isSyncing: false }]);
   if (draft.kind !== "existing") throw new Error("existing draft expected");
   const changed = { ...draft, url: newUrl, testState: { status: "success" as const, testedUrl: oldUrl, result: result("AIRBNB", oldUrl) } };
   assert.deepEqual(calendarSourceDraftSubmitErrors([changed])[draft.key], ["변경한 URL의 연결 테스트를 완료해 주세요."]);
@@ -254,7 +255,7 @@ test("신규 행 삭제와 행별 연결 테스트 상태 변경은 다른 행�
 });
 
 test("수정 취소 시 기존 연결의 삭제 예정 상태가 원본으로 복원된다", () => {
-  const source = { id: "source-1", provider: "AIRBNB" as const, name: "Airbnb", calendarUrl: oldUrl, isActive: true, lastSyncedAt: null, latestSyncStatus: null, latestSyncStartedAt: null, latestSyncCompletedAt: null, latestFetchedCount: 0, latestErrorSummary: null };
+  const source = { id: "source-1", provider: "AIRBNB" as const, name: "Airbnb", calendarUrl: oldUrl, isActive: true, lastSyncedAt: null, latestSyncStatus: null, latestSyncStartedAt: null, latestSyncCompletedAt: null, latestFetchedCount: 0, latestErrorSummary: null, isSyncing: false };
   const [initial] = createInitialCalendarSourceDrafts([source]);
   const changed = updateCalendarSourceDraftByKey([initial], initial.key, (draft) => draft.kind === "existing" ? { ...draft, isActive: false, markedForDeletion: true } : draft);
   const [restored] = createInitialCalendarSourceDrafts([source]);
@@ -274,4 +275,12 @@ test("연결 추가 버튼은 폼을 제출하지 않고 모바일과 PC 레이�
   assert.match(editorSource, /grid min-w-0 gap-2 lg:grid-cols-/);
   assert.match(editorSource, /createCalendarSourceClientId\(\)/);
   assert.doesNotMatch(editorSource, /crypto\.randomUUID\(\)/);
+});
+
+test("실제 삭제된 Source만 draft에서 즉시 제거하고 다른 OTA는 유지한다", () => {
+  const first = createInitialCalendarSourceDrafts([
+    { id: "source-1", provider: "AIRBNB", name: "Airbnb", calendarUrl: oldUrl, isActive: true, lastSyncedAt: null, latestSyncStatus: null, latestSyncStartedAt: null, latestSyncCompletedAt: null, latestFetchedCount: 0, latestErrorSummary: null, isSyncing: false },
+    { id: "source-2", provider: "BOOKING", name: "Booking", calendarUrl: bookingUrl, isActive: true, lastSyncedAt: null, latestSyncStatus: null, latestSyncStartedAt: null, latestSyncCompletedAt: null, latestFetchedCount: 0, latestErrorSummary: null, isSyncing: false },
+  ]);
+  assert.deepEqual(removeExistingCalendarSourceDraft(first, "source-1").map((draft) => draft.kind === "existing" ? draft.id : draft.key), ["source-2"]);
 });

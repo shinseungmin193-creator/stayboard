@@ -22,9 +22,16 @@ import { isCalendarSourceDeleteConfirmationValid } from "../domain/calendar-sour
 interface CalendarSourceDeleteDialogProps {
   source: { id: string; name: string; roomName: string; isSyncing: boolean };
   onDeleted: (calendarSourceId: string, message: string) => void;
+  compact?: boolean;
+  showButtonLabelOnMobile?: boolean;
 }
 
-export function CalendarSourceDeleteDialog({ source, onDeleted }: CalendarSourceDeleteDialogProps) {
+export function CalendarSourceDeleteDialog({
+  source,
+  onDeleted,
+  compact = false,
+  showButtonLabelOnMobile = false,
+}: CalendarSourceDeleteDialogProps) {
   const t = useTranslations("calendarSourceDeletion");
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -33,7 +40,7 @@ export function CalendarSourceDeleteDialog({ source, onDeleted }: CalendarSource
   const [error, setError] = useState<string | null>(null);
   const [impactPending, startImpactTransition] = useTransition();
   const [deletePending, startDeleteTransition] = useTransition();
-  const confirmationValid = isCalendarSourceDeleteConfirmationValid(confirmationText, source.name);
+  const confirmationValid = isCalendarSourceDeleteConfirmationValid(confirmationText);
 
   const handleOpenChange = (nextOpen: boolean) => {
     if (deletePending) return;
@@ -77,14 +84,14 @@ export function CalendarSourceDeleteDialog({ source, onDeleted }: CalendarSource
         render={
           <Button
             type="button"
-            size="sm"
+            size={compact ? "xs" : "sm"}
             variant="destructive"
             aria-label={t("ariaLabel", { name: source.name })}
           />
         }
       >
         <Trash2 />
-        <span className="hidden sm:inline">{t("button")}</span>
+        <span className={showButtonLabelOnMobile ? undefined : "hidden sm:inline"}>{t("button")}</span>
       </DialogTrigger>
       <DialogContent role="alertdialog" className="sm:max-w-lg" showCloseButton={!deletePending}>
         <DialogHeader>
