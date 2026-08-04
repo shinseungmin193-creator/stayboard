@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { CalendarRoomOption } from "@/features/calendar-sources";
 import { CalendarConnectionTest, CalendarManualSync, CalendarSourceActiveForm } from "@/features/calendar-sources/components/calendar-source-actions";
 import { CalendarSourceForm } from "@/features/calendar-sources/components/calendar-source-form";
+import { CalendarSourceDeleteDialog } from "@/features/calendar-sources/components/calendar-source-delete-dialog";
 import type { CalendarSourceSummary } from "../types/room-calendar-summary";
 import { getProviderLabel } from "@/features/reservations/provider-visuals";
 
@@ -22,7 +23,7 @@ function SyncStatus({ source }: {source: CalendarSourceSummary;}) {const i18n = 
   return <Badge variant="outline" className="gap-1"><Clock3 />{i18n("auto.m0209")}</Badge>;
 }
 
-export function CalendarSourceCard({ source, rooms, showActions = true }: {source: CalendarSourceSummary;rooms: CalendarRoomOption[];showActions?: boolean;}) {const locale = useLocale(),localeTag = locale === "ja" ? "ja-JP" : "ko-KR";const formatter = new Intl.DateTimeFormat(localeTag, { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Tokyo" });const i18n = useTranslations();const formatDate = (value: Date | null) => value ? formatter.format(value) : i18n("auto.m0465");
+export function CalendarSourceCard({ source, rooms, showActions = true, canManage = false, onSourceDeleted }: {source: CalendarSourceSummary;rooms: CalendarRoomOption[];showActions?: boolean;canManage?: boolean;onSourceDeleted?: (calendarSourceId: string, message: string) => void;}) {const locale = useLocale(),localeTag = locale === "ja" ? "ja-JP" : "ko-KR";const formatter = new Intl.DateTimeFormat(localeTag, { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Tokyo" });const i18n = useTranslations();const formatDate = (value: Date | null) => value ? formatter.format(value) : i18n("auto.m0465");
   return (
     <Card size="sm" className="overflow-visible">
       <CardHeader className="grid-cols-[1fr_auto] items-start border-b pb-3">
@@ -60,6 +61,7 @@ export function CalendarSourceCard({ source, rooms, showActions = true }: {sourc
           <CalendarManualSync id={source.id} disabled={!source.isActive || source.isSyncing} />
           <Button nativeButton={false} render={<Link href={`/calendar-sources/${source.id}/sync-logs`} />} size="sm" variant="outline"><Clock3 />{i18n("auto.m0019")}</Button>
           <div className="ml-auto flex items-center gap-1.5 text-xs text-muted-foreground"><Power className="size-3.5" /><CalendarSourceActiveForm id={source.id} isActive={source.isActive} /></div>
+          {canManage && onSourceDeleted && <CalendarSourceDeleteDialog source={source} onDeleted={onSourceDeleted} />}
         </div>}
       </CardContent>
     </Card>);

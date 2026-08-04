@@ -12,3 +12,8 @@ export const calendarSourceInputSchema = z.object({
 export const calendarSourceUpdateSchema = calendarSourceInputSchema.omit({ calendarUrl: true }).extend({ id: z.string().trim().min(1), calendarUrl: z.union([z.literal(""), z.string().trim().max(CALENDAR_URL_MAX_LENGTH).url("올바른 URL을 입력해 주세요.")]) });
 export const calendarSourceActiveSchema = z.object({ id: z.string().trim().min(1), isActive: z.enum(["true", "false"]).transform((value) => value === "true") });
 export const calendarSourceIdSchema = z.object({ id: z.string().trim().min(1) });
+export const calendarSourceDeleteSchema = z.object({
+  calendarSourceId: z.string().trim().cuid(),
+  confirmationText: z.string().trim().min(1).max(CALENDAR_SOURCE_NAME_MAX_LENGTH),
+});
+export const calendarSourceDeleteImpactSchema = calendarSourceDeleteSchema.pick({ calendarSourceId: true });

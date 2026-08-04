@@ -1,8 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { getRoomCalendarStatus } from "../lib/get-room-calendar-status";
 import { isCalendarSyncWarning } from "../../calendar-sync/domain/sync-health";
 import { mapRoomCalendarSummary, type RoomCalendarMapperInput } from "../lib/map-room-calendar-summary";
+import { hasPermission, PERMISSIONS } from "../../access-control/domain/access-control";
+import { isCalendarSourceDeleteConfirmationValid, isCalendarSourceSyncRunning } from "../../calendar-sources/domain/calendar-source-deletion";
 
 test("최신 SyncRun의 동일한 숫자로 통합 상태를 계산한다", () => {
   assert.equal(getRoomCalendarStatus({ activeSourceCount: 3, targetCount: 3, successCount: 3, failedCount: 0 }), "HEALTHY");
@@ -48,4 +51,67 @@ test("실패 Provider와 안전한 오류는 노출하고 기술 상세는 DEVEL
   const input = row(); input.syncRuns = [input.syncRuns[1]];
   const staff = mapRoomCalendarSummary(input, new Date(), false); const developer = mapRoomCalendarSummary(input, new Date(), true);
   assert.equal(staff.status, "PARTIAL_FAILURE"); assert.equal(staff.failureSummaries[0].provider, "BOOKING"); assert.equal(staff.sources[1].latestErrorDetails, null); assert.equal(developer.sources[1].latestErrorDetails, "technical upstream response");
+});
+
+test("캘린더 연결 삭제 권한은 effective role이 ADMIN 또는 DEVELOPER일 때만 허용한다", () => {
+  assert.equal(hasPermission("DEVELOPER", PERMISSIONS.CALENDAR_SOURCE_MANAGE), true);
+  assert.equal(hasPermission("ADMIN", PERMISSIONS.CALENDAR_SOURCE_MANAGE), true);
+  assert.equal(hasPermission("STAFF", PERMISSIONS.CALENDAR_SOURCE_MANAGE), false);
+});
+
+test("연결 이름 또는 현재 언어의 삭제 확인어만 최종 삭제를 허용한다", () => {
+  assert.equal(isCalendarSourceDeleteConfirmationValid("Booking.com", "Booking.com"), true);
+  assert.equal(isCalendarSourceDeleteConfirmationValid(" 삭제 ", "Booking.com"), true);
+  assert.equal(isCalendarSourceDeleteConfirmationValid("削除", "Booking.com"), true);
+  assert.equal(isCalendarSourceDeleteConfirmationValid("delete", "Booking.com"), false);
+});
+
+test("최근 RUNNING 로그만 실제 동기화 중으로 판정한다", () => {
+  const now = new Date("2026-08-04T12:00:00Z");
+  assert.equal(isCalendarSourceSyncRunning(new Date("2026-08-04T11:45:00Z"), now, 30 * 60 * 1000), true);
+  assert.equal(isCalendarSourceSyncRunning(new Date("2026-08-04T11:20:00Z"), now, 30 * 60 * 1000), false);
+  assert.equal(isCalendarSourceSyncRunning(null, now, 30 * 60 * 1000), false);
+});
+
+test("삭제 트랜잭션은 충돌과 예약·로그를 순서대로 정리하고 청소 작업은 연결만 해제한다", () => {
+  const repository = readFileSync("src/features/calendar-sources/calendar-source.repository.ts", "utf8");
+  const start = repository.indexOf("export async function deleteCalendarSourceTransaction");
+  const end = repository.indexOf("export function findCalendarRoom", start);
+  const deletion = repository.slice(start, end);
+  const steps = [
+    "tx.calendarSource.update",
+    "tx.reservationConflict.deleteMany",
+    "tx.cleaningTask.updateMany",
+    "tx.reservation.deleteMany",
+    "tx.syncLog.deleteMany",
+    "tx.calendarSource.delete",
+    "tx.auditLog.create",
+  ].map((step) => deletion.indexOf(step));
+  assert.ok(steps.every((position) => position >= 0));
+  assert.deepEqual([...steps].sort((a, b) => a - b), steps);
+  assert.match(deletion, /data: \{ reservationId: null \}/);
+  assert.match(deletion, /action: "CALENDAR_SOURCE_DELETED"/);
+  assert.doesNotMatch(deletion, /calendarUrl/);
+});
+
+test("동기화 엔진은 advisory lock 획득 후 source 존재와 활성 상태를 다시 확인한다", () => {
+  const syncSource = readFileSync("src/features/calendar-sync/application/sync-calendar-source.ts", "utf8");
+  const lock = syncSource.indexOf("withCalendarSourceAdvisoryLock");
+  const reload = syncSource.indexOf("findCalendarSourceForSync(calendarSourceId)", lock);
+  const activeCheck = syncSource.indexOf("if (!source.isActive)", reload);
+  const runningLog = syncSource.indexOf("createRunningSyncLog", activeCheck);
+  assert.ok(lock >= 0 && reload > lock && activeCheck > reload && runningLog > activeCheck);
+});
+
+test("삭제 UI는 권한 prop, 영향 count, 확인 입력과 한일 메시지를 포함한다", () => {
+  const card = readFileSync("src/features/calendar-connections/components/calendar-source-card.tsx", "utf8");
+  const dialog = readFileSync("src/features/calendar-sources/components/calendar-source-delete-dialog.tsx", "utf8");
+  const ko = JSON.parse(readFileSync("src/messages/ko.json", "utf8")).calendarSourceDeletion;
+  const ja = JSON.parse(readFileSync("src/messages/ja.json", "utf8")).calendarSourceDeletion;
+  assert.match(card, /canManage && onSourceDeleted/);
+  assert.match(dialog, /role="alertdialog"/);
+  assert.match(dialog, /impact\.reservationCount/);
+  assert.match(dialog, /confirmationValid/);
+  assert.equal(ko.title, "캘린더 연결을 삭제하시겠습니까?");
+  assert.equal(ja.title, "カレンダー連携を削除しますか？");
 });

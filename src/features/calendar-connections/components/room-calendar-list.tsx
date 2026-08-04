@@ -1,6 +1,6 @@
 ﻿"use client";import { useTranslations } from "next-intl";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Cable } from "lucide-react";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Card, CardContent } from "@/components/ui/card";
@@ -10,11 +10,25 @@ import type { RoomCalendarSummary } from "../types/room-calendar-summary";
 import { RoomCalendarDetailSheet } from "./room-calendar-detail-sheet";
 import { RoomCalendarRow } from "./room-calendar-row";
 
-export function RoomCalendarList({ summaries, rooms }: {summaries: RoomCalendarSummary[];rooms: CalendarRoomOption[];}) {const i18n = useTranslations();
+export function RoomCalendarList({ summaries, rooms, canManage }: {summaries: RoomCalendarSummary[];rooms: CalendarRoomOption[];canManage: boolean;}) {const i18n = useTranslations();
   const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null);
-  const selectedRoom = useMemo(() => summaries.find((room) => room.roomId === selectedRoomId) ?? null, [selectedRoomId, summaries]);
+  const [deletedSourceIds, setDeletedSourceIds] = useState<ReadonlySet<string>>(() => new Set());
+  const [notification, setNotification] = useState<string | null>(null);
+  const selectedRoom = useMemo(() => {
+    const room = summaries.find((item) => item.roomId === selectedRoomId) ?? null;
+    return room ? { ...room, sources: room.sources.filter((source) => !deletedSourceIds.has(source.id)) } : null;
+  }, [deletedSourceIds, selectedRoomId, summaries]);
   const handleOpen = (roomId: string) => setSelectedRoomId(roomId);
   const handleOpenChange = (open: boolean) => {if (!open) setSelectedRoomId(null);};
+  const handleSourceDeleted = (calendarSourceId: string, message: string) => {
+    setDeletedSourceIds((current) => new Set(current).add(calendarSourceId));
+    setNotification(message);
+  };
+  useEffect(() => {
+    if (!notification) return;
+    const timeout = window.setTimeout(() => setNotification(null), 4000);
+    return () => window.clearTimeout(timeout);
+  }, [notification]);
 
   if (!summaries.length) return <Card><CardContent className="flex min-h-72 items-center"><EmptyState icon={Cable} title={i18n("auto.m0245")} description={i18n("auto.m0246")} /></CardContent></Card>;
 
@@ -26,6 +40,7 @@ export function RoomCalendarList({ summaries, rooms }: {summaries: RoomCalendarS
         <TableBody>{summaries.map((room) => <RoomCalendarRow key={room.roomId} room={room} onOpen={handleOpen} />)}</TableBody>
       </Table>
     </Card>
-    <RoomCalendarDetailSheet room={selectedRoom} rooms={rooms} open={Boolean(selectedRoom)} onOpenChange={handleOpenChange} />
+    <RoomCalendarDetailSheet room={selectedRoom} rooms={rooms} open={Boolean(selectedRoom)} onOpenChange={handleOpenChange} canManage={canManage} onSourceDeleted={handleSourceDeleted} />
+    {notification && <div role="status" aria-live="polite" className="fixed right-4 bottom-[calc(1rem+env(safe-area-inset-bottom))] z-[70] max-w-sm rounded-lg border border-emerald-500/30 bg-popover px-4 py-3 text-sm text-popover-foreground shadow-lg">{notification}</div>}
   </>;
 }

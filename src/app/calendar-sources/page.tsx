@@ -1,6 +1,6 @@
 import { getTranslations, getLocale } from "next-intl/server";import Link from "next/link";
 import type { CalendarProviderType } from "@/lib/generated/prisma/enums";
-import { AccessDenied, authorizeAccess, companyScopeIds, PERMISSIONS } from "@/features/access-control";
+import { AccessDenied, authorizeAccess, companyScopeIds, hasPermission, PERMISSIONS } from "@/features/access-control";
 import { listCalendarRoomOptions } from "@/features/calendar-sources";
 import { CalendarSourceForm } from "@/features/calendar-sources/components/calendar-source-form";
 import {
@@ -83,7 +83,7 @@ export default async function CalendarSourcesPage({ searchParams }: {searchParam
       
       <RoomCalendarFilterBar key={[filters.propertyId, filters.roomId, filters.provider, filters.status].join(":")} filters={filters} rooms={rooms} />
       <p className="text-xs leading-5 text-muted-foreground">{i18n("auto.m0018")}</p>
-      <RoomCalendarList summaries={summaries} rooms={rooms} />
+      <RoomCalendarList summaries={summaries} rooms={rooms} canManage={hasPermission(access.context.role, PERMISSIONS.CALENDAR_SOURCE_MANAGE)} />
     </div>);
 
 }

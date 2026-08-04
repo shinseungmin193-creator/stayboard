@@ -1,12 +1,13 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { getTranslations } from "next-intl/server";
 import { FORBIDDEN_ACTION_RESULT, isAccessControlError, PERMISSIONS, requireCalendarSourceAccess, requireRoomAccess } from "@/features/access-control";
 import type { ActionResult } from "@/lib/action-result";
 import { actionFailureFromError, isPrismaUniqueError } from "@/lib/prisma-errors";
-import type { CalendarConnectionResult } from "./calendar-source.types";
-import { calendarSourceActiveSchema, calendarSourceIdSchema, calendarSourceInputSchema, calendarSourceUpdateSchema } from "./calendar-source.schemas";
-import { CalendarSourceServiceError, changeCalendarSourceActive, createCalendarSourceSafely, testCalendarSourceConnection, updateCalendarSourceSafely } from "./calendar-source.service";
+import type { CalendarConnectionResult, CalendarSourceDeleteImpact, CalendarSourceDeleteResult } from "./calendar-source.types";
+import { calendarSourceActiveSchema, calendarSourceDeleteImpactSchema, calendarSourceDeleteSchema, calendarSourceIdSchema, calendarSourceInputSchema, calendarSourceUpdateSchema } from "./calendar-source.schemas";
+import { CalendarSourceServiceError, changeCalendarSourceActive, createCalendarSourceSafely, deleteCalendarSourceSafely, getCalendarSourceDeleteImpact, getCalendarSourceDeleteTarget, testCalendarSourceConnection, updateCalendarSourceSafely } from "./calendar-source.service";
 
 function fields(formData: FormData) { return { roomId: formData.get("roomId"), provider: formData.get("provider"), name: formData.get("name"), calendarUrl: formData.get("calendarUrl"), isActive: formData.get("isActive") ?? "false" }; }
 async function serviceFailure(error: unknown, context: string): Promise<ActionResult> { if (isAccessControlError(error)) return FORBIDDEN_ACTION_RESULT; if (error instanceof CalendarSourceServiceError) return { success: false, status: 422, errorCode: "VALIDATION_ERROR", message: error.message }; if (isPrismaUniqueError(error)) return { success: false, status: 422, errorCode: "VALIDATION_ERROR", message: "같은 객실에 동일한 ICS URL이 이미 등록되어 있습니다." }; return actionFailureFromError(error, context); }
@@ -38,4 +39,53 @@ export async function testCalendarSourceAction(_state: ActionResult<CalendarConn
   if (!parsed.success) return { success: false, message: "잘못된 연결 테스트 요청입니다." };
   try { await requireCalendarSourceAccess(parsed.data.id, PERMISSIONS.CALENDAR_SOURCE_MANAGE); const data = await testCalendarSourceConnection(parsed.data.id); return { success: true, data, message: "연결에 성공했습니다." }; }
   catch (error) { const failure = await serviceFailure(error, "testCalendarSource"); return failure.success ? { success: false, status: 500, errorCode: "UNKNOWN_ERROR", message: "연결 테스트에 실패했습니다." } : failure; }
+}
+
+async function calendarSourceDeletionFailure<T>(error: unknown, context: string): Promise<ActionResult<T>> {
+  const t = await getTranslations("calendarSourceDeletion");
+  if (isAccessControlError(error)) return { ...FORBIDDEN_ACTION_RESULT, message: t("errors.forbidden") };
+  if (error instanceof CalendarSourceServiceError) {
+    if (error.code === "SYNC_IN_PROGRESS") return { success: false, status: 409, errorCode: "SYNC_FAILED", message: t("errors.syncing") };
+    if (error.code === "NOT_FOUND") return { success: false, status: 404, errorCode: "NOT_FOUND", message: t("errors.notFound") };
+    if (error.code === "CONFIRMATION_MISMATCH") return { success: false, status: 422, errorCode: "VALIDATION_ERROR", message: t("errors.confirmation") };
+    if (error.code === "SCOPE_CHANGED") return { success: false, status: 409, errorCode: "VALIDATION_ERROR", message: t("errors.scopeChanged") };
+  }
+  const failure = await actionFailureFromError(error, context);
+  return { ...failure, message: t("errors.failed") };
+}
+
+export async function getCalendarSourceDeleteImpactAction(calendarSourceId: string): Promise<ActionResult<CalendarSourceDeleteImpact>> {
+  const parsed = calendarSourceDeleteImpactSchema.safeParse({ calendarSourceId });
+  if (!parsed.success) return { success: false, status: 422, errorCode: "VALIDATION_ERROR", message: (await getTranslations("calendarSourceDeletion"))("errors.invalidRequest") };
+  try {
+    await requireCalendarSourceAccess(parsed.data.calendarSourceId, PERMISSIONS.CALENDAR_SOURCE_MANAGE);
+    const target = await getCalendarSourceDeleteTarget(parsed.data.calendarSourceId);
+    await requireRoomAccess(target.roomId, PERMISSIONS.CALENDAR_SOURCE_MANAGE);
+    return { success: true, data: await getCalendarSourceDeleteImpact(target.id) };
+  } catch (error) {
+    return calendarSourceDeletionFailure<CalendarSourceDeleteImpact>(error, "getCalendarSourceDeleteImpact");
+  }
+}
+
+export async function deleteCalendarSourceAction(input: {
+  calendarSourceId: string;
+  confirmationText: string;
+}): Promise<ActionResult<CalendarSourceDeleteResult>> {
+  const parsed = calendarSourceDeleteSchema.safeParse(input);
+  const t = await getTranslations("calendarSourceDeletion");
+  if (!parsed.success) return { success: false, status: 422, errorCode: "VALIDATION_ERROR", message: t("errors.invalidRequest") };
+  try {
+    await requireCalendarSourceAccess(parsed.data.calendarSourceId, PERMISSIONS.CALENDAR_SOURCE_MANAGE);
+    const target = await getCalendarSourceDeleteTarget(parsed.data.calendarSourceId);
+    const context = await requireRoomAccess(target.roomId, PERMISSIONS.CALENDAR_SOURCE_MANAGE);
+    const data = await deleteCalendarSourceSafely({ target, confirmationText: parsed.data.confirmationText, context });
+    revalidatePath("/calendar-sources");
+    revalidatePath("/reservations");
+    revalidatePath("/room-overview");
+    revalidatePath("/room-status");
+    revalidatePath("/dashboard");
+    return { success: true, data, message: t("successWithCount", { sourceName: data.sourceName, count: data.reservationCount }) };
+  } catch (error) {
+    return calendarSourceDeletionFailure<CalendarSourceDeleteResult>(error, "deleteCalendarSource");
+  }
 }

@@ -129,6 +129,44 @@
     "NOT_SYNCED": "동기화 전",
     "DISABLED": "연결 없음"
   },
+  "calendarSourceDeletion": {
+    "button": "삭제",
+    "ariaLabel": "{name} 캘린더 연결 삭제",
+    "title": "캘린더 연결을 삭제하시겠습니까?",
+    "description": "{roomName}의 {sourceName} 캘린더 연결을 삭제합니다.",
+    "loadingImpact": "삭제 영향을 확인하는 중입니다.",
+    "impactTitle": "함께 정리되는 데이터",
+    "impact": {
+      "reservations": "이 연결에서 동기화된 예약 {count}건",
+      "conflicts": "관련 예약 충돌 {count}건",
+      "syncLogs": "동기화 이력 {count}건",
+      "cleaningTasks": "예약 연결이 해제되는 청소 작업 {count}건"
+    },
+    "warnings": {
+      "noAutoSync": "삭제 후 자동 동기화되지 않습니다.",
+      "irreversible": "삭제한 연결과 예약 데이터는 복구할 수 없습니다.",
+      "otherConnections": "객실과 다른 OTA 연결은 삭제되지 않습니다.",
+      "cleaningPreserved": "기존 청소 작업과 청소 사진·기록은 유지됩니다."
+    },
+    "deactivationDifference": "비활성화는 연결과 예약을 유지하지만, 삭제는 이 연결과 동기화 예약·충돌·이력을 영구 제거합니다.",
+    "confirmationLabel": "삭제 확인",
+    "confirmationHint": "확인을 위해 연결 이름 또는 ‘삭제’를 입력해 주세요.",
+    "confirmationPlaceholder": "삭제",
+    "cancel": "취소",
+    "confirm": "캘린더 연결 삭제",
+    "success": "캘린더 연결을 삭제했습니다.",
+    "successWithCount": "{sourceName} 연결과 동기화 예약 {count}건을 삭제했습니다.",
+    "errors": {
+      "invalidRequest": "잘못된 캘린더 연결 삭제 요청입니다.",
+      "confirmation": "삭제 확인 문구가 일치하지 않습니다.",
+      "syncing": "현재 동기화 중인 캘린더입니다. 동기화가 끝난 뒤 다시 삭제해 주세요.",
+      "notFound": "삭제할 캘린더 연결을 찾을 수 없습니다.",
+      "scopeChanged": "캘린더 연결 범위가 변경되었습니다. 새로고침 후 다시 시도해 주세요.",
+      "forbidden": "캘린더 연결을 삭제할 권한이 없습니다.",
+      "impactFailed": "삭제 영향을 불러오지 못했습니다.",
+      "failed": "캘린더 연결 삭제에 실패했습니다."
+    }
+  },
   "conflictStatus": {
     "ACTIVE": "활성",
     "RESOLVED": "해결됨"

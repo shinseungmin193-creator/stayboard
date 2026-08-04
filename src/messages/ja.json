@@ -129,6 +129,44 @@
     "NOT_SYNCED": "未同期",
     "DISABLED": "接続なし"
   },
+  "calendarSourceDeletion": {
+    "button": "削除",
+    "ariaLabel": "{name}のカレンダー連携を削除",
+    "title": "カレンダー連携を削除しますか？",
+    "description": "{roomName}の{sourceName}カレンダー連携を削除します。",
+    "loadingImpact": "削除の影響を確認しています。",
+    "impactTitle": "同時に整理されるデータ",
+    "impact": {
+      "reservations": "この連携から同期された予約 {count}件",
+      "conflicts": "関連する予約競合 {count}件",
+      "syncLogs": "同期履歴 {count}件",
+      "cleaningTasks": "予約との連携が解除される清掃タスク {count}件"
+    },
+    "warnings": {
+      "noAutoSync": "削除後は自動同期されません。",
+      "irreversible": "削除した連携と予約データは復元できません。",
+      "otherConnections": "客室と他のOTA連携は削除されません。",
+      "cleaningPreserved": "既存の清掃作業・写真・履歴は保持されます。"
+    },
+    "deactivationDifference": "無効化では連携と予約が保持されますが、削除するとこの連携と同期予約・競合・履歴が完全に削除されます。",
+    "confirmationLabel": "削除の確認",
+    "confirmationHint": "確認のため連携名または「削除」と入力してください。",
+    "confirmationPlaceholder": "削除",
+    "cancel": "キャンセル",
+    "confirm": "カレンダー連携を削除",
+    "success": "カレンダー連携を削除しました。",
+    "successWithCount": "{sourceName}の連携と同期予約{count}件を削除しました。",
+    "errors": {
+      "invalidRequest": "カレンダー連携の削除リクエストが正しくありません。",
+      "confirmation": "削除確認の入力が一致しません。",
+      "syncing": "現在同期中のカレンダーです。同期完了後にもう一度削除してください。",
+      "notFound": "削除するカレンダー連携が見つかりません。",
+      "scopeChanged": "カレンダー連携の範囲が変更されました。更新してからもう一度お試しください。",
+      "forbidden": "カレンダー連携を削除する権限がありません。",
+      "impactFailed": "削除の影響を読み込めませんでした。",
+      "failed": "カレンダー連携の削除に失敗しました。"
+    }
+  },
   "conflictStatus": {
     "ACTIVE": "有効",
     "RESOLVED": "解決済み"
