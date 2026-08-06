@@ -342,6 +342,8 @@
       "uploadingFiles": "사진 업로드 중",
       "retryUpload": "실패한 사진 다시 업로드",
       "removeSelected": "선택한 사진 제거",
+      "deleteStored": "업로드된 사진 삭제",
+      "registeredCount": "사진 {count}장 등록됨",
       "fileGuide": "JPEG, PNG, WebP, HEIC, HEIF · 사진당 최대 10MB"
     },
     "actions": {
@@ -394,7 +396,9 @@
       "completed": "청소 작업을 완료했습니다.",
       "noteSaved": "메모를 저장했습니다.",
       "photoUploaded": "청소 사진을 업로드했습니다.",
+      "photoDeleted": "청소 사진을 삭제했습니다.",
       "photoAlreadyUploaded": "이미 업로드된 사진을 확인했습니다.",
+      "photoLimit": "작업당 사진은 최대 10장까지 업로드할 수 있습니다.",
       "photoTooLarge": "사진은 10MB 이하만 업로드할 수 있습니다.",
       "photoEmpty": "빈 파일은 업로드할 수 없습니다.",
       "photoInvalidType": "JPEG, PNG, WebP, HEIC, HEIF 이미지 파일만 업로드할 수 있습니다.",
@@ -403,6 +407,7 @@
       "completeFailed": "청소 작업을 완료하지 못했습니다.",
       "noteFailed": "메모를 저장하지 못했습니다.",
       "uploadFailed": "사진을 업로드하지 못했습니다."
+      ,"deleteFailed": "사진을 삭제하지 못했습니다."
     }
   },
   "developerManagement": {

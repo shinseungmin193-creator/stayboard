@@ -1,4 +1,6 @@
-export const MAX_CLEANING_PHOTO_SIZE = 10 * 1024 * 1024;
+import { getCleaningPhotoConfig } from "../config/cleaning-photo-config";
+
+export const MAX_CLEANING_PHOTO_SIZE = getCleaningPhotoConfig().maxBytes;
 
 export const CLEANING_PHOTO_MIME_TYPES = ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"] as const;
 export type CleaningPhotoMimeType = (typeof CLEANING_PHOTO_MIME_TYPES)[number];

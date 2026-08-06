@@ -41,7 +41,7 @@ export async function verifyCleaningPhotoStorage(options = {}) {
 
 const isDirectExecution = process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1]);
 if (isDirectExecution) {
-  verifyCleaningPhotoStorage({ configuredDirectory: process.env.CLEANING_PHOTO_STORAGE_DIR })
+  verifyCleaningPhotoStorage({ configuredDirectory: process.env.FILE_STORAGE_LOCAL_ROOT ?? process.env.CLEANING_PHOTO_STORAGE_DIR })
     .then((storageDirectory) => console.log(storageDirectory))
     .catch((error) => {
       console.error(error instanceof Error ? error.message : String(error));

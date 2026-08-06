@@ -11,6 +11,8 @@ import {
   requireCleaningTaskAccess,
 } from "@/features/cleaning/server/cleaning-task-access";
 import { recordCleaningPhotoAdded } from "@/features/cleaning/server/cleaning-task.service";
+import { normalizeCleaningPhoto } from "@/features/cleaning/server/cleaning-photo-image";
+import { getCleaningPhotoConfig } from "@/features/cleaning/config/cleaning-photo-config";
 import { getCleaningPhotoStorage } from "@/features/cleaning/storage/local-file-storage-provider";
 import { Prisma } from "@/lib/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
@@ -44,7 +46,7 @@ function photoResponse(photo: StoredPhotoResponse, message: string, status: numb
     message,
     photo: {
       id: photo.id,
-      url: photo.storageKey ? storage.getUrl(photo.storageKey) : null,
+      url: photo.storageKey ? storage.getUrl(photo.id) : null,
       originalName: photo.originalName,
       mimeType: photo.mimeType,
       size: photo.size,
@@ -125,22 +127,33 @@ export async function POST(request: Request, { params }: { params: Promise<{ tas
       return Response.json({ success: false, message: t(key) }, { status });
     }
 
+    let normalized;
+    try {
+      normalized = await normalizeCleaningPhoto(bytes);
+    } catch {
+      return Response.json({ success: false, message: t("photoInvalidType") }, { status: 415 });
+    }
     const storage = getCleaningPhotoStorage();
-    const uploaded = await storage.upload({ taskId: routeTaskId, extension: validation.extension, data: bytes });
+    const uploaded = await storage.upload({ taskId: routeTaskId, extension: normalized.extension, data: normalized.data });
     storageKey = uploaded.storageKey;
     const photo = await prisma.$transaction(async (tx) => {
       const current = await tx.cleaningTask.findUnique({ where: { id: routeTaskId }, select: { status: true, assigneeName: true } });
       if (!current || (current.status !== "PENDING" && current.status !== "IN_PROGRESS")) {
         throw new CleaningTaskStateError("NOT_ACTIONABLE");
       }
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${routeTaskId}))`;
+      const photoCount = await tx.cleaningPhoto.count({ where: { taskId: routeTaskId, storageKey: { not: null }, deletedAt: null } });
+      if (photoCount >= getCleaningPhotoConfig().maxCount) throw new CleaningTaskStateError("PHOTO_LIMIT");
       const created = await tx.cleaningPhoto.create({
         data: {
           taskId: routeTaskId,
           clientUploadId: uploadId,
           storageKey: uploaded.storageKey,
           originalName: sanitizeOriginalName(file.name),
-          mimeType: validation.mimeType,
-          size: file.size,
+          mimeType: normalized.mimeType,
+          size: normalized.data.byteLength,
+          width: normalized.width,
+          height: normalized.height,
           uploadedById: context.userId,
         },
         select: { id: true, storageKey: true, originalName: true, mimeType: true, size: true, createdAt: true },
@@ -171,6 +184,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ tas
       }
     }
     if (error instanceof CleaningTaskStateError) {
+      if (error.code === "PHOTO_LIMIT") return Response.json({ success: false, message: t("photoLimit") }, { status: 409 });
       return Response.json({ success: false, message: t("notActionable") }, { status: 409 });
     }
     if (error instanceof CleaningTaskNotFoundError) {

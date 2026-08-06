@@ -342,6 +342,8 @@
       "uploadingFiles": "写真をアップロード中",
       "retryUpload": "失敗した写真を再アップロード",
       "removeSelected": "選択した写真を削除",
+      "deleteStored": "アップロード済みの写真を削除",
+      "registeredCount": "写真{count}枚を登録済み",
       "fileGuide": "JPEG、PNG、WebP、HEIC、HEIF・1枚あたり最大10MB"
     },
     "actions": {
@@ -394,7 +396,9 @@
       "completed": "清掃タスクを完了しました。",
       "noteSaved": "メモを保存しました。",
       "photoUploaded": "清掃写真をアップロードしました。",
+      "photoDeleted": "清掃写真を削除しました。",
       "photoAlreadyUploaded": "アップロード済みの写真を確認しました。",
+      "photoLimit": "1件の作業につき写真は最大10枚までアップロードできます。",
       "photoTooLarge": "写真は10MB以下のみアップロードできます。",
       "photoEmpty": "空のファイルはアップロードできません。",
       "photoInvalidType": "JPEG、PNG、WebP、HEIC、HEIF画像のみアップロードできます。",
@@ -403,6 +407,7 @@
       "completeFailed": "清掃タスクを完了できませんでした。",
       "noteFailed": "メモを保存できませんでした。",
       "uploadFailed": "写真をアップロードできませんでした。"
+      ,"deleteFailed": "写真を削除できませんでした。"
     }
   },
   "developerManagement": {

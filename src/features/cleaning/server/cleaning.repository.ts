@@ -167,7 +167,7 @@ export async function listCleaningPage(context: AccessContext, filters: Cleaning
       orderBy: { createdAt: "desc" as const },
       take: 20,
     },
-    _count: { select: { photos: true } },
+    _count: { select: { photos: { where: { storageKey: { not: null }, deletedAt: null } } } },
   } satisfies Prisma.CleaningTaskSelect;
 
   const [visibleUrgentCount, visibleFlexibleCount] = await Promise.all([
@@ -231,7 +231,7 @@ export async function listCleaningPage(context: AccessContext, filters: Cleaning
       photoCount: task._count.photos,
       photos: task.photos.map((photo) => ({
         id: photo.id,
-        url: photo.storageKey && !photo.deletedAt ? storage.getUrl(photo.storageKey) : null,
+        url: photo.storageKey && !photo.deletedAt ? storage.getUrl(photo.id) : null,
         originalName: photo.originalName,
         mimeType: photo.mimeType,
         size: photo.size,

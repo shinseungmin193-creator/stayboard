@@ -7,24 +7,10 @@ import type { FileStorageProvider, StoredFileUpload } from "./file-storage-provi
 
 const DEFAULT_STORAGE_DIRECTORY = ".stayboard-storage/cleaning-photos";
 
-function encodeStorageKey(storageKey: string) {
-  return Buffer.from(storageKey, "utf8").toString("base64url");
-}
-
-export function decodeStorageKey(token: string) {
-  if (!/^[A-Za-z0-9_-]{1,1024}$/.test(token)) return null;
-  try {
-    const storageKey = Buffer.from(token, "base64url").toString("utf8");
-    return Buffer.from(storageKey, "utf8").toString("base64url") === token ? storageKey : null;
-  } catch {
-    return null;
-  }
-}
-
 export class LocalFileStorageProvider implements FileStorageProvider {
   private readonly rootDirectory: string;
 
-  constructor(rootDirectory = process.env.CLEANING_PHOTO_STORAGE_DIR ?? DEFAULT_STORAGE_DIRECTORY) {
+  constructor(rootDirectory = process.env.FILE_STORAGE_LOCAL_ROOT ?? process.env.CLEANING_PHOTO_STORAGE_DIR ?? DEFAULT_STORAGE_DIRECTORY) {
     this.rootDirectory = path.resolve(rootDirectory);
   }
 
@@ -61,14 +47,16 @@ export class LocalFileStorageProvider implements FileStorageProvider {
     }
   }
 
-  getUrl(storageKey: string) {
-    return withBasePath(`/api/cleaning/photos/${encodeStorageKey(storageKey)}`);
+  getUrl(photoId: string) {
+    return withBasePath(`/api/cleaning/photos/${encodeURIComponent(photoId)}`);
   }
 }
 
 let localStorageProvider: LocalFileStorageProvider | undefined;
 
 export function getCleaningPhotoStorage() {
+  const provider = (process.env.FILE_STORAGE_PROVIDER ?? "local").trim().toLowerCase();
+  if (provider !== "local") throw new Error(`Unsupported FILE_STORAGE_PROVIDER: ${provider}`);
   localStorageProvider ??= new LocalFileStorageProvider();
   return localStorageProvider;
 }

@@ -112,6 +112,7 @@ export function CleaningPhotoUploader({
   const activeRequestRef = useRef<XMLHttpRequest | null>(null);
   const previewUrlsRef = useRef(new Set<string>());
   const [uploadedPhotos, setUploadedPhotos] = useState<CleaningPhotoViewModel[]>([]);
+  const [deletedPhotoIds, setDeletedPhotoIds] = useState<Set<string>>(new Set());
   const [items, setItems] = useState<UploadItem[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const inputInstanceId = useId().replace(/:/g, "");
@@ -131,7 +132,7 @@ export function CleaningPhotoUploader({
     for (const photo of uploadedPhotos) if (!merged.has(photo.id)) merged.set(photo.id, photo);
     return [...merged.values()];
   }, [initialPhotos, uploadedPhotos]);
-  const activePhotos = useMemo(() => photos.filter((photo) => photo.url && !photo.deletedAt), [photos]);
+  const activePhotos = useMemo(() => photos.filter((photo) => photo.url && !photo.deletedAt && !deletedPhotoIds.has(photo.id)), [deletedPhotoIds, photos]);
   const deletedPhotos = useMemo(() => photos.filter((photo) => !photo.url || photo.deletedAt), [photos]);
   const hasUnuploadedFiles = items.some((item) => item.status === "selected" || item.status === "uploading");
   const hasFailedFiles = items.some((item) => item.status === "failed");
@@ -237,13 +238,28 @@ export function CleaningPhotoUploader({
     setIsUploading(false);
   };
 
+  const deleteStoredPhoto = async (photo: CleaningPhotoViewModel) => {
+    if (disabled || isUploading) return;
+    try {
+      const response = await fetch(withBasePath(`/api/cleaning/photos/${encodeURIComponent(photo.id)}`), { method: "DELETE" });
+      if (!response.ok) throw new Error();
+      setDeletedPhotoIds((current) => new Set(current).add(photo.id));
+      onResult({ success: true, message: t("messages.photoDeleted") });
+    } catch {
+      onResult({ success: false, message: t("messages.deleteFailed") });
+    }
+  };
+
   return <div className="space-y-3">
     {activePhotos.length > 0 && <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
       {activePhotos.map((photo) => <div key={photo.id} className="relative aspect-[4/3] overflow-hidden rounded-xl bg-muted">
         <Image unoptimized src={photo.url!} alt={t("photos.alt")} fill sizes="(max-width: 640px) 45vw, 220px" className="object-cover" />
         <span className="absolute right-1.5 top-1.5 rounded-full bg-emerald-600 p-1 text-white"><CircleCheck className="size-3.5" /></span>
+        {!readOnly && <button type="button" className="absolute bottom-1.5 right-1.5 grid min-h-11 min-w-11 place-items-center rounded-full bg-black/70 text-white" aria-label={t("photos.deleteStored")} disabled={disabled || isUploading} onClick={() => deleteStoredPhoto(photo)}><Trash2 className="size-4" /></button>}
       </div>)}
     </div>}
+
+    {activePhotos.length > 0 && <p className="text-xs font-medium text-emerald-700 dark:text-emerald-300">{t("photos.registeredCount", { count: activePhotos.length })}</p>}
 
     {deletedPhotos.length > 0 && <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">{deletedPhotos.map((photo) => <div key={photo.id} className="flex aspect-[4/3] items-center justify-center rounded-xl bg-muted px-2 text-center text-xs text-muted-foreground">{t("photos.deleted")}</div>)}</div>}
 

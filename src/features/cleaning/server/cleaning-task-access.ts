@@ -33,6 +33,7 @@ export class CleaningTaskStateError extends Error {
   constructor(public readonly code:
     | "NOT_ACTIONABLE"
     | "PHOTO_REQUIRED"
+    | "PHOTO_LIMIT"
     | "INVALID_ASSIGNEE"
     | "ASSIGNEE_REQUIRED"
     | "NAME_REQUIRED"

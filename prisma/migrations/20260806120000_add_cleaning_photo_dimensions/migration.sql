@@ -1,0 +1,3 @@
+ALTER TABLE "CleaningPhoto"
+ADD COLUMN "width" INTEGER,
+ADD COLUMN "height" INTEGER;

@@ -536,6 +536,8 @@ model CleaningPhoto {
   originalName   String
   mimeType       String
   size           Int
+  width          Int?
+  height         Int?
   uploadedById   String
   createdAt      DateTime     @default(now())
   deleteAfter    DateTime?
