@@ -15,5 +15,6 @@ export const ALLOWED_CALENDAR_CONTENT_TYPES = ["text/calendar", "text/plain", "a
 export const PROVIDER_HOSTS = {
   AIRBNB: ["airbnb.com", "www.airbnb.com", "airbnb.jp", "www.airbnb.jp"],
   BOOKING: ["ical.booking.com"],
-  AGODA: ["ycs.agoda.com"],
+  // ycs.agoda.com currently redirects official exports to portal.agoda.com.
+  AGODA: ["ycs.agoda.com", "portal.agoda.com"],
 } as const;
