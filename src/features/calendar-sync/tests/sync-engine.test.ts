@@ -4,7 +4,7 @@ import { parseIcsCalendar } from "../infrastructure/ics-parser";
 import { AirbnbReservationNormalizer } from "../providers/airbnb-normalizer";
 import { BookingReservationNormalizer } from "../providers/booking-normalizer";
 import { AgodaReservationNormalizer } from "../providers/agoda-normalizer";
-import { classifyReservations, reservationFieldsEqual, shouldProtectEmptyCalendar } from "../domain/classify-reservations";
+import { classifyReservations, reservationFieldsEqual } from "../domain/classify-reservations";
 import type { ExistingReservation, NormalizedReservation } from "../domain/normalized-reservation";
 
 const ics = (events: string) => `BEGIN:VCALENDAR\r\nVERSION:2.0\r\n${events}END:VCALENDAR\r\n`;
@@ -27,4 +27,4 @@ test("신규·수정·동일 예약을 분류하고 최신 ICS에서 누락된 �
 test("필드 변경과 CANCELLED 예약 재등장을 update로 분류한다", () => { assert.equal(reservationFieldsEqual(existing(), normalized({ summary: "Changed" })), false); const result = classifyReservations([existing({ status: "CANCELLED" })], [normalized({ status: "CONFIRMED" })]); assert.equal(result.update.length, 1); });
 test("이미 취소된 누락 예약도 누락만으로 다시 변경하지 않는다", () => { const result = classifyReservations([existing({ status: "CANCELLED" })], []); assert.deepEqual(result, { create: [], update: [], unchanged: [] }); });
 test("기존 예약이 없는 CANCELLED 이벤트는 새 Reservation으로 만들지 않는다", () => { const result = classifyReservations([], [normalized({ status: "CANCELLED" })]); assert.equal(result.create.length, 0); assert.equal(result.update.length, 0); });
-test("빈 ICS에서 기존 활성 예약을 보호한다", () => { assert.equal(shouldProtectEmptyCalendar(0, 1), true); assert.equal(shouldProtectEmptyCalendar(0, 0), false); assert.equal(shouldProtectEmptyCalendar(1, 1), false); });
+test("빈 ICS는 기존 활성 예약을 변경하지 않는다", () => { assert.deepEqual(classifyReservations([existing()], []), { create: [], update: [], unchanged: [] }); });

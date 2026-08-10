@@ -57,6 +57,35 @@ test("Booking.com 실제형 fixture의 마스킹 예약·차단·취소·UNKNOWN
   assert.equal(getCalendarProviderLabel("BOOKING"), "Booking.com");
 });
 
+test("Booking.com 개별 fixture는 실제 예약·명시적 차단·취소를 구분한다", () => {
+  const normalizer = new BookingReservationNormalizer();
+  const fixture = (name: string) => parseIcsCalendar(readFileSync(`src/features/calendar-sync/tests/fixtures/${name}.ics`, "utf8")).events[0];
+  const reservation = fixture("booking-reservation");
+  assert.equal(normalizer.classifyEvent(reservation), "RESERVATION");
+  assert.equal(classifyCalendarEvents([reservation], normalizer).reservations[0].status, "CONFIRMED");
+  assert.equal(normalizer.classifyEvent(fixture("booking-blocked")), "BLOCKED");
+  assert.equal(normalizer.classifyEvent(fixture("booking-cancelled")), "CANCELLED");
+});
+
+test("Booking.com은 provider identity 없는 CONFIRMED·DESCRIPTION 문구를 예약으로 강제하지 않는다", () => {
+  const normalizer = new BookingReservationNormalizer();
+  assert.equal(normalizer.classifyEvent(parsedEvent({ summary: "Private event", status: "CONFIRMED" })), "UNKNOWN");
+  assert.equal(normalizer.classifyEvent(parsedEvent({ summary: "Private event", description: "booking reservation" })), "UNKNOWN");
+});
+
+test("Booking.com 이벤트의 날짜 누락과 malformed 문서는 parser 단계에서 reject한다", () => {
+  const missingStart = ics("BEGIN:VEVENT\r\nUID:missing-start@booking.com\r\nDTEND;VALUE=DATE:20260723\r\nSUMMARY:CLOSED - Not available\r\nEND:VEVENT\r\n");
+  const missingEnd = ics("BEGIN:VEVENT\r\nUID:missing-end@booking.com\r\nDTSTART;VALUE=DATE:20260721\r\nSUMMARY:CLOSED - Not available\r\nEND:VEVENT\r\n");
+  for (const [content, reason] of [[missingStart, "MISSING_START"], [missingEnd, "MISSING_END"]] as const) {
+    assert.throws(() => parseIcsCalendar(content), (error) => {
+      assert.ok(error instanceof IcsDocumentParseError);
+      assert.deepEqual(error.diagnostics?.issues.map((issue) => issue.reason), [reason]);
+      return true;
+    });
+  }
+  assert.throws(() => parseIcsCalendar("BEGIN:VCALENDAR\r\nBEGIN:VEVENT"), IcsDocumentParseError);
+});
+
 test("Booking UID 중복은 새 예약을 만들지 않고 기존 예약을 update한다", () => {
   const content = readFileSync("src/features/calendar-sync/tests/fixtures/booking-calendar.ics", "utf8");
   const normalizer = new BookingReservationNormalizer();

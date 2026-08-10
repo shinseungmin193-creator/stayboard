@@ -22,12 +22,8 @@ export function classifyBookingEvent(event: ParsedCalendarEvent) {
 
   const organizer = calendarProperty(event, "organizer");
   const hasBookingIdentity = hasProviderDomain(event.uid, BOOKING_DOMAIN) || hasProviderDomain(organizer, BOOKING_DOMAIN);
-  const hasConfirmedStatus = normalizeCalendarText(event.status) === "confirmed";
   const summary = normalizeCalendarText(event.summary);
-  const description = normalizeCalendarText(event.description);
   if (summary && hasBookingIdentity) return "RESERVATION" as const;
   if (matchesCalendarText(event.summary, BOOKING_RESERVATION_SUMMARIES)) return "RESERVATION" as const;
-  if (summary && hasConfirmedStatus) return "RESERVATION" as const;
-  if (description.includes("booking") && description.includes("reservation")) return "RESERVATION" as const;
   return "UNKNOWN" as const;
 }

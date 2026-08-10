@@ -15,7 +15,7 @@ export function standardizeSyncError(error: unknown): StandardSyncError {
   else if (value?.name === "IcsDocumentParseError") code = "ICS_PARSE_FAILED"; else if (value?.code === "TIMEOUT") code = "ICS_TIMEOUT";
   else if (["INVALID_ICS", "CONTENT_TYPE", "TOO_LARGE"].includes(value?.code ?? "")) code = "ICS_INVALID_CONTENT";
   else if (["INVALID_URL", "PROTOCOL", "SSRF"].includes(value?.code ?? "")) code = "SOURCE_URL_INVALID";
-  else if (value?.name === "CalendarFetchError") code = "ICS_DOWNLOAD_FAILED"; else if (value?.name === "EmptyCalendarProtectionError") code = "PROVIDER_CLASSIFICATION_FAILED";
+  else if (value?.name === "CalendarFetchError") code = "ICS_DOWNLOAD_FAILED";
   const reason = value?.reasonCode ? `[${value.reasonCode}] ` : "";
   return { code, safeMessage: SYNC_ERROR_MESSAGES[code], technicalMessage: `${reason}${value?.message ?? String(error)}`.slice(0, 2000), httpStatus, retryCount: Math.max(0, (value?.attemptCount ?? 1) - 1) };
 }

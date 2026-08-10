@@ -6,7 +6,7 @@ import type { Prisma } from "@/lib/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { CALENDAR_SYNC_STALE_MESSAGE, CALENDAR_SYNC_STALE_RUNNING_MS } from "../calendar-sync.constants";
 import type { CalendarEventClassificationCounts } from "../domain/classify-calendar-events";
-import { classifyReservations, shouldProtectEmptyCalendar } from "../domain/classify-reservations";
+import { classifyReservations } from "../domain/classify-reservations";
 import type { ExistingReservation, NormalizedReservation } from "../domain/normalized-reservation";
 
 export function findCalendarSourceForSync(id: string) {
@@ -49,8 +49,6 @@ export async function persistReservationSync(input: PersistReservationSyncInput)
   return prisma.$transaction(async (tx) => {
     const rows = await tx.reservation.findMany({ where: { calendarSourceId: input.calendarSourceId }, select: { id: true, rawUid: true, providerReservationId: true, guestName: true, startDate: true, endDate: true, status: true, summary: true, description: true, providerCreatedAt: true, providerUpdatedAt: true, createdAt: true } });
     const existing: ExistingReservation[] = rows;
-    const activeExistingCount = existing.filter((reservation) => reservation.status !== "CANCELLED").length;
-    if (shouldProtectEmptyCalendar(input.fetchedCount, activeExistingCount)) throw new EmptyCalendarProtectionError();
 
     const classification = classifyReservations(existing, input.reservations);
     const statusById = new Map(existing.map((reservation) => [reservation.id, reservation.status]));
@@ -68,11 +66,4 @@ export async function persistReservationSync(input: PersistReservationSyncInput)
     await tx.calendarSource.update({ where: { id: input.calendarSourceId }, data: { lastSyncedAt: input.completedAt } });
     return { createdCount: created.count, updatedCount: classification.update.length, unchangedCount: classification.unchanged.length, cancelledCount: explicitCancelledCount, ...conflicts };
   });
-}
-
-export class EmptyCalendarProtectionError extends Error {
-  constructor() {
-    super("수신한 캘린더가 비어 있어 기존 예약을 보호했습니다.");
-    this.name = "EmptyCalendarProtectionError";
-  }
 }
