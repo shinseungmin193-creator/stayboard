@@ -151,7 +151,11 @@ export function calendarSourceDraftSubmitErrors(drafts: CalendarSourceDraft[]) {
     if (draft.kind === "existing" && draft.markedForDeletion) continue;
     const url = draft.url.trim();
     if (draft.kind === "new" && !url) continue;
-    const requiresTest = draft.kind === "new" || url !== draft.originalUrl;
+    if (draft.kind === "existing" && url !== draft.originalUrl) {
+      errors[draft.key] = ["기존 iCal URL은 캘린더 연결 화면의 'URL 갱신' 기능으로 변경해 주세요."];
+      continue;
+    }
+    const requiresTest = draft.kind === "new";
     if (requiresTest && (draft.testState.status !== "success" || draft.testState.testedUrl !== url)) {
       errors[draft.key] = [draft.kind === "new" ? "신규 URL의 연결 테스트를 완료해 주세요." : "변경한 URL의 연결 테스트를 완료해 주세요."];
       continue;

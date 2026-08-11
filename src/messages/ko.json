@@ -126,8 +126,21 @@
     "PARTIAL_FAILURE": "일부 오류",
     "FAILED": "전체 오류",
     "SYNCING": "동기화 중",
+    "RECONNECT_REQUIRED": "연결 갱신 필요",
     "NOT_SYNCED": "동기화 전",
     "DISABLED": "연결 없음"
+  },
+  "calendarFeedSafety": {
+    "reconnectMessage": "캘린더 내용의 급격한 변화를 감지해 자동 반영을 중지했습니다. Booking.com에서 최신 iCal URL을 확인한 뒤 연결을 갱신해 주세요.",
+    "replaceAction": "URL 갱신",
+    "replaceTitle": "iCal URL 갱신",
+    "replaceDescription": "OTA에서 새로 발급하거나 현재 유효한 iCal URL로 기존 연결을 갱신합니다.",
+    "replacePreservesData": "기존 연결 ID, 객실, Provider, 예약 연결 및 동기화 이력은 유지됩니다. 새 URL은 다운로드·파싱·분류·안전 검증을 모두 통과해야 저장됩니다.",
+    "latestUrl": "최신 iCal URL",
+    "replaceValidation": "URL 토큰은 화면과 로그에 노출하지 않으며, 검증이 실패하면 기존 URL과 데이터는 변경되지 않습니다.",
+    "validateAndReplace": "검증 후 갱신",
+    "createdReservations": "이 동기화에서 생성된 예약 {count}건",
+    "legacyMatchNote": "이전 이력은 생성 시각과 createdCount가 정확히 일치한 경우에만 후보로 표시합니다. 삭제 전 반드시 별도로 확인해 주세요."
   },
   "calendarSourceDeletion": {
     "button": "삭제",

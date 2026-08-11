@@ -12,6 +12,7 @@ import { formatRoomDisplayName } from "@/features/rooms/room-display";
 import { readCalendarSyncDiagnosticPayload } from "@/features/calendar-sync/domain/calendar-sync-diagnostics";
 import { isCalendarSyncWarning } from "@/features/calendar-sync/domain/sync-health";
 import { getReservationSyncStatusLabel } from "@/features/reservations/reservation-status-meta";
+import { readCalendarFeedSafetyDiagnostics } from "@/features/calendar-sync/domain/calendar-feed-safety";
 
 export const dynamic = "force-dynamic";
 
@@ -45,6 +46,7 @@ export default async function SyncLogsPage({
   if (!result.source) notFound();
 
   const now = new Date();
+  const canViewTechnicalDetails = access.context.role === "DEVELOPER";
 
   return (
     <div className="space-y-5">
@@ -64,6 +66,7 @@ export default async function SyncLogsPage({
           <TableBody>
             {result.rows.map((log) => {
               const diagnostics = readCalendarSyncDiagnosticPayload(log.eventDiagnostics, log.unknownEventDetails);
+              const safetyDiagnostics = readCalendarFeedSafetyDiagnostics(log.safetyDiagnostics);
               const warning = isCalendarSyncWarning({ status: log.status, fetchedEventCount: log.fetchedCount, reservationEventCount: log.reservationEventCount, blockedEventCount: log.blockedEventCount, cancelledEventCount: log.cancelledEventCount, unknownEventCount: log.unknownEventCount, failedEventCount: log.failedEventCount });
               const reflectedCount = log.createdCount + log.updatedCount;
               const excludedCount = log.blockedEventCount + log.unknownEventCount + log.failedEventCount;
@@ -71,7 +74,7 @@ export default async function SyncLogsPage({
                 <TableCell>{formatter.format(log.startedAt)}</TableCell>
                 <TableCell>{log.completedAt ? formatter.format(log.completedAt) : i18n("auto.m0029")}</TableCell>
                 <TableCell>{differenceInMilliseconds(log.completedAt ?? now, log.startedAt)}ms{!log.completedAt && i18n("auto.m0030")}</TableCell>
-                <TableCell><Badge variant={log.status === "FAILED" || log.status === "TIMEOUT" ? "destructive" : "outline"} className={warning ? "border-amber-500/35 bg-amber-500/10 text-amber-800 dark:text-amber-300" : undefined}>{warning ? i18n("auto.m0031") : getReservationSyncStatusLabel(log.status, i18n)}</Badge></TableCell>
+                <TableCell><Badge variant={log.quarantined ? "outline" : log.status === "FAILED" || log.status === "TIMEOUT" ? "destructive" : "outline"} className={log.quarantined || warning ? "border-amber-500/35 bg-amber-500/10 text-amber-800 dark:text-amber-300" : undefined}>{log.quarantined ? i18n("calendarStatus.RECONNECT_REQUIRED") : warning ? i18n("auto.m0031") : getReservationSyncStatusLabel(log.status, i18n)}</Badge></TableCell>
                 <TableCell><div className="whitespace-nowrap text-xs leading-5"><p>{i18n("auto.m0032")}{log.fetchedCount}{i18n("auto.m0033")}{reflectedCount}</p><p className="text-muted-foreground">{i18n("auto.m0034")}{excludedCount}{i18n("auto.m0035")}{log.unknownEventCount}</p></div></TableCell>
                 <TableCell>
                   <div className="whitespace-nowrap text-xs leading-5 text-muted-foreground">
@@ -80,7 +83,7 @@ export default async function SyncLogsPage({
                   </div>
                 </TableCell>
                 <TableCell>{log.createdCount}</TableCell><TableCell>{log.updatedCount}</TableCell><TableCell>{log.cancelledCount}</TableCell>
-                <TableCell className="max-w-[32rem]"><p className="truncate">{log.errorMessage ?? (warning ? i18n("auto.m0042") : "-")}</p>{(diagnostics.events.length > 0 || Object.keys(diagnostics.exclusionReasonCounts).length > 0) && <details className="mt-1 text-xs text-muted-foreground"><summary className="cursor-pointer">{i18n("auto.m0043")}{diagnostics.events.length}{i18n("auto.m0013")}{diagnostics.truncatedEventCount > 0 ? i18n("auto.m0044", { value0: diagnostics.truncatedEventCount }) : ""}</summary><div className="mt-2 space-y-2">{Object.keys(diagnostics.exclusionReasonCounts).length > 0 && <p>{i18n("auto.m0045")}{Object.entries(diagnostics.exclusionReasonCounts).map(([reason, count]) => `${reason} ${count}`).join(" · ")}</p>}<ul className="space-y-1">{diagnostics.events.map((detail, index) => <li key={index} className="rounded border p-2"><p>{i18n("technical.uid")} {detail.uidPresent ? i18n("auto.m0046") : i18n("auto.m0047")} · {eventDate(detail.startDate, localeTag)} → {eventDate(detail.endDate, localeTag)}</p><p>{i18n("technical.status")} {detail.status ?? i18n("auto.m0047")} · {i18n("technical.summary")} {detail.summaryPreview ?? i18n("auto.m0047")} · {i18n("technical.description")} {detail.descriptionPresent ? i18n("auto.m0046") : i18n("auto.m0047")}</p><p>{detail.classification}{detail.exclusionReason ? ` · ${detail.exclusionReason}` : ""}</p></li>)}</ul></div></details>}</TableCell>
+                <TableCell className="max-w-[32rem]"><p className="truncate">{log.errorMessage ?? (warning ? i18n("auto.m0042") : "-")}</p>{canViewTechnicalDetails && safetyDiagnostics && safetyDiagnostics.reasonCodes.length > 0 && <details className="mt-1 rounded border border-amber-500/30 p-2 text-xs text-amber-800 dark:text-amber-300"><summary className="cursor-pointer font-medium">Safety diagnostics</summary><p className="mt-1 font-mono">{safetyDiagnostics.reasonCodes.join(", ")}</p><p className="mt-1 tabular-nums">future {safetyDiagnostics.existingFutureReservationCount} · missing {safetyDiagnostics.missingFutureReservationCount} · unknown {Math.round(safetyDiagnostics.unknownRatio * 100)}% · new conflicts {safetyDiagnostics.newConflictCount}</p></details>}{canViewTechnicalDetails && log.createdReservations.length > 0 && <details className="mt-1 rounded border p-2 text-xs text-muted-foreground"><summary className="cursor-pointer font-medium">{i18n("calendarFeedSafety.createdReservations", { count: log.createdReservations.length })}</summary>{log.createdReservations.some((reservation) => reservation.matchMethod === "LEGACY_TIME_WINDOW") && <p className="mt-1 text-amber-700 dark:text-amber-300">{i18n("calendarFeedSafety.legacyMatchNote")}</p>}<ul className="mt-2 space-y-1">{log.createdReservations.map((reservation) => <li key={reservation.id} className="rounded border p-2"><p className="font-mono">UID hash: {reservation.uidFingerprint}</p><p>{eventDate(reservation.startDate.toISOString(), localeTag)} → {eventDate(reservation.endDate.toISOString(), localeTag)} · {reservation.status}</p><p>{formatter.format(reservation.createdAt)}</p></li>)}</ul></details>}{(diagnostics.events.length > 0 || Object.keys(diagnostics.exclusionReasonCounts).length > 0) && <details className="mt-1 text-xs text-muted-foreground"><summary className="cursor-pointer">{i18n("auto.m0043")}{diagnostics.events.length}{i18n("auto.m0013")}{diagnostics.truncatedEventCount > 0 ? i18n("auto.m0044", { value0: diagnostics.truncatedEventCount }) : ""}</summary><div className="mt-2 space-y-2">{Object.keys(diagnostics.exclusionReasonCounts).length > 0 && <p>{i18n("auto.m0045")}{Object.entries(diagnostics.exclusionReasonCounts).map(([reason, count]) => `${reason} ${count}`).join(" · ")}</p>}<ul className="space-y-1">{diagnostics.events.map((detail, index) => <li key={index} className="rounded border p-2"><p>{i18n("technical.uid")} {detail.uidPresent ? i18n("auto.m0046") : i18n("auto.m0047")} · {eventDate(detail.startDate, localeTag)} → {eventDate(detail.endDate, localeTag)}</p><p>{i18n("technical.status")} {detail.status ?? i18n("auto.m0047")} · {i18n("technical.summary")} {detail.summaryPreview ?? i18n("auto.m0047")} · {i18n("technical.description")} {detail.descriptionPresent ? i18n("auto.m0046") : i18n("auto.m0047")}</p><p>{detail.classification}{detail.exclusionReason ? ` · ${detail.exclusionReason}` : ""}</p></li>)}</ul></div></details>}</TableCell>
               </TableRow>;
             })}
           </TableBody>

@@ -5,7 +5,7 @@ import { prepareRoomCalendarDrafts } from "../room-calendar-draft";
 import type { CalendarDraftConnectionResult } from "../../calendar-sources/calendar-source.types";
 
 const room = { propertyId: "property", name: "테스트 객실", capacity: 2 };
-const result = (provider: "AIRBNB" | "BOOKING" | "AGODA", url: string): CalendarDraftConnectionResult => ({ provider, submittedUrl: url, normalizedUrl: url, responseTimeMs: 1, fetchedAt: new Date(0).toISOString(), contentType: "text/calendar", eventCount: 1, uidCount: 1, startCount: 1, endCount: 1, summaryCount: 1 });
+const result = (provider: "AIRBNB" | "BOOKING" | "AGODA", url: string): CalendarDraftConnectionResult => ({ provider, submittedUrl: url, normalizedUrl: url, responseTimeMs: 1, fetchedAt: new Date(0).toISOString(), contentType: "text/calendar", eventCount: 1, uidCount: 1, startCount: 1, endCount: 1, summaryCount: 1, reservationCount: 1, blockedCount: 0, cancelledCount: 0, unknownCount: 0 });
 const atomic = async () => ({ id: "room" });
 
 test("iCal URL이 없으면 Room만 생성한다", async () => { const prepared = prepareRoomCalendarDrafts([]); assert.equal(prepared.success, true); let count = -1; await createRoomRegistration({ room, calendars: [] }, { testConnection: async () => { throw new Error("호출되면 안 됨"); }, createAtomically: async (_room, calendars) => { count = calendars.length; return { id: "room" }; } }); assert.equal(count, 0); });

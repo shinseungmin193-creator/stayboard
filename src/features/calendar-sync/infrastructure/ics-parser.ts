@@ -43,5 +43,5 @@ export function parseIcsCalendar(content: string): CalendarParseResult {
   if (components.length > 0 && invalidCount / components.length > ICS_MAX_INVALID_EVENT_RATIO) {
     throw new IcsDocumentParseError("유효하지 않은 VEVENT 비율이 허용 범위를 초과했습니다.", { totalEventCount: components.length, parsedEventCount: byUid.size, issues });
   }
-  return { totalEventCount: components.length, events: [...byUid.values()], excludedCount: issues.length, issues };
+  return { totalEventCount: components.length, prodId: text(calendar, "prodid"), events: [...byUid.values()], excludedCount: issues.length, issues };
 }

@@ -125,14 +125,14 @@ function SourceRow({
           }}
           placeholder={supported ? "https://…" : i18n("auto.m0552")}
           maxLength={2000}
-          disabled={!supported || disabled}
+          disabled={!supported || disabled || draft.kind === "existing"}
           className="min-w-0 font-mono text-xs" />
-        
+        {draft.kind === "existing" && <p className="text-[11px] text-muted-foreground">{i18n("calendarFeedSafety.replaceDescription")}</p>}
       </div>
       <Button type="button" variant="secondary" size="sm" onClick={testConnection} disabled={!supported || !draft.url.trim() || disabled}>
         {testing ? <><LoaderCircle className="animate-spin" />{i18n("auto.m0268")}</> : i18n("auto.m0269")}
       </Button>
-      <Button type="button" variant="ghost" size="icon-sm" onClick={resetUrl} disabled={!supported || disabled || (draft.kind === "existing" ? draft.url === draft.originalUrl : !draft.url)} aria-label={i18n("auto.m0554", { value0: draft.name || i18n("auto.m0560") })}><RotateCcw /></Button>
+      <Button type="button" variant="ghost" size="icon-sm" onClick={resetUrl} disabled={!supported || disabled || draft.kind === "existing" || !draft.url} aria-label={i18n("auto.m0554", { value0: draft.name || i18n("auto.m0560") })}><RotateCcw /></Button>
     </div>
     <div className="flex flex-wrap items-start justify-between gap-2">
       <div className="min-w-0 flex-1 text-[11px]">

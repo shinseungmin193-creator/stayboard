@@ -28,6 +28,8 @@ export function findRoomCalendarRows(filters: RoomCalendarFilters) {
           name: true,
           calendarUrl: true,
           isActive: true,
+          connectionStatus: true,
+          safetyReasonCodes: true,
           lastSyncedAt: true,
         },
         orderBy: [{ isActive: "desc" }, { provider: "asc" }, { name: "asc" }],

@@ -42,6 +42,10 @@ const result = (provider: "AIRBNB" | "BOOKING" | "AGODA", url: string): Calendar
   startCount: 1,
   endCount: 1,
   summaryCount: 1,
+  reservationCount: 1,
+  blockedCount: 0,
+  cancelledCount: 0,
+  unknownCount: 0,
 });
 const existingDraft = (overrides: Partial<Extract<UpdateRoomWithCalendarSourcesInput["sources"][number], { kind: "existing" }>> = {}) => ({
   kind: "existing" as const,
@@ -85,22 +89,23 @@ test("기존 Source 변경 없이 Room 기본정보만 수정한다", async () =
   assert.equal(fixture.getAtomicInput()?.sourceUpdates[0].calendarUrl, oldUrl);
 });
 
-test("기존 Source URL 변경은 서버 재테스트 후 저장한다", async () => {
+test("기존 Source URL 변경은 전용 URL 갱신 흐름으로만 허용한다", async () => {
   const fixture = dependencies();
-  await updateRoomWithCalendarSources(input([existingDraft({ calendarUrl: newUrl, testedCalendarUrl: newUrl })]), fixture.deps);
-  assert.equal(fixture.getTestCount(), 1);
-  assert.equal(fixture.getAtomicInput()?.sourceUpdates[0].calendarUrl, newUrl);
-});
-
-test("기존 Source URL 변경 후 미테스트 저장을 차단한다", async () => {
-  const fixture = dependencies();
-  await assert.rejects(() => updateRoomWithCalendarSources(input([existingDraft({ calendarUrl: newUrl })]), fixture.deps), (error: unknown) => error instanceof UpdateRoomCalendarError && error.code === "UNTESTED");
+  await assert.rejects(() => updateRoomWithCalendarSources(input([existingDraft({ calendarUrl: newUrl, testedCalendarUrl: newUrl })]), fixture.deps), (error: unknown) => error instanceof UpdateRoomCalendarError && error.code === "URL_CHANGE_REQUIRES_REFRESH");
+  assert.equal(fixture.getTestCount(), 0);
   assert.equal(fixture.getAtomicInput(), null);
 });
 
-test("기존 Source URL 연결 테스트 실패 시 저장을 차단한다", async () => {
+test("기존 Source URL 변경은 테스트 여부와 무관하게 객실 편집에서 차단한다", async () => {
+  const fixture = dependencies();
+  await assert.rejects(() => updateRoomWithCalendarSources(input([existingDraft({ calendarUrl: newUrl })]), fixture.deps), (error: unknown) => error instanceof UpdateRoomCalendarError && error.code === "URL_CHANGE_REQUIRES_REFRESH");
+  assert.equal(fixture.getAtomicInput(), null);
+});
+
+test("기존 Source URL 변경은 기존 테스트 의존성을 호출하지 않는다", async () => {
   const fixture = dependencies({ testConnection: async () => { throw new Error("HTTP 400"); } });
-  await assert.rejects(() => updateRoomWithCalendarSources(input([existingDraft({ calendarUrl: newUrl, testedCalendarUrl: newUrl })]), fixture.deps), (error: unknown) => error instanceof UpdateRoomCalendarError && error.code === "TEST_FAILED" && error.message === "HTTP 400");
+  await assert.rejects(() => updateRoomWithCalendarSources(input([existingDraft({ calendarUrl: newUrl, testedCalendarUrl: newUrl })]), fixture.deps), (error: unknown) => error instanceof UpdateRoomCalendarError && error.code === "URL_CHANGE_REQUIRES_REFRESH");
+  assert.equal(fixture.getTestCount(), 0);
   assert.equal(fixture.getAtomicInput(), null);
 });
 
@@ -178,7 +183,7 @@ test("Source URL 변경 시 이전 테스트 상태를 저장 증명으로 사�
   const [draft] = createInitialCalendarSourceDrafts([{ id: "source-1", provider: "AIRBNB", name: "Airbnb", calendarUrl: oldUrl, isActive: true, lastSyncedAt: null, latestSyncStatus: null, latestSyncStartedAt: null, latestSyncCompletedAt: null, latestFetchedCount: 0, latestErrorSummary: null, isSyncing: false }]);
   if (draft.kind !== "existing") throw new Error("existing draft expected");
   const changed = { ...draft, url: newUrl, testState: { status: "success" as const, testedUrl: oldUrl, result: result("AIRBNB", oldUrl) } };
-  assert.deepEqual(calendarSourceDraftSubmitErrors([changed])[draft.key], ["변경한 URL의 연결 테스트를 완료해 주세요."]);
+  assert.deepEqual(calendarSourceDraftSubmitErrors([changed])[draft.key], ["기존 iCal URL은 캘린더 연결 화면의 'URL 갱신' 기능으로 변경해 주세요."]);
 });
 
 test("기존 Source URL이 같으면 재테스트를 강제하지 않는다", async () => {
@@ -194,12 +199,14 @@ test("기존 Source Provider 변경을 차단한다", async () => {
 
 test("연결 테스트 결과 Provider 불일치를 차단한다", async () => {
   const fixture = dependencies({ testConnection: async (_provider, url) => result("BOOKING", url) });
-  await assert.rejects(() => updateRoomWithCalendarSources(input([existingDraft({ calendarUrl: newUrl, testedCalendarUrl: newUrl })]), fixture.deps), (error: unknown) => error instanceof UpdateRoomCalendarError && error.code === "PROVIDER_MISMATCH");
+  const added = { kind: "new" as const, clientKey: "new:provider-mismatch", provider: "AIRBNB" as const, name: "Airbnb", calendarUrl: newUrl, isActive: true as const, testedCalendarUrl: newUrl };
+  await assert.rejects(() => updateRoomWithCalendarSources(input([existingDraft(), added]), fixture.deps), (error: unknown) => error instanceof UpdateRoomCalendarError && error.code === "PROVIDER_MISMATCH");
 });
 
 test("SSRF 차단 연결 테스트 실패를 저장 실패로 전달한다", async () => {
   const fixture = dependencies({ testConnection: async () => { throw new Error("공개 인터넷 주소만 사용할 수 있습니다."); } });
-  await assert.rejects(() => updateRoomWithCalendarSources(input([existingDraft({ calendarUrl: newUrl, testedCalendarUrl: newUrl })]), fixture.deps), (error: unknown) => error instanceof UpdateRoomCalendarError && error.message.includes("공개 인터넷"));
+  const added = { kind: "new" as const, clientKey: "new:ssrf", provider: "AIRBNB" as const, name: "Airbnb", calendarUrl: newUrl, isActive: true as const, testedCalendarUrl: newUrl };
+  await assert.rejects(() => updateRoomWithCalendarSources(input([existingDraft(), added]), fixture.deps), (error: unknown) => error instanceof UpdateRoomCalendarError && error.message.includes("공개 인터넷"));
 });
 
 test("연결 해제 atomic payload에는 Reservation 변경 명령이 없다", async () => {

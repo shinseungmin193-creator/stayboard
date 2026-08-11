@@ -36,6 +36,11 @@ enum SyncExecutionMode {
   MANUAL
 }
 
+enum CalendarConnectionStatus {
+  NORMAL
+  RECONNECT_REQUIRED
+}
+
 enum ReservationConflictStatus {
   ACTIVE
   RESOLVED
@@ -371,22 +376,27 @@ model DeveloperRoleSession {
 }
 
 model CalendarSource {
-  id           String               @id @default(cuid())
-  roomId       String
-  provider     CalendarProviderType
-  name         String
-  calendarUrl  String
-  isActive     Boolean              @default(true)
-  lastSyncedAt DateTime?
-  createdAt    DateTime             @default(now())
-  updatedAt    DateTime             @updatedAt
-  room         Room                 @relation(fields: [roomId], references: [id], onDelete: Restrict)
-  reservations Reservation[]
-  syncLogs     SyncLog[]
+  id                       String                   @id @default(cuid())
+  roomId                   String
+  provider                 CalendarProviderType
+  name                     String
+  calendarUrl              String
+  isActive                 Boolean                  @default(true)
+  connectionStatus         CalendarConnectionStatus @default(NORMAL)
+  safetyReasonCodes        Json?
+  feedFingerprint          Json?
+  feedFingerprintUpdatedAt DateTime?
+  lastSyncedAt             DateTime?
+  createdAt                DateTime                 @default(now())
+  updatedAt                DateTime                 @updatedAt
+  room                     Room                     @relation(fields: [roomId], references: [id], onDelete: Restrict)
+  reservations             Reservation[]
+  syncLogs                 SyncLog[]
 
   @@unique([roomId, calendarUrl])
   @@index([roomId, isActive])
   @@index([provider, isActive])
+  @@index([connectionStatus, isActive])
   @@index([isActive, lastSyncedAt])
 }
 
@@ -438,6 +448,7 @@ model Reservation {
   propertyId            String
   roomId                String
   calendarSourceId      String
+  createdBySyncLogId    String?
   guestName             String?
   summary               String?
   description           String?
@@ -452,6 +463,7 @@ model Reservation {
   property              Property              @relation(fields: [propertyId], references: [id], onDelete: Restrict)
   room                  Room                  @relation(fields: [roomId], references: [id], onDelete: Restrict)
   calendarSource        CalendarSource        @relation(fields: [calendarSourceId], references: [id], onDelete: Restrict)
+  createdBySyncLog      SyncLog?              @relation("ReservationCreatedBySyncLog", fields: [createdBySyncLogId], references: [id], onDelete: SetNull)
   conflictsAsA          ReservationConflict[] @relation("ConflictReservationA")
   conflictsAsB          ReservationConflict[] @relation("ConflictReservationB")
   cleaningTasks         CleaningTask[]
@@ -462,6 +474,7 @@ model Reservation {
   @@index([startDate, status])
   @@index([endDate, status])
   @@index([calendarSourceId, status])
+  @@index([createdBySyncLogId])
   @@index([provider, startDate])
   @@index([provider, providerReservationId])
 }
@@ -595,6 +608,9 @@ model SyncLog {
   unknownEventDetails   Json?
   failedEventCount      Int                  @default(0)
   eventDiagnostics      Json?
+  feedFingerprint       Json?
+  safetyDiagnostics     Json?
+  quarantined           Boolean              @default(false)
   skippedEventCount     Int                  @default(0)
   createdCount          Int                  @default(0)
   updatedCount          Int                  @default(0)
@@ -608,6 +624,7 @@ model SyncLog {
   createdAt             DateTime             @default(now())
   calendarSource        CalendarSource       @relation(fields: [calendarSourceId], references: [id], onDelete: Restrict)
   syncRun               SyncRun?             @relation(fields: [syncRunId], references: [id], onDelete: SetNull)
+  createdReservations   Reservation[]        @relation("ReservationCreatedBySyncLog")
 
   @@index([calendarSourceId, createdAt])
   @@index([syncRunId, createdAt])

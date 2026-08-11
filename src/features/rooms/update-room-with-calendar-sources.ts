@@ -72,6 +72,7 @@ export type UpdateRoomCalendarErrorCode =
   | "UNSUPPORTED"
   | "UNTESTED"
   | "TEST_FAILED"
+  | "URL_CHANGE_REQUIRES_REFRESH"
   | "DUPLICATE";
 
 export class UpdateRoomCalendarError extends Error {
@@ -149,28 +150,9 @@ export async function updateRoomWithCalendarSources(
 
     const calendarUrl = draft.calendarUrl.trim();
     const changedUrl = calendarUrl !== existing.calendarUrl;
-    let verifiedUrl = existing.calendarUrl;
+    const verifiedUrl = existing.calendarUrl;
     if (changedUrl) {
-      if (draft.testedCalendarUrl.trim() !== calendarUrl) {
-        throw new UpdateRoomCalendarError("UNTESTED", "변경한 URL의 연결 테스트를 완료해 주세요.", draft.clientKey);
-      }
-      if (!SUPPORTED_ROOM_CALENDAR_PROVIDERS.includes(draft.provider as SupportedRoomCalendarProvider)) {
-        throw new UpdateRoomCalendarError("UNSUPPORTED", "이 Provider는 아직 연결 테스트를 지원하지 않습니다.", draft.clientKey);
-      }
-      try {
-        const result = await dependencies.testConnection(draft.provider as SupportedRoomCalendarProvider, calendarUrl);
-        if (result.provider !== draft.provider) {
-          throw new UpdateRoomCalendarError("PROVIDER_MISMATCH", "연결 테스트 결과의 Provider가 일치하지 않습니다.", draft.clientKey);
-        }
-        verifiedUrl = result.normalizedUrl;
-      } catch (error) {
-        if (error instanceof UpdateRoomCalendarError) throw error;
-        throw new UpdateRoomCalendarError(
-          "TEST_FAILED",
-          error instanceof Error ? error.message : "연결 테스트에 실패했습니다.",
-          draft.clientKey,
-        );
-      }
+      throw new UpdateRoomCalendarError("URL_CHANGE_REQUIRES_REFRESH", "기존 iCal URL은 캘린더 연결 화면의 'URL 갱신' 기능으로 변경해 주세요.", draft.clientKey);
     }
 
     sourceUpdates.push({

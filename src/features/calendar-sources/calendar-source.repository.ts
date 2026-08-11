@@ -10,6 +10,8 @@ import { roomScopeWhere } from "@/features/access-control";
 import { ACTIVE_OTA_RESERVATION_STATUSES } from "@/features/reservations/reservation.constants";
 import { CALENDAR_PROVIDER_TYPES } from "@/providers/calendar";
 import { isCalendarSourceDeleteConfirmationValid, isCalendarSourceSyncRunning } from "./domain/calendar-source-deletion";
+import type { CalendarFeedFingerprint } from "@/features/calendar-sync/domain/calendar-feed-fingerprint";
+import { readCalendarFeedQuarantineReasons, type CalendarFeedSafetyDiagnostics } from "@/features/calendar-sync/domain/calendar-feed-safety";
 
 export interface CalendarSourceSyncState {
   sourceId: string;
@@ -71,7 +73,7 @@ export function findCalendarSourceSyncStates(sourceIds: string[]) {
 export async function listCalendarSources(filters: CalendarSourceFilters) {
   const sources = await prisma.calendarSource.findMany({
     where: { roomId: filters.roomId, provider: filters.provider ?? { in: [...CALENDAR_PROVIDER_TYPES] }, isActive: filters.isActive, room: { propertyId: filters.propertyId, property: filters.companyIds ? { companyId: { in: [...filters.companyIds] } } : undefined } },
-    select: { id: true, roomId: true, provider: true, name: true, calendarUrl: true, isActive: true, lastSyncedAt: true, room: { select: { name: true, propertyId: true, property: { select: { name: true } } } } },
+    select: { id: true, roomId: true, provider: true, name: true, calendarUrl: true, isActive: true, connectionStatus: true, safetyReasonCodes: true, lastSyncedAt: true, room: { select: { name: true, propertyId: true, property: { select: { name: true } } } } },
     orderBy: [{ isActive: "desc" }, { room: { property: { name: "asc" } } }, { room: { name: "asc" } }, { provider: "asc" }, { name: "asc" }],
   });
   if (!sources.length) return [];
@@ -81,10 +83,10 @@ export async function listCalendarSources(filters: CalendarSourceFilters) {
     prisma.reservationConflict.findMany({ where: { status: "ACTIVE", OR: [{ reservationA: { calendarSourceId: { in: ids } } }, { reservationB: { calendarSourceId: { in: ids } } }], reservationA: { status: { in: [...ACTIVE_OTA_RESERVATION_STATUSES] }, provider: { in: [...CALENDAR_PROVIDER_TYPES] } }, reservationB: { status: { in: [...ACTIVE_OTA_RESERVATION_STATUSES] }, provider: { in: [...CALENDAR_PROVIDER_TYPES] } } }, select: { reservationA: { select: { calendarSourceId: true } }, reservationB: { select: { calendarSourceId: true } } } }),
   ]);
   const stateById = new Map(states.map((state) => [state.sourceId, state])); const conflictBySource = new Map<string, number>(); for (const conflict of conflictCounts) { const affected = new Set([conflict.reservationA.calendarSourceId, conflict.reservationB.calendarSourceId]); for (const sourceId of affected) conflictBySource.set(sourceId, (conflictBySource.get(sourceId) ?? 0) + 1); } const staleCutoff = Date.now() - CALENDAR_SYNC_STALE_RUNNING_MS;
-  return sources.map((source) => { const state = stateById.get(source.id); return { ...source, lastSuccessfulSyncAt: state?.lastSuccessfulSyncAt ?? null, lastFailedSyncAt: state?.lastFailedSyncAt ?? null, latestSyncStatus: state?.latestSyncStatus ?? null, latestSyncStartedAt: state?.latestSyncStartedAt ?? null, latestSyncCompletedAt: state?.latestSyncCompletedAt ?? null, latestFetchedCount: state?.latestFetchedCount ?? 0, latestCreatedCount: state?.latestCreatedCount ?? 0, latestUpdatedCount: state?.latestUpdatedCount ?? 0, latestCancelledCount: state?.latestCancelledCount ?? 0, activeConflictCount: conflictBySource.get(source.id) ?? 0, isSyncing: state?.latestSyncStatus === "RUNNING" && Boolean(state.latestSyncStartedAt && state.latestSyncStartedAt.getTime() >= staleCutoff) }; });
+  return sources.map((source) => { const state = stateById.get(source.id); return { ...source, safetyReasonCodes: readCalendarFeedQuarantineReasons(source.safetyReasonCodes), lastSuccessfulSyncAt: state?.lastSuccessfulSyncAt ?? null, lastFailedSyncAt: state?.lastFailedSyncAt ?? null, latestSyncStatus: state?.latestSyncStatus ?? null, latestSyncStartedAt: state?.latestSyncStartedAt ?? null, latestSyncCompletedAt: state?.latestSyncCompletedAt ?? null, latestFetchedCount: state?.latestFetchedCount ?? 0, latestCreatedCount: state?.latestCreatedCount ?? 0, latestUpdatedCount: state?.latestUpdatedCount ?? 0, latestCancelledCount: state?.latestCancelledCount ?? 0, activeConflictCount: conflictBySource.get(source.id) ?? 0, isSyncing: state?.latestSyncStatus === "RUNNING" && Boolean(state.latestSyncStartedAt && state.latestSyncStartedAt.getTime() >= staleCutoff) }; });
 }
 export async function listCalendarRoomOptions(companyIds?: readonly string[], accessScope?: AccessScope): Promise<CalendarRoomOption[]> { const rooms = await prisma.room.findMany({ where: { ...(roomScopeWhere(accessScope) ?? {}), property: companyIds ? { companyId: { in: [...companyIds] } } : undefined }, select: { id: true, name: true, propertyId: true, isActive: true, property: { select: { name: true, isActive: true } } }, orderBy: [{ property: { name: "asc" } }, { sortOrder: "asc" }, { name: "asc" }] }); return rooms.map(({ property, ...room }) => ({ ...room, name: formatRoomDisplayName(room), propertyName: property.name, propertyIsActive: property.isActive })); }
-export function findCalendarSource(id: string) { return prisma.calendarSource.findUnique({ where: { id }, select: { id: true, roomId: true, provider: true, name: true, calendarUrl: true, isActive: true, room: { select: { property: { select: { companyId: true } } } } } }); }
+export function findCalendarSource(id: string) { return prisma.calendarSource.findUnique({ where: { id }, select: { id: true, roomId: true, provider: true, name: true, calendarUrl: true, isActive: true, connectionStatus: true, safetyReasonCodes: true, feedFingerprint: true, room: { select: { propertyId: true, property: { select: { companyId: true } } } } } }); }
 export async function findCalendarSourceDeleteTarget(id: string): Promise<CalendarSourceDeleteTarget | null> {
   const source = await prisma.calendarSource.findUnique({
     where: { id },
@@ -233,8 +235,74 @@ export async function deleteCalendarSourceTransaction(input: {
 }
 export function findCalendarRoom(id: string) { return prisma.room.findUnique({ where: { id }, select: { id: true, propertyId: true, property: { select: { id: true, companyId: true } } } }); }
 export function findDuplicateCalendarUrl(roomId: string, calendarUrl: string, excludeId?: string) { return prisma.calendarSource.findFirst({ where: { roomId, calendarUrl, id: excludeId ? { not: excludeId } : undefined }, select: { id: true } }); }
-export function createCalendarSource(data: { roomId: string; provider: CalendarProviderType; name: string; calendarUrl: string; isActive: boolean }) { return prisma.calendarSource.create({ data, select: { id: true } }); }
+export function createCalendarSource(data: { roomId: string; provider: CalendarProviderType; name: string; calendarUrl: string; isActive: boolean; feedFingerprint: CalendarFeedFingerprint; feedFingerprintUpdatedAt: Date }) { return prisma.calendarSource.create({ data: { ...data, feedFingerprint: data.feedFingerprint as unknown as Prisma.InputJsonObject }, select: { id: true } }); }
 export function updateCalendarSource(id: string, data: { roomId: string; provider: CalendarProviderType; name: string; calendarUrl: string; isActive: boolean }) { return prisma.calendarSource.update({ where: { id }, data, select: { id: true } }); }
+
+export type CalendarSourceUrlReplacementRepositoryErrorCode = "NOT_FOUND" | "SCOPE_CHANGED" | "DUPLICATE";
+export class CalendarSourceUrlReplacementRepositoryError extends Error {
+  constructor(readonly code: CalendarSourceUrlReplacementRepositoryErrorCode) {
+    super(code);
+    this.name = "CalendarSourceUrlReplacementRepositoryError";
+  }
+}
+
+export async function replaceCalendarSourceUrlTransaction(input: {
+  calendarSourceId: string;
+  expectedRoomId: string;
+  expectedProvider: CalendarProviderType;
+  expectedCompanyId: string;
+  calendarUrl: string;
+  fingerprint: CalendarFeedFingerprint;
+  safetyDiagnostics: CalendarFeedSafetyDiagnostics;
+  actorUserId: string;
+  auditMetadata: Prisma.InputJsonObject;
+  now: Date;
+}) {
+  return prisma.$transaction(async (tx) => {
+    const source = await tx.calendarSource.findUnique({
+      where: { id: input.calendarSourceId },
+      select: { id: true, roomId: true, provider: true, calendarUrl: true, room: { select: { property: { select: { companyId: true } } } } },
+    });
+    if (!source) throw new CalendarSourceUrlReplacementRepositoryError("NOT_FOUND");
+    if (source.roomId !== input.expectedRoomId || source.provider !== input.expectedProvider || source.room.property.companyId !== input.expectedCompanyId) {
+      throw new CalendarSourceUrlReplacementRepositoryError("SCOPE_CHANGED");
+    }
+    const duplicate = await tx.calendarSource.findFirst({
+      where: { roomId: source.roomId, calendarUrl: input.calendarUrl, id: { not: source.id } },
+      select: { id: true },
+    });
+    if (duplicate) throw new CalendarSourceUrlReplacementRepositoryError("DUPLICATE");
+
+    const updated = await tx.calendarSource.update({
+      where: { id: source.id },
+      data: {
+        calendarUrl: input.calendarUrl,
+        connectionStatus: "NORMAL",
+        safetyReasonCodes: Prisma.JsonNull,
+        feedFingerprint: input.fingerprint as unknown as Prisma.InputJsonObject,
+        feedFingerprintUpdatedAt: input.now,
+      },
+      select: { id: true, roomId: true, provider: true },
+    });
+    await tx.auditLog.create({
+      data: {
+        actorUserId: input.actorUserId,
+        targetCompanyId: input.expectedCompanyId,
+        action: "CALENDAR_SOURCE_URL_REPLACED",
+        details: {
+          ...input.auditMetadata,
+          calendarSourceId: source.id,
+          roomId: source.roomId,
+          provider: source.provider,
+          previousHostname: new URL(source.calendarUrl).hostname,
+          nextHostname: new URL(input.calendarUrl).hostname,
+          safetyReasonCodes: input.safetyDiagnostics.reasonCodes,
+        },
+      },
+    });
+    return updated;
+  });
+}
 export function setCalendarSourceActive(id: string, isActive: boolean) { return prisma.calendarSource.update({ where: { id }, data: { isActive }, select: { id: true, isActive: true } }); }
 export function listActiveCalendarSourceIdsForSync(filters: CalendarSourceFilters, take: number, accessScope?: AccessScope) { if (filters.isActive === false) return Promise.resolve([]); return prisma.calendarSource.findMany({ where: { isActive: true, roomId: filters.roomId, provider: filters.provider ?? { in: [...CALENDAR_PROVIDER_TYPES] }, room: { ...(roomScopeWhere(accessScope) ?? {}), propertyId: filters.propertyId, property: filters.companyIds ? { companyId: { in: [...filters.companyIds] } } : undefined } }, select: { id: true, roomId: true, provider: true }, orderBy: { id: "asc" }, take }); }
 export function listActiveCalendarSourceIdsForRooms(roomIds: readonly string[], take: number, companyIds?: readonly string[], provider?: CalendarProviderType) {

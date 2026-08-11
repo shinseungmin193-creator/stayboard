@@ -11,6 +11,9 @@ import { reservationNormalizerRegistry } from "../providers/normalizer-registry"
 import { standardizeSyncError } from "../domain/sync-error";
 import { countFailedCalendarEvents, createCalendarSyncDiagnosticPayload, type CalendarSyncDiagnosticPayload } from "../domain/calendar-sync-diagnostics";
 import { isCalendarSyncWarning } from "../domain/sync-health";
+import { createCalendarFeedFingerprint, readCalendarFeedFingerprint } from "../domain/calendar-feed-fingerprint";
+import { CalendarFeedQuarantinedError, validateCalendarFeedTransition, type CalendarFeedSafetyDiagnostics } from "../domain/calendar-feed-safety";
+import { findCalendarFeedSafetyContext } from "../infrastructure/calendar-feed-safety.repository";
 
 export class CalendarSyncError extends Error {
   constructor(message: string) {
@@ -23,11 +26,13 @@ export async function syncCalendarSource(calendarSourceId: string, signal?: Abor
   const lockTarget = await findCalendarSourceForSync(calendarSourceId);
   if (!lockTarget) throw new CalendarSyncError("캘린더 연결을 찾을 수 없습니다.");
   if (!lockTarget.isActive) throw new CalendarSyncError("비활성 캘린더 연결은 동기화할 수 없습니다.");
+  if (lockTarget.connectionStatus === "RECONNECT_REQUIRED") throw new CalendarSyncError("Booking.com 캘린더 연결 갱신이 필요합니다. 최신 iCal URL로 변경한 후 다시 동기화해 주세요.");
 
   return withCalendarSourceAdvisoryLock(lockTarget.id, lockTarget.roomId, async () => {
     const source = await findCalendarSourceForSync(calendarSourceId);
     if (!source) throw new CalendarSyncError("캘린더 연결을 찾을 수 없습니다.");
     if (!source.isActive) throw new CalendarSyncError("비활성 캘린더 연결은 동기화할 수 없습니다.");
+    if (source.connectionStatus === "RECONNECT_REQUIRED") throw new CalendarSyncError("Booking.com 캘린더 연결 갱신이 필요합니다. 최신 iCal URL로 변경한 후 다시 동기화해 주세요.");
     if (source.roomId !== lockTarget.roomId) throw new CalendarSyncError("캘린더 연결 객실이 변경되었습니다. 다시 시도해 주세요.");
     if (!(new Set<string>(["AIRBNB", "BOOKING", "AGODA"])).has(source.provider)) throw new CalendarSyncError("이 Provider는 아직 예약 동기화를 지원하지 않습니다.");
     const providerType = source.provider as CalendarProviderType;
@@ -40,6 +45,7 @@ export async function syncCalendarSource(calendarSourceId: string, signal?: Abor
     let eventCounts = EMPTY_CALENDAR_EVENT_CLASSIFICATION_COUNTS;
     let unknownEventDetails: Array<{ calendarSourceId: string; provider: CalendarProviderType; uidPresent: boolean; summaryPreview: string | null; descriptionPresent: boolean; status: string | null; reason: string }> = [];
     let eventDiagnostics: CalendarSyncDiagnosticPayload = { version: 1, events: [], truncatedEventCount: 0, exclusionReasonCounts: {} };
+    let safetyDiagnostics: CalendarFeedSafetyDiagnostics | null = null;
 
     try {
       const document = await provider.fetchCalendar({ calendarUrl: source.calendarUrl, signal });
@@ -70,6 +76,32 @@ export async function syncCalendarSource(calendarSourceId: string, signal?: Abor
       };
       unknownEventDetails = unknownEvents.map((event) => ({ calendarSourceId: source.id, provider: providerType, ...event }));
       eventDiagnostics = createCalendarSyncDiagnosticPayload({ events: classifiedDiagnostics, eventDiagnosticTruncatedCount, issues: parsed.issues, counts: eventCounts });
+      const fingerprint = createCalendarFeedFingerprint({
+        provider: providerType,
+        calendarHostname: new URL(source.calendarUrl).hostname,
+        prodId: parsed.prodId,
+        totalEventCount: parsed.totalEventCount,
+        events: parsed.events,
+        counts: eventCounts,
+      });
+      const safetyContext = await findCalendarFeedSafetyContext(source.id);
+      if (!safetyContext) throw new CalendarSyncError("캘린더 연결을 찾을 수 없습니다.");
+      const previous = safetyContext.syncLogs[0] ?? null;
+      const safety = validateCalendarFeedTransition({
+        provider: providerType,
+        sourceId: source.id,
+        now: startedAt,
+        fetchedEventCount: fetchedCount,
+        counts: eventCounts,
+        fingerprint,
+        baselineFingerprint: readCalendarFeedFingerprint(safetyContext.feedFingerprint),
+        previousSuccessfulCounts: previous ? { fetchedCount: previous.fetchedCount, reservationCount: previous.reservationEventCount, unknownCount: previous.unknownEventCount } : null,
+        sourceReservations: safetyContext.reservations,
+        roomReservations: safetyContext.room.reservations,
+        incomingReservations: reservations,
+      });
+      safetyDiagnostics = safety.diagnostics;
+      if (safety.status === "QUARANTINED") throw new CalendarFeedQuarantinedError(safety, fingerprint);
       const completedAt = new Date();
       const persisted = await persistReservationSync({
         syncLogId: syncLog.id,
@@ -85,6 +117,8 @@ export async function syncCalendarSource(calendarSourceId: string, signal?: Abor
         fetchedCount,
         syncStartedAt: startedAt,
         completedAt,
+        feedFingerprint: fingerprint,
+        safetyDiagnostics,
       });
 
       return {
@@ -110,7 +144,8 @@ export async function syncCalendarSource(calendarSourceId: string, signal?: Abor
       const standardized = standardizeSyncError(error);
       const message = standardized.safeMessage;
       try {
-        await failSyncLog(syncLog.id, startedAt, new Date(), standardized, fetchedCount, eventCounts, unknownEventDetails, eventDiagnostics as unknown as Prisma.InputJsonValue);
+        const quarantine = error instanceof CalendarFeedQuarantinedError ? { calendarSourceId: source.id, fingerprint: error.fingerprint, diagnostics: error.result.diagnostics, reasonCodes: error.result.reasonCodes } : undefined;
+        await failSyncLog(syncLog.id, startedAt, new Date(), standardized, fetchedCount, eventCounts, unknownEventDetails, eventDiagnostics as unknown as Prisma.InputJsonValue, quarantine);
       } catch {
         throw new CalendarSyncError(`${message} 동기화 실패 로그를 갱신하지 못했습니다.`);
       }

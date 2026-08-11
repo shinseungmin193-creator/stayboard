@@ -2,23 +2,29 @@ import "server-only";
 import { detectRoomReservationConflicts } from "@/features/reservation-conflicts/infrastructure/reservation-conflict.repository";
 import { syncCleaningTasksForCalendarSource } from "@/features/cleaning/server/cleaning-task-sync.service";
 import type { CalendarProviderType } from "@/lib/generated/prisma/enums";
-import type { Prisma } from "@/lib/generated/prisma/client";
+import { Prisma } from "@/lib/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { CALENDAR_SYNC_STALE_MESSAGE, CALENDAR_SYNC_STALE_RUNNING_MS } from "../calendar-sync.constants";
 import type { CalendarEventClassificationCounts } from "../domain/classify-calendar-events";
 import { classifyReservations } from "../domain/classify-reservations";
 import type { ExistingReservation, NormalizedReservation } from "../domain/normalized-reservation";
+import type { CalendarFeedFingerprint } from "../domain/calendar-feed-fingerprint";
+import type { CalendarFeedSafetyDiagnostics, CalendarFeedQuarantineReason } from "../domain/calendar-feed-safety";
 
 export function findCalendarSourceForSync(id: string) {
-  return prisma.calendarSource.findUnique({ where: { id }, select: { id: true, provider: true, calendarUrl: true, isActive: true, roomId: true, room: { select: { propertyId: true, property: { select: { companyId: true } } } } } });
+  return prisma.calendarSource.findUnique({ where: { id }, select: { id: true, provider: true, calendarUrl: true, isActive: true, connectionStatus: true, roomId: true, room: { select: { propertyId: true, property: { select: { companyId: true } } } } } });
 }
 
 export function createRunningSyncLog(calendarSourceId: string, provider: CalendarProviderType, startedAt: Date, syncRunId?: string) {
   return prisma.syncLog.create({ data: { calendarSourceId, provider, syncRunId, status: "RUNNING", startedAt }, select: { id: true } });
 }
 
-export function failSyncLog(id: string, startedAt: Date, completedAt: Date, error: { code: string; safeMessage: string; technicalMessage: string; httpStatus: number | null; retryCount: number }, fetchedCount: number, eventCounts: CalendarEventClassificationCounts, unknownEventDetails: Prisma.InputJsonValue = [], eventDiagnostics: Prisma.InputJsonValue = {}) {
-  return prisma.syncLog.update({ where: { id }, data: { status: "FAILED", completedAt, durationMs: completedAt.getTime() - startedAt.getTime(), errorCode: error.code, errorMessage: error.safeMessage, errorDetails: error.technicalMessage, httpStatus: error.httpStatus, retryCount: error.retryCount, fetchedCount, ...eventCounts, unknownEventDetails, eventDiagnostics } });
+export function failSyncLog(id: string, startedAt: Date, completedAt: Date, error: { code: string; safeMessage: string; technicalMessage: string; httpStatus: number | null; retryCount: number }, fetchedCount: number, eventCounts: CalendarEventClassificationCounts, unknownEventDetails: Prisma.InputJsonValue = [], eventDiagnostics: Prisma.InputJsonValue = {}, safety?: { calendarSourceId: string; fingerprint: CalendarFeedFingerprint; diagnostics: CalendarFeedSafetyDiagnostics; reasonCodes: CalendarFeedQuarantineReason[] }) {
+  return prisma.$transaction(async (tx) => {
+    const log = await tx.syncLog.update({ where: { id }, data: { status: "FAILED", completedAt, durationMs: completedAt.getTime() - startedAt.getTime(), errorCode: error.code, errorMessage: error.safeMessage, errorDetails: error.technicalMessage, httpStatus: error.httpStatus, retryCount: error.retryCount, fetchedCount, ...eventCounts, unknownEventDetails, eventDiagnostics, quarantined: Boolean(safety), feedFingerprint: safety?.fingerprint as unknown as Prisma.InputJsonValue | undefined, safetyDiagnostics: safety?.diagnostics as unknown as Prisma.InputJsonValue | undefined } });
+    if (safety) await tx.calendarSource.update({ where: { id: safety.calendarSourceId }, data: { connectionStatus: "RECONNECT_REQUIRED", safetyReasonCodes: safety.reasonCodes as unknown as Prisma.InputJsonValue } });
+    return log;
+  });
 }
 
 export function markStaleRunningSyncLogs(calendarSourceId: string, now: Date) {
@@ -43,6 +49,8 @@ interface PersistReservationSyncInput {
   fetchedCount: number;
   syncStartedAt: Date;
   completedAt: Date;
+  feedFingerprint: CalendarFeedFingerprint;
+  safetyDiagnostics: CalendarFeedSafetyDiagnostics;
 }
 
 export async function persistReservationSync(input: PersistReservationSyncInput) {
@@ -53,7 +61,7 @@ export async function persistReservationSync(input: PersistReservationSyncInput)
     const classification = classifyReservations(existing, input.reservations);
     const statusById = new Map(existing.map((reservation) => [reservation.id, reservation.status]));
     const explicitCancelledCount = classification.update.filter((item) => item.reservation.status === "CANCELLED" && statusById.get(item.id) !== "CANCELLED").length;
-    const created = classification.create.length ? await tx.reservation.createMany({ data: classification.create.map((reservation) => ({ ...persistenceData(reservation), rawUid: reservation.rawUid, calendarSourceId: input.calendarSourceId, propertyId: input.propertyId, roomId: input.roomId, provider: input.provider })), skipDuplicates: true }) : { count: 0 };
+    const created = classification.create.length ? await tx.reservation.createMany({ data: classification.create.map((reservation) => ({ ...persistenceData(reservation), rawUid: reservation.rawUid, calendarSourceId: input.calendarSourceId, createdBySyncLogId: input.syncLogId, propertyId: input.propertyId, roomId: input.roomId, provider: input.provider })), skipDuplicates: true }) : { count: 0 };
     for (const item of classification.update) await tx.reservation.update({ where: { id: item.id }, data: persistenceData(item.reservation) });
     await syncCleaningTasksForCalendarSource(tx, {
       calendarSourceId: input.calendarSourceId,
@@ -62,8 +70,8 @@ export async function persistReservationSync(input: PersistReservationSyncInput)
       roomId: input.roomId,
     });
     const conflicts = await detectRoomReservationConflicts(tx, input.roomId);
-    await tx.syncLog.update({ where: { id: input.syncLogId }, data: { status: "SUCCESS", completedAt: input.completedAt, durationMs: input.completedAt.getTime() - input.syncStartedAt.getTime(), fetchedCount: input.fetchedCount, ...input.eventCounts, unknownEventDetails: input.unknownEventDetails, eventDiagnostics: input.eventDiagnostics, createdCount: created.count, updatedCount: classification.update.length, cancelledCount: explicitCancelledCount, errorCode: null, errorMessage: null, errorDetails: null } });
-    await tx.calendarSource.update({ where: { id: input.calendarSourceId }, data: { lastSyncedAt: input.completedAt } });
+    await tx.syncLog.update({ where: { id: input.syncLogId }, data: { status: "SUCCESS", completedAt: input.completedAt, durationMs: input.completedAt.getTime() - input.syncStartedAt.getTime(), fetchedCount: input.fetchedCount, ...input.eventCounts, unknownEventDetails: input.unknownEventDetails, eventDiagnostics: input.eventDiagnostics, feedFingerprint: input.feedFingerprint as unknown as Prisma.InputJsonValue, safetyDiagnostics: input.safetyDiagnostics as unknown as Prisma.InputJsonValue, quarantined: false, createdCount: created.count, updatedCount: classification.update.length, cancelledCount: explicitCancelledCount, errorCode: null, errorMessage: null, errorDetails: null } });
+    await tx.calendarSource.update({ where: { id: input.calendarSourceId }, data: { lastSyncedAt: input.completedAt, connectionStatus: "NORMAL", safetyReasonCodes: Prisma.JsonNull, feedFingerprint: input.feedFingerprint as unknown as Prisma.InputJsonValue, feedFingerprintUpdatedAt: input.completedAt } });
     return { createdCount: created.count, updatedCount: classification.update.length, unchangedCount: classification.unchanged.length, cancelledCount: explicitCancelledCount, ...conflicts };
   });
 }

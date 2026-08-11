@@ -14,4 +14,4 @@ export interface ParsedCalendarEvent {
   rawProperties: Readonly<Record<string, string | null>>;
 }
 export interface CalendarParseIssue { eventIndex: number; reason: "MISSING_UID" | "UID_TOO_LONG" | "MISSING_START" | "MISSING_END" | "INVALID_DATE" | "INVALID_RANGE" | "SUMMARY_TOO_LONG" | "DESCRIPTION_TOO_LONG" | "DUPLICATE_UID" }
-export interface CalendarParseResult { totalEventCount: number; events: ParsedCalendarEvent[]; excludedCount: number; issues: CalendarParseIssue[] }
+export interface CalendarParseResult { totalEventCount: number; prodId: string | null; events: ParsedCalendarEvent[]; excludedCount: number; issues: CalendarParseIssue[] }
