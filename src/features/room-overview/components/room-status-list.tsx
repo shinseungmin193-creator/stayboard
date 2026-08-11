@@ -50,13 +50,14 @@ export function RoomStatusList({
         {rooms.map((room) => {
           const reservation = room.currentReservation ?? room.nextReservation;
           const status = getMobileRoomStatusVisual(room, i18n);
+          const StatusIcon = status.icon;
           const selected = selectedIds.has(room.id);
           return <button key={room.id} type="button" onClick={() => onActivate(room)} aria-pressed={selectionMode ? selected : undefined} className={cn("grid min-h-14 w-full grid-cols-[minmax(0,1fr)_4.5rem_3.5rem_3.5rem] items-center px-2 text-left outline-none [content-visibility:auto] [contain-intrinsic-size:auto_56px] hover:bg-muted/40 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring", selected && "bg-primary/5")}>
             <span className="flex min-w-0 items-center gap-2">
               {selectionMode && <span className={cn("grid size-4 shrink-0 place-items-center rounded border", selected && "border-primary bg-primary text-primary-foreground")}>{selected && <Check className="size-3" />}</span>}
               <span className="min-w-0"><strong className="block truncate text-sm leading-4">{room.name}</strong><span className="block truncate text-[9px] text-muted-foreground">{room.propertyName}</span></span>
             </span>
-            <Badge variant="outline" className={cn("mx-auto h-5 max-w-[4.25rem] px-1 text-[8px]", status.className)}><span className="truncate">{status.label}</span></Badge>
+            <Badge variant="outline" className={cn("mx-auto h-5 max-w-[4.25rem] gap-0.5 px-1 text-[8px]", status.badgeClass)}><StatusIcon aria-hidden="true" className="size-2.5 shrink-0" /><span className="truncate">{status.label}</span></Badge>
             <span className="text-center text-[10px] tabular-nums">{formatMobileRoomDate(reservation?.startDate, localeTag)}</span>
             <span className="text-center text-[10px] tabular-nums">{formatMobileRoomDate(reservation?.endDate, localeTag)}</span>
           </button>;

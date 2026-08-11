@@ -4,6 +4,8 @@ import { readFileSync } from "node:fs";
 import { buildRoomOperationalSchedule, calculateRoomOverviewStatus, getReservationOperationalDay, getRoomOverviewGuestName, getRoomOverviewStatusLabel, sortRoomOverviewCards, summarizeRoomOverview, type RoomOverviewCard, type RoomOverviewReservation } from "../domain/room-overview";
 import { buildCalendarDateRange, buildMobileRoomCalendarSegments, filterMobileRooms, getCalendarRangeStart, groupRoomsForCalendar, moveRoomOverviewDate, parseCalendarRangeDays, parseRoomOverviewDateKey, sortMobileRooms, summarizeMobileRooms } from "../domain/room-overview-mobile";
 import { getRoomOperationalStatusLabel } from "../../rooms/room-operational-status";
+import { AlertTriangle, ArrowDownToLine, ArrowUpFromLine, BedDouble, BrushCleaning, House, Wrench } from "lucide-react";
+import { getRoomStatusThemeStatus, ROOM_STATUS_THEME } from "../room-overview-visuals";
 
 const todayStart = new Date("2026-07-24T00:00:00+09:00");
 const todayEnd = new Date("2026-07-25T00:00:00+09:00");
@@ -41,6 +43,50 @@ test("수동 운영 상태 표시 문자열을 번역 키로 구분한다", () =
   assert.equal(getRoomOperationalStatusLabel("INSPECTION_REQUIRED", translate), "점검 필요");
 });
 test("오버부킹과 청소 필요 상태를 동시에 보존한다", () => { const value = card({ status: "CONFLICT", operationalStatus: "CLEANING_REQUIRED" }); assert.equal(value.status, "CONFLICT"); assert.equal(value.operationalStatus, "CLEANING_REQUIRED"); });
+
+test("객실 상태 테마는 7개 상태의 색상·아이콘·다크 모드를 한 곳에서 관리한다", () => {
+  assert.deepEqual(Object.keys(ROOM_STATUS_THEME), ["VACANT", "CHECK_IN_TODAY", "CHECK_OUT_TODAY", "OCCUPIED", "CONFLICT", "INSPECTION_REQUIRED", "CLEANING_REQUIRED"]);
+  const expected = {
+    VACANT: { color: "blue", icon: House },
+    CHECK_IN_TODAY: { color: "green", icon: ArrowDownToLine },
+    CHECK_OUT_TODAY: { color: "orange", icon: ArrowUpFromLine },
+    OCCUPIED: { color: "purple", icon: BedDouble },
+    CONFLICT: { color: "red", icon: AlertTriangle },
+    INSPECTION_REQUIRED: { color: "gray", icon: Wrench },
+    CLEANING_REQUIRED: { color: "amber", icon: BrushCleaning },
+  } as const;
+
+  for (const [status, expectation] of Object.entries(expected)) {
+    const theme = ROOM_STATUS_THEME[status as keyof typeof ROOM_STATUS_THEME];
+    assert.match(theme.headerClass, new RegExp(`bg-${expectation.color}-`));
+    assert.match(theme.bodyClass, new RegExp(`bg-${expectation.color}-`));
+    assert.match(theme.badgeClass, new RegExp(`border-${expectation.color}-`));
+    assert.match(`${theme.headerClass} ${theme.bodyClass} ${theme.badgeClass}`, /dark:/);
+    assert.equal(theme.icon, expectation.icon);
+  }
+});
+
+test("오버부킹과 운영 상태의 표시 우선순위를 유지한다", () => {
+  assert.equal(getRoomStatusThemeStatus(card({ status: "CONFLICT", operationalStatus: "CLEANING_REQUIRED" })), "CONFLICT");
+  assert.equal(getRoomStatusThemeStatus(card({ status: "OCCUPIED", operationalStatus: "CLEANING_REQUIRED" })), "CLEANING_REQUIRED");
+  assert.equal(getRoomStatusThemeStatus(card({ status: "VACANT", operationalStatus: "INSPECTION_REQUIRED" })), "INSPECTION_REQUIRED");
+  assert.equal(getRoomStatusThemeStatus(card({ status: "CHECK_IN_TODAY" })), "CHECK_IN_TODAY");
+});
+
+test("PC와 모바일 객실 카드는 공통 테마의 Header·Body·Badge·아이콘을 사용한다", () => {
+  const desktopCard = readFileSync("src/features/room-overview/components/room-overview-card.tsx", "utf8");
+  const desktopHeader = readFileSync("src/features/room-overview/components/room-overview-status-header.tsx", "utf8");
+  const mobileCard = readFileSync("src/features/room-overview/components/compact-room-status-card.tsx", "utf8");
+
+  assert.match(desktopCard, /ROOM_STATUS_THEME\[themeStatus\]/);
+  assert.match(desktopCard, /theme\.bodyClass/);
+  assert.match(desktopHeader, /theme\.headerClass/);
+  assert.match(desktopHeader, /theme\.icon/);
+  assert.match(mobileCard, /status\.headerClass/);
+  assert.match(mobileCard, /status\.bodyClass/);
+  assert.match(mobileCard, /status\.badgeClass/);
+  assert.match(mobileCard, /status\.icon/);
+});
 
 test("모바일 조회 날짜는 잘못된 값을 거부하고 하루씩 이동한다", () => {
   assert.equal(parseRoomOverviewDateKey("2026-07-27", "2026-01-01"), "2026-07-27");
@@ -158,7 +204,7 @@ test("모바일 타임라인은 좁은 객실 열과 간결한 OTA·공실 표�
   assert.match(roomRow, /formatRoomDisplayLabel/);
   assert.match(roomRow, /formatRoomNumber/);
   assert.match(roomRow, /className="shrink-0"/);
-  assert.match(roomRow, /MOBILE_ROOM_STATUS_VISUALS\.VACANT\.className/);
+  assert.match(roomRow, /ROOM_STATUS_THEME\.VACANT\.badgeClass/);
   assert.equal(roomRow.match(/room\.propertyName/g)?.length, 1);
   assert.doesNotMatch(roomRow, /guestName/);
   assert.match(reservationBar, /rounded-full/);

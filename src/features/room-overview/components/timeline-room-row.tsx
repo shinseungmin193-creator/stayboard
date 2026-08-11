@@ -6,7 +6,7 @@ import { formatRoomDisplayLabel, formatRoomNumber } from "@/features/rooms/room-
 import { cn } from "@/lib/utils";
 import type { RoomOverviewCard, RoomOverviewReservation } from "../domain/room-overview";
 import { buildMobileRoomCalendarSegments, TIMELINE_RESERVATION_HEIGHT, TIMELINE_ROOM_COLUMN_WIDTH, TIMELINE_ROW_MIN_HEIGHT } from "../domain/room-overview-mobile";
-import { MOBILE_ROOM_STATUS_VISUALS } from "../room-overview-mobile-visuals";
+import { ROOM_STATUS_THEME } from "../room-overview-visuals";
 import { TimelineReservationBar } from "./timeline-reservation-bar";
 
 export function TimelineRoomRow({ room, days, rangeStart, columnWidth, selectedDate, selectionMode, selected, onRoomActivate, onReservationActivate }: {room: RoomOverviewCard;days: string[];rangeStart: string;columnWidth: number;selectedDate: string;selectionMode: boolean;selected: boolean;onRoomActivate: () => void;onReservationActivate: (reservation: RoomOverviewReservation) => void;}) {const i18n = useTranslations();
@@ -28,7 +28,7 @@ export function TimelineRoomRow({ room, days, rangeStart, columnWidth, selectedD
       <button type="button" onClick={onRoomActivate} className="absolute inset-0 z-0 grid outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring" style={{ gridTemplateColumns: `repeat(${days.length}, ${columnWidth}px)` }} aria-label={i18n("auto.m0539", { value0: room.name })}>
         {days.map((dateKey) => <span key={dateKey} className={cn("h-full border-r", dateKey === selectedDate && "bg-primary/5")} />)}
       </button>
-      {segments.length === 0 && <span className={cn("pointer-events-none absolute left-1 right-1 top-1/2 flex h-5 -translate-y-1/2 items-center rounded-full border px-2 text-[9px] font-medium", MOBILE_ROOM_STATUS_VISUALS.VACANT.className)}>{i18n("reservation.vacant")}</span>}
+      {segments.length === 0 && <span className={cn("pointer-events-none absolute left-1 right-1 top-1/2 flex h-5 -translate-y-1/2 items-center rounded-full border px-2 text-[9px] font-medium", ROOM_STATUS_THEME.VACANT.badgeClass)}>{i18n("reservation.vacant")}</span>}
       {segments.map((segment) => <TimelineReservationBar key={segment.id} segment={segment} columnWidth={columnWidth} onActivate={() => onReservationActivate(segment.reservation)} />)}
     </div>
   </div>;

@@ -1,7 +1,6 @@
 import { useTranslations } from "next-intl";import type { CalendarProviderType } from "@/lib/generated/prisma/enums";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import styles from "./room-overview-visuals.module.css";
 import { getProviderLabel } from "@/features/reservations/provider-visuals";
 
 interface RoomOverviewProviderBadgesProps {
@@ -21,7 +20,7 @@ export function RoomOverviewProviderBadges({ providers, currentProvider, classNa
       return <Badge
         key={provider}
         variant="outline"
-        className={cn("h-5 rounded-full px-2 text-[10px] font-medium tracking-wide", styles.providerBadge)}
+        className="h-5 rounded-full border-border/70 bg-background/60 px-2 text-[10px] font-medium tracking-wide text-foreground data-[current-provider=true]:border-foreground/35 data-[current-provider=true]:bg-background/90"
         aria-label={isCurrentProvider ? i18n("auto.m0476", { value0: providerLabel }) : providerLabel}
         data-current-provider={isCurrentProvider || undefined}>
         

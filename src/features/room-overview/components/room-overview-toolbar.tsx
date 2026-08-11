@@ -4,11 +4,10 @@ import type { CalendarProviderType, RoomOperationalStatus, SyncStatus } from "@/
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/shared/page-header";
 import { ROOM_OVERVIEW_STATUS_PRIORITY, type RoomOverviewStatus } from "../domain/room-overview";
-import { getRoomOverviewStatusStyle, type RoomOverviewVisualStatus } from "../room-overview-visuals";
+import { ROOM_STATUS_THEME, type RoomOverviewVisualStatus } from "../room-overview-visuals";
 import { RoomOverviewRefresh } from "./room-overview-refresh";
 import { RoomOverviewSync } from "./room-overview-sync";
 import { cn } from "@/lib/utils";
-import styles from "./room-overview-visuals.module.css";
 import { CALENDAR_PROVIDER_TYPES } from "@/providers/calendar/types";
 import { getProviderLabel } from "@/features/reservations/provider-visuals";
 
@@ -34,17 +33,17 @@ interface SummaryChipProps {
 }
 
 function SummaryChip({ label, value, status, active = false, href, mobile = false }: SummaryChipProps) {
+  const theme = status ? ROOM_STATUS_THEME[status] : null;
   const className = cn(
     "flex items-center gap-1.5 rounded-md border px-2 text-[11px] outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1",
     mobile ? "h-8 px-3 text-xs" : "h-6",
-    status ? styles.statusChip : "border-border bg-card",
+    theme ? theme.badgeClass : "border-border bg-card",
     active && !status && "border-primary/45 bg-primary/10"
   );
-  const style = status ? getRoomOverviewStatusStyle(status) : undefined;
-  const content = <><span className="text-muted-foreground">{label}</span><strong className="font-bold tabular-nums text-foreground">{value}</strong></>;
+  const content = <><span className={cn(!theme && "text-muted-foreground")}>{label}</span><strong className={cn("font-bold tabular-nums", !theme && "text-foreground")}>{value}</strong></>;
 
-  if (href) return <Link href={href} aria-current={active ? "page" : undefined} data-active={active || undefined} className={className} style={style}>{content}</Link>;
-  return <div data-active={active || undefined} className={className} style={style}>{content}</div>;
+  if (href) return <Link href={href} aria-current={active ? "page" : undefined} data-active={active || undefined} className={className}>{content}</Link>;
+  return <div data-active={active || undefined} className={className}>{content}</div>;
 }
 
 function FilterFields({ properties, filters, showOperational = false }: Pick<ToolbarProps, "properties" | "filters"> & {showOperational?: boolean;}) {const i18n = useTranslations();

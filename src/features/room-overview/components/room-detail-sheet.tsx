@@ -16,6 +16,7 @@ import { RoomStatusRoomSyncButton } from "./room-status-room-sync-button";
 export function RoomDetailContent({ room, canSync }: {room: RoomOverviewCard;canSync: boolean;}) {const i18n = useTranslations();
   const reservation = room.currentReservation ?? room.nextReservation;
   const status = getMobileRoomStatusVisual(room, i18n);
+  const StatusIcon = status.icon;
   const sync = getMobileSyncLabel(room, i18n);
   const reservationsHref = `/reservations?roomId=${room.id}`;
   const detailHref = reservation ? `${reservationsHref}&from=${format(reservation.startDate, "yyyy-MM-dd")}&to=${format(reservation.endDate, "yyyy-MM-dd")}` : reservationsHref;
@@ -23,7 +24,7 @@ export function RoomDetailContent({ room, canSync }: {room: RoomOverviewCard;can
 
   return <>
     <div className="grid grid-cols-2 gap-2 px-4">
-      <div className="rounded-lg border bg-muted/25 p-2.5"><span className="block text-[10px] text-muted-foreground">{i18n("auto.m0227")}</span><Badge variant="outline" className={cn("mt-1", status.className)}>{status.label}</Badge></div>
+      <div className={cn("rounded-lg border p-2.5", status.bodyClass)}><span className="block text-[10px] text-muted-foreground">{i18n("auto.m0227")}</span><Badge variant="outline" className={cn("mt-1 gap-1", status.badgeClass)}><StatusIcon aria-hidden="true" className="size-3" />{status.label}</Badge></div>
       <div className="rounded-lg border bg-muted/25 p-2.5"><span className="block text-[10px] text-muted-foreground">{i18n("common.sync")}</span><span className={cn("mt-1 flex items-center gap-1 text-xs font-medium", sync.error && "text-destructive")}><Clock3 className="size-3" />{sync.label}</span></div>
       <div className="rounded-lg border bg-muted/25 p-2.5"><span className="block text-[10px] text-muted-foreground">{i18n("reservation.checkIn")}</span><strong className="mt-1 block text-sm">{reservation ? format(reservation.startDate, "yyyy-MM-dd") : "-"}</strong></div>
       <div className="rounded-lg border bg-muted/25 p-2.5"><span className="block text-[10px] text-muted-foreground">{i18n("reservation.checkOut")}</span><strong className="mt-1 block text-sm">{reservation ? format(reservation.endDate, "yyyy-MM-dd") : "-"}</strong></div>
