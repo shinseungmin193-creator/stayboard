@@ -6,8 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import type { ReservationViewModel } from "../reservation-view-model";
 import { ReservationDetailContent } from "./reservation-detail-content";
+import type { ReservationDisplayStatus } from "../reservation-display-status";
 
-export function ReservationDetailSheet({ reservation, open, onOpenChange }: {reservation: ReservationViewModel | null;open: boolean;onOpenChange: (open: boolean) => void;}) {const i18n = useTranslations();
+export function ReservationDetailSheet({ reservation, open, onOpenChange, contextualStatus }: {reservation: ReservationViewModel | null;open: boolean;onOpenChange: (open: boolean) => void;contextualStatus?: {status: ReservationDisplayStatus;label: string;};}) {const i18n = useTranslations();
   if (!reservation) return null;
   const date = reservation.startDate.slice(0, 10);
   return (
@@ -23,7 +24,7 @@ export function ReservationDetailSheet({ reservation, open, onOpenChange }: {res
           <SheetDescription>{reservation.propertyName}{i18n("auto.m0419")}</SheetDescription>
         </SheetHeader>
         <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
-          <ReservationDetailContent reservation={reservation} />
+          <ReservationDetailContent reservation={reservation} contextualStatus={contextualStatus} />
         </div>
         <div className="grid grid-cols-2 gap-2 border-t bg-popover px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
           <Button nativeButton={false} render={<Link href={`/reservations?roomId=${reservation.roomId}`} onClick={() => onOpenChange(false)} />} variant="outline" className="min-h-11"><List />{i18n("auto.m0420")}</Button>

@@ -7,11 +7,12 @@ import type { AccessScope } from "@/features/access-control";
 import { roomScopeWhere } from "@/features/access-control";
 import { CALENDAR_PROVIDER_TYPES } from "@/providers/calendar";
 import { ACTIVE_OTA_RESERVATION_STATUSES } from "@/features/reservations/reservation.constants";
+import { buildRoomStatusReservationWhere } from "./room-status-calendar";
 
 export async function listRoomStatusCalendar(input: {
   propertyId?: string;
-  from: Date;
-  toExclusive: Date;
+  rangeStart: Date;
+  rangeEnd: Date;
   companyIds?: readonly string[];
   accessScope?: AccessScope;
 }): Promise<RoomStatusRoom[]> {
@@ -33,11 +34,7 @@ export async function listRoomStatusCalendar(input: {
         orderBy: [{ provider: "asc" }, { name: "asc" }],
       },
       reservations: {
-        where: {
-          status: { in: [...ACTIVE_OTA_RESERVATION_STATUSES] },
-          startDate: { lt: input.toExclusive },
-          endDate: { gt: input.from },
-        },
+        where: buildRoomStatusReservationWhere(input),
         select: {
           id: true,
           providerReservationId: true,

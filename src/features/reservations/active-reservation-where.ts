@@ -47,10 +47,18 @@ export function buildActiveReservationWhere(filters: ReservationFilters): Prisma
     ? filters.from
     : businessDateStart;
   const endDateStart = laterDate(businessDateStart, requestedEndDateStart);
-  const endDate: Prisma.DateTimeFilter = filters.dateField === "checkOut"
-    ? { gte: endDateStart, lt: filters.toExclusive }
-    : { gte: endDateStart };
-  const dateWhere: Prisma.ReservationWhereInput = filters.dateField === "checkIn"
+  const endDate: Prisma.DateTimeFilter | undefined = filters.dateMode === "checkout"
+    ? { gte: filters.from, lt: filters.toExclusive }
+    : filters.dateMode === "checkin"
+      ? undefined
+      : filters.dateField === "checkOut"
+        ? { gte: endDateStart, lt: filters.toExclusive }
+        : { gte: endDateStart };
+  const dateWhere: Prisma.ReservationWhereInput = filters.dateMode === "checkin"
+    ? { startDate: { gte: filters.from, lt: filters.toExclusive } }
+    : filters.dateMode === "checkout"
+      ? {}
+      : filters.dateField === "checkIn"
     ? { startDate: { gte: filters.from, lt: filters.toExclusive } }
     : filters.dateField === "checkOut"
       ? {}
@@ -82,7 +90,7 @@ export function buildActiveReservationWhere(filters: ReservationFilters): Prisma
   const room = scopedRoomWhere(filters.companyIds, filters.accessScope);
   return {
     ...buildActiveReservationStateWhere(),
-    endDate,
+    ...(endDate ? { endDate } : {}),
     ...(filters.propertyId ? { propertyId: filters.propertyId } : {}),
     ...(filters.roomId ? { roomId: filters.roomId } : {}),
     provider: { in: [...(filters.providers?.length ? filters.providers : CALENDAR_PROVIDER_TYPES)] },

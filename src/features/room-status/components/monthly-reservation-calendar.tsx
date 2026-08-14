@@ -2,8 +2,6 @@
 
 import { useEffect, useMemo, useRef } from "react";
 import { CalendarDays } from "lucide-react";
-import { addDays, differenceInCalendarDays, format, isSameDay } from "date-fns";
-import { ja, ko } from "date-fns/locale";
 import type { RoomStatusRoom } from "@/features/room-status/room-status.types";
 import { ReservationBar } from "@/features/reservations/components/reservation-bar";
 import { cn } from "@/lib/utils";
@@ -12,12 +10,14 @@ import { Button } from "@/components/ui/button";
 import { formatRoomDisplayName } from "@/features/rooms/room-display";
 import { isCalendarProviderType } from "@/providers/calendar/types";
 import { getProviderLabel } from "@/features/reservations/provider-visuals";
+import { DEFAULT_TIMEZONE } from "@/lib/constants";
+import { getZonedDateInput, getZonedMidnight, shiftDateInput } from "@/lib/zoned-date";
 
 const DAY_WIDTH = 64;
 const ROOM_WIDTH = 176;
 
-function dayStart(value: Date) {
-  return new Date(value.getFullYear(), value.getMonth(), value.getDate());
+function differenceInDateInputs(left: string, right: string) {
+  return (Date.parse(`${left}T00:00:00Z`) - Date.parse(`${right}T00:00:00Z`)) / (24 * 60 * 60 * 1000);
 }
 
 export function MonthlyReservationCalendar({
@@ -30,12 +30,12 @@ export function MonthlyReservationCalendar({
 
 
 
-}: {rooms: RoomStatusRoom[];rangeStart: string;dayCount: number;today: string;}) {const locale = useLocale();const dateLocale = locale === "ja" ? ja : ko;const i18n = useTranslations();
+}: {rooms: RoomStatusRoom[];rangeStart: string;dayCount: number;today: string;}) {const locale = useLocale();const localeTag = locale === "ja" ? "ja-JP" : "ko-KR";const i18n = useTranslations();
   const viewportRef = useRef<HTMLDivElement>(null);
-  const start = useMemo(() => new Date(`${rangeStart}T00:00:00+09:00`), [rangeStart]);
-  const todayDate = useMemo(() => new Date(`${today}T00:00:00+09:00`), [today]);
-  const days = useMemo(() => Array.from({ length: dayCount }, (_, index) => addDays(start, index)), [dayCount, start]);
-  const todayIndex = differenceInCalendarDays(todayDate, start);
+  const days = useMemo(() => Array.from({ length: dayCount }, (_, index) => shiftDateInput(rangeStart, index)), [dayCount, rangeStart]);
+  const todayIndex = differenceInDateInputs(today, rangeStart);
+  const monthFormatter = useMemo(() => new Intl.DateTimeFormat(localeTag, { timeZone: DEFAULT_TIMEZONE, month: "long" }), [localeTag]);
+  const dayFormatter = useMemo(() => new Intl.DateTimeFormat(localeTag, { timeZone: DEFAULT_TIMEZONE, day: "numeric", weekday: "short" }), [localeTag]);
 
   const scrollToToday = () => {
     if (!viewportRef.current || todayIndex < 0 || todayIndex >= dayCount) return;
@@ -75,13 +75,17 @@ export function MonthlyReservationCalendar({
               {rooms.length}{i18n("auto.m0271")}
             </div>
             {days.map((day) => {
-              const isToday = isSameDay(day, todayDate);
-              const weekend = day.getDay() === 0 || day.getDay() === 6;
+              const dayInstant = getZonedMidnight(day, DEFAULT_TIMEZONE);
+              const isToday = day === today;
+              const weekday = new Date(`${day}T00:00:00Z`).getUTCDay();
+              const weekend = weekday === 0 || weekday === 6;
+              const labelParts = dayFormatter.formatToParts(dayInstant);
+              const labelValue = (type: Intl.DateTimeFormatPartTypes) => labelParts.find((part) => part.type === type)?.value ?? "";
               return (
-                <div key={day.toISOString()} className={cn("grid shrink-0 place-items-center border-r text-center", weekend && "bg-muted/40", isToday && "bg-primary/10")} style={{ width: DAY_WIDTH }}>
+                <div key={day} className={cn("grid shrink-0 place-items-center border-r text-center", weekend && "bg-muted/40", isToday && "bg-primary/10")} style={{ width: DAY_WIDTH }}>
                   <div>
-                    <p className="text-[10px] font-medium text-muted-foreground">{format(day, i18n("auto.m0546"), { locale: dateLocale })}</p>
-                    <p className={cn("text-sm font-semibold", isToday && "text-primary")}>{format(day, "d EEE", { locale: dateLocale })}</p>
+                    <p className="text-[10px] font-medium text-muted-foreground">{monthFormatter.format(dayInstant)}</p>
+                    <p className={cn("text-sm font-semibold", isToday && "text-primary")}>{labelValue("day")} {labelValue("weekday")}</p>
                   </div>
                 </div>);
 
@@ -99,13 +103,16 @@ export function MonthlyReservationCalendar({
               </div>
               <div className="relative h-20" style={{ width: dayCount * DAY_WIDTH }}>
                 <div className="absolute inset-0 flex">
-                  {days.map((day) => <div key={day.toISOString()} className={cn("h-full shrink-0 border-r", (day.getDay() === 0 || day.getDay() === 6) && "bg-muted/25", isSameDay(day, todayDate) && "bg-primary/7")} style={{ width: DAY_WIDTH }} />)}
+                  {days.map((day) => {
+                    const weekday = new Date(`${day}T00:00:00Z`).getUTCDay();
+                    return <div key={day} className={cn("h-full shrink-0 border-r", (weekday === 0 || weekday === 6) && "bg-muted/25", day === today && "bg-primary/7")} style={{ width: DAY_WIDTH }} />;
+                  })}
                 </div>
                 {room.reservations.map((reservation, index) => {
-                  const reservationStart = dayStart(reservation.startDate);
-                  const reservationEnd = dayStart(reservation.endDate);
-                  const leftDays = Math.max(0, differenceInCalendarDays(reservationStart, start));
-                  const endDays = Math.min(dayCount, differenceInCalendarDays(reservationEnd, start));
+                  const reservationStart = getZonedDateInput(reservation.startDate, DEFAULT_TIMEZONE);
+                  const reservationEnd = getZonedDateInput(reservation.endDate, DEFAULT_TIMEZONE);
+                  const leftDays = Math.max(0, differenceInDateInputs(reservationStart, rangeStart));
+                  const endDays = Math.min(dayCount, differenceInDateInputs(reservationEnd, rangeStart));
                   const widthDays = Math.max(1, endDays - leftDays);
                   if (endDays <= 0 || leftDays >= dayCount) return null;
                   const width = Math.max(24, widthDays * DAY_WIDTH - 8);

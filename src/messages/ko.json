@@ -3,6 +3,8 @@
     "description": "숙소와 객실 캘린더 동기화를 한곳에서 관리합니다."
   },
   "common": {
+    "yesterday": "어제",
+    "tomorrow": "내일",
     "today": "오늘",
     "save": "저장",
     "cancel": "취소",
@@ -98,6 +100,16 @@
     "currentOperations": "운영 현황"
   },
   "reservation": {
+    "dateNavigation": {
+      "ariaLabel": "예약 날짜 이동",
+      "previous": "이전 날짜",
+      "next": "다음 날짜",
+      "summary": "{date} · {mode} {count}건",
+      "checkoutYesterday": "어제 체크아웃",
+      "checkoutTomorrow": "내일 체크아웃",
+      "checkinYesterday": "어제 체크인",
+      "checkinTomorrow": "내일 체크인"
+    },
     "list": "예약목록",
     "none": "예약 없음",
     "overbooking": "오버부킹",

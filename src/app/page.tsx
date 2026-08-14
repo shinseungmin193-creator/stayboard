@@ -48,7 +48,7 @@ export default async function DashboardPage() {
       label: i18n("reservation.statuses.CHECK_OUT_TODAY"),
       count: summary.todayCheckOuts,
       iconName: "checkout",
-      href: `/reservations?dateField=checkOut&from=${today}&to=${today}`,
+      href: `/reservations?mode=checkout&date=${today}`,
       rooms: [],
     },
     overbooking: {

@@ -7,6 +7,7 @@ import { getReservationDisplayName } from "../reservation-display";
 import { getProviderLabel, getProviderVisual } from "../provider-visuals";
 import { getLocalizedReservationSyncStatusLabel } from "../reservation-status-meta";
 import { ReservationStatusBadge } from "./reservation-status-badge";
+import type { ReservationDisplayStatus } from "../reservation-display-status";
 
 
 
@@ -16,14 +17,14 @@ function DetailItem({ label, value, wide = false, mono = false }: {label: string
   return <div className={cn("min-w-0 rounded-lg border bg-muted/25 px-3 py-2.5", wide && "col-span-2")}><dt className="text-[10px] font-medium text-muted-foreground">{label}</dt><dd className={cn("mt-1 break-words text-sm font-medium", mono && "font-mono text-xs")}>{value}</dd></div>;
 }
 
-export function ReservationDetailContent({ reservation }: {reservation: ReservationViewModel;}) {const locale = useLocale(),localeTag = locale === "ja" ? "ja-JP" : "ko-KR";const dateTimeFormatter = new Intl.DateTimeFormat(localeTag, { timeZone: "Asia/Tokyo", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" });const dateFormatter = new Intl.DateTimeFormat(localeTag, { timeZone: "Asia/Tokyo", year: "numeric", month: "2-digit", day: "2-digit" });const i18n = useTranslations();
+export function ReservationDetailContent({ reservation, contextualStatus }: {reservation: ReservationViewModel;contextualStatus?: {status: ReservationDisplayStatus;label: string;};}) {const locale = useLocale(),localeTag = locale === "ja" ? "ja-JP" : "ko-KR";const dateTimeFormatter = new Intl.DateTimeFormat(localeTag, { timeZone: "Asia/Tokyo", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" });const dateFormatter = new Intl.DateTimeFormat(localeTag, { timeZone: "Asia/Tokyo", year: "numeric", month: "2-digit", day: "2-digit" });const i18n = useTranslations();
   const provider = getProviderVisual(reservation.provider);
   const nights = Math.max(1, differenceInCalendarDays(new Date(reservation.endDate), new Date(reservation.startDate)));
   const syncHasError = reservation.latestSyncStatus === "FAILED" || reservation.latestSyncStatus === "TIMEOUT";
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <ReservationStatusBadge status={reservation.displayStatus} />
+        <ReservationStatusBadge status={contextualStatus?.status ?? reservation.displayStatus} label={contextualStatus?.label} />
         <Badge variant="outline" className={provider.className}>{getProviderLabel(reservation.provider, i18n)}</Badge>
         {reservation.activeConflictCount > 0 && <Badge variant="destructive" className="gap-1"><AlertTriangle />{i18n("auto.m0404")}{reservation.activeConflictCount}{i18n("auto.m0013")}</Badge>}
       </div>

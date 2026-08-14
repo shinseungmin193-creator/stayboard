@@ -1,6 +1,7 @@
 import type { CalendarProviderType, ReservationStatus, SyncStatus } from "@/lib/generated/prisma/enums";
 import type { AccessScope } from "@/features/access-control/domain/access-control";
 import type { ActiveReservationDisplayStatus } from "./reservation-display-status";
+import type { ReservationDateMode } from "./reservation-date-navigation";
 export type ReservationDateField = "stay" | "checkIn" | "checkOut";
 export interface ReservationConflictSummary { id: string; guestName: string | null; startDate: Date; endDate: Date; provider: CalendarProviderType; status: ReservationStatus; calendarSourceName: string }
 export interface ReservationListItem {
@@ -36,6 +37,7 @@ export interface ReservationFilters {
   displayStatuses?: readonly ActiveReservationDisplayStatus[];
   businessDate: Date;
   dateField?: ReservationDateField;
+  dateMode?: ReservationDateMode;
   from: Date;
   toExclusive: Date;
   hasConflict?: boolean;

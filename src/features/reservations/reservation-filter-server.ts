@@ -6,6 +6,7 @@ import { getDashboardDateInput, getDashboardTodayRange } from "@/features/dashbo
 import { RESERVATION_DEFAULT_FUTURE_DAYS } from "./reservation.constants";
 import type { ReservationFilterState } from "./reservation-filter-query";
 import type { ReservationFilters } from "./reservation.types";
+import type { ReservationDateNavigation } from "./reservation-date-navigation";
 
 export function getReservationEffectiveDateRange(filters: ReservationFilterState, now = new Date()) {
   const { start } = getDashboardTodayRange(now);
@@ -33,11 +34,19 @@ export function buildReservationRepositoryFilters(input: {
   filters: ReservationFilterState;
   page: number;
   now?: Date;
+  dateNavigation?: ReservationDateNavigation | null;
   companyIds?: readonly string[];
   accessScope?: AccessScope;
 }): { repositoryFilters: ReservationFilters; effectiveDateRange: ReturnType<typeof getReservationEffectiveDateRange> } {
   const businessDate = input.now ?? new Date();
-  const effectiveDateRange = getReservationEffectiveDateRange(input.filters, businessDate);
+  const effectiveDateRange = input.dateNavigation
+    ? {
+        from: input.dateNavigation.rangeStart,
+        to: input.dateNavigation.rangeStart,
+        fromInput: input.dateNavigation.selectedDate,
+        toInput: input.dateNavigation.selectedDate,
+      }
+    : getReservationEffectiveDateRange(input.filters, businessDate);
   return {
     effectiveDateRange,
     repositoryFilters: {
@@ -48,8 +57,9 @@ export function buildReservationRepositoryFilters(input: {
       displayStatuses: input.filters.statuses.length ? input.filters.statuses : undefined,
       businessDate,
       dateField: input.filters.dateField,
+      dateMode: input.dateNavigation?.mode,
       from: effectiveDateRange.from,
-      toExclusive: addDays(effectiveDateRange.to, 1),
+      toExclusive: input.dateNavigation?.rangeEnd ?? addDays(effectiveDateRange.to, 1),
       hasConflict: input.filters.hasConflict ?? undefined,
       page: input.page,
       companyIds: input.companyIds,

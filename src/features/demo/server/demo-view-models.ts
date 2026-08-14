@@ -7,6 +7,7 @@ import { getReservationDisplayStatus } from "@/features/reservations";
 import { RESERVATION_PAGE_SIZE } from "@/features/reservations/reservation.constants";
 import { isActiveReservationListItem } from "@/features/reservations/reservation-list-policy";
 import type { RoomStatusRoom } from "@/features/room-status/room-status.types";
+import { isReservationVisibleInRoomStatusRange, type RoomStatusCalendarRange } from "@/features/room-status/room-status-calendar";
 import type { OccupancyPeriod, OccupancyRoom } from "@/features/statistics/occupancy/domain/occupancy";
 import { calculateOccupancyMetrics } from "@/features/statistics/occupancy/domain/occupancy";
 import { summarizeDashboardCleaning } from "@/features/dashboard/dashboard-cleaning";
@@ -67,9 +68,9 @@ export function getDemoDashboardData(now = new Date()) {
   return { todayCheckIns: overview.summary.statuses.CHECK_IN_TODAY, todayCheckOuts: overview.summary.statuses.CHECK_OUT_TODAY, registeredRooms: overview.summary.total, activeConflicts: overview.summary.statuses.CONFLICT, conflictedCheckIns: 0, recentSyncFailures: 0, latestSync: { status: "SUCCESS" as const, completedAt: new Date(now.getTime() - 4 * 60 * 1000) }, recentFailureHours: 24, priorityCleaning: cleaning.priority, flexibleCleaning: cleaning.flexible, priorityCleaningRooms: cleaning.priorityRooms, flexibleCleaningRooms: cleaning.flexibleRooms };
 }
 
-export function getDemoRoomStatusData(now = new Date()): RoomStatusRoom[] {
-  const fixture = createDemoFixtures(now);
-  return fixture.rooms.map((room) => ({ id: room.id, name: room.name, propertyId: room.propertyId, propertyName: DEMO_PROPERTY.name, sources: [{ id: `${room.id}-airbnb`, name: `${room.name} Airbnb`, provider: "AIRBNB" }], reservations: fixture.reservations.filter((item) => item.roomId === room.id).map((item) => ({ ...item, providerReservationId: null, hasActiveConflict: room.id === "demo-room-201" })) }));
+export function getDemoRoomStatusData(range: RoomStatusCalendarRange): RoomStatusRoom[] {
+  const fixture = createDemoFixtures(range.rangeStart);
+  return fixture.rooms.map((room) => ({ id: room.id, name: room.name, propertyId: room.propertyId, propertyName: DEMO_PROPERTY.name, sources: [{ id: `${room.id}-airbnb`, name: `${room.name} Airbnb`, provider: "AIRBNB" }], reservations: fixture.reservations.filter((item) => item.roomId === room.id && isReservationVisibleInRoomStatusRange(item, range)).map((item) => ({ ...item, providerReservationId: null, hasActiveConflict: room.id === "demo-room-201" })) }));
 }
 
 export function getDemoConflicts(filters: ConflictFilters) {
@@ -126,7 +127,8 @@ export function getDemoReservations(filters: ReservationFilters) {
     if (filters.propertyId && item.propertyId !== filters.propertyId) return false;
     if (filters.roomId && item.roomId !== filters.roomId) return false;
     if (filters.providers?.length && !filters.providers.includes(item.provider)) return false;
-    if (!isActiveReservationListItem({ reservationStatus: item.status, endDate: item.endDate, businessDate: filters.businessDate })) return false;
+    if (!filters.dateMode && !isActiveReservationListItem({ reservationStatus: item.status, endDate: item.endDate, businessDate: filters.businessDate })) return false;
+    if (filters.dateMode && item.status !== "CONFIRMED" && item.status !== "TENTATIVE") return false;
     const displayStatus = getReservationDisplayStatus({ reservationStatus: item.status, startDate: item.startDate, endDate: item.endDate, businessDate: filters.businessDate });
     if (filters.displayStatuses?.length && !filters.displayStatuses.some((status) => status === displayStatus)) return false;
     if (filters.hasConflict !== undefined && Boolean(item.activeConflictCount) !== filters.hasConflict) return false;

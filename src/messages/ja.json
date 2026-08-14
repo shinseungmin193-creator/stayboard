@@ -3,6 +3,8 @@
     "description": "宿泊施設と客室のカレンダー同期を一元管理します。"
   },
   "common": {
+    "yesterday": "昨日",
+    "tomorrow": "明日",
     "today": "今日",
     "save": "保存",
     "cancel": "キャンセル",
@@ -98,6 +100,16 @@
     "currentOperations": "運営状況"
   },
   "reservation": {
+    "dateNavigation": {
+      "ariaLabel": "予約日の移動",
+      "previous": "前の日",
+      "next": "次の日",
+      "summary": "{date} · {mode} {count}件",
+      "checkoutYesterday": "昨日チェックアウト",
+      "checkoutTomorrow": "明日チェックアウト",
+      "checkinYesterday": "昨日チェックイン",
+      "checkinTomorrow": "明日チェックイン"
+    },
     "list": "予約一覧",
     "none": "予約なし",
     "overbooking": "オーバーブッキング",

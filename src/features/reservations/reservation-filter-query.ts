@@ -2,6 +2,7 @@ import type { CalendarProviderType } from "@/lib/generated/prisma/enums";
 import { CALENDAR_PROVIDER_TYPES } from "../../providers/calendar/types";
 import { ACTIVE_RESERVATION_DISPLAY_STATUSES, type ActiveReservationDisplayStatus } from "./reservation-display-status";
 import type { ReservationDateField } from "./reservation.types";
+import { isValidDateInput } from "../../lib/zoned-date";
 
 export interface ReservationFilterState {
   search: string;
@@ -43,10 +44,7 @@ export const RESERVATION_FILTER_QUERY_KEYS = [
 const DATE_FIELDS = new Set<ReservationDateField>(["stay", "checkIn", "checkOut"]);
 
 function validDateInput(value: string | null): string | null {
-  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
-  const [year, month, day] = value.split("-").map(Number);
-  const parsed = new Date(Date.UTC(year, month - 1, day));
-  return parsed.getUTCFullYear() === year && parsed.getUTCMonth() === month - 1 && parsed.getUTCDate() === day ? value : null;
+  return isValidDateInput(value) ? value : null;
 }
 
 function validList<T extends string>(value: string | null, allowed: readonly T[]): T[] {

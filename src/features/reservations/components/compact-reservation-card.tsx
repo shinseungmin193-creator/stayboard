@@ -8,6 +8,7 @@ import type { ReservationViewModel } from "../reservation-view-model";
 import { getReservationDisplayName } from "../reservation-display";
 import { getProviderLabel, getProviderVisual } from "../provider-visuals";
 import { ReservationStatusBadge } from "./reservation-status-badge";
+import type { ReservationDisplayStatus } from "../reservation-display-status";
 
 
 
@@ -15,7 +16,7 @@ function compactDate(value: string, localeTag: string) {const dateFormatter = ne
   return dateFormatter.format(new Date(value)).replace(/\. /g, ".").replace(/\.$/, "");
 }
 
-export function CompactReservationCard({ reservation, onSelect }: {reservation: ReservationViewModel;onSelect: (reservation: ReservationViewModel) => void;}) {const locale = useLocale(),localeTag = locale === "ja" ? "ja-JP" : "ko-KR";const i18n = useTranslations();
+export function CompactReservationCard({ reservation, onSelect, contextualStatus }: {reservation: ReservationViewModel;onSelect: (reservation: ReservationViewModel) => void;contextualStatus?: {status: ReservationDisplayStatus;label: string;};}) {const locale = useLocale(),localeTag = locale === "ja" ? "ja-JP" : "ko-KR";const i18n = useTranslations();
   const provider = getProviderVisual(reservation.provider);
   const nights = Math.max(1, differenceInCalendarDays(new Date(reservation.endDate), new Date(reservation.startDate)));
   return (
@@ -26,7 +27,7 @@ export function CompactReservationCard({ reservation, onSelect }: {reservation: 
       aria-label={i18n("auto.m0391", { value0: reservation.roomName, value1: getReservationDisplayName(reservation, i18n("auto.m0397")) })}>
       
       <div className="flex min-w-0 items-center gap-2">
-        <ReservationStatusBadge status={reservation.displayStatus} />
+        <ReservationStatusBadge status={contextualStatus?.status ?? reservation.displayStatus} label={contextualStatus?.label} />
         <strong className="truncate text-base leading-5">{reservation.roomName}</strong>
         {reservation.activeConflictCount > 0 && <Badge variant="destructive" className="h-5 gap-1 px-1.5 text-[10px]"><AlertTriangle />{i18n("auto.m0375")}</Badge>}
       </div>

@@ -4,11 +4,11 @@ import { cn } from "@/lib/utils";
 import type { ReservationDisplayStatus } from "../reservation-display-status";
 import { getLocalizedReservationStatusLabel, getReservationStatusVariant } from "../reservation-status-meta";
 
-export function ReservationStatusBadge({ status, className }: { status: ReservationDisplayStatus; className?: string }) {
+export function ReservationStatusBadge({ status, label, className }: { status: ReservationDisplayStatus; label?: string; className?: string }) {
   const t = useTranslations();
   return (
     <Badge variant="outline" className={cn("h-5 px-2 text-[11px] font-semibold", getReservationStatusVariant(status), className)}>
-      {getLocalizedReservationStatusLabel(status, t)}
+      {label ?? getLocalizedReservationStatusLabel(status, t)}
     </Badge>
   );
 }

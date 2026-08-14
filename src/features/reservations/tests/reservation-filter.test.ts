@@ -6,6 +6,110 @@ import { getReservationFilterCount } from "../reservation-filter-count";
 import { EMPTY_RESERVATION_FILTERS, parseReservationFilters, serializeReservationFilters } from "../reservation-filter-query";
 import { getReservationDatePresetRange } from "../reservation-date-presets";
 import { applyQuickReservationFilter } from "../reservation-quick-filters";
+import {
+  applyReservationDateNavigationToFilters,
+  formatReservationNavigationDate,
+  getNextReservationDate,
+  getPreviousReservationDate,
+  getReservationRelativeDate,
+  parseReservationDateNavigation,
+  reservationDateNavigationHref,
+} from "../reservation-date-navigation";
+
+const TOKYO_NOW = new Date("2026-08-14T12:00:00+09:00");
+
+test("체크아웃 날짜 탐색은 Asia/Tokyo의 오늘을 기준으로 URL 상태를 만든다", () => {
+  const navigation = parseReservationDateNavigation(
+    new URLSearchParams({ mode: "checkout", date: "2026-08-14" }),
+    TOKYO_NOW,
+  );
+  assert.ok(navigation);
+  assert.equal(navigation.mode, "checkout");
+  assert.equal(navigation.today, "2026-08-14");
+  assert.equal(navigation.selectedDate, "2026-08-14");
+  assert.equal(navigation.rangeStart.toISOString(), "2026-08-13T15:00:00.000Z");
+  assert.equal(navigation.rangeEnd.toISOString(), "2026-08-14T15:00:00.000Z");
+});
+
+test("날짜가 없거나 잘못되면 체크아웃 모드는 실제 오늘로 안전하게 복구한다", () => {
+  assert.equal(
+    parseReservationDateNavigation(new URLSearchParams({ mode: "checkout" }), TOKYO_NOW)?.selectedDate,
+    "2026-08-14",
+  );
+  assert.equal(
+    parseReservationDateNavigation(new URLSearchParams({ mode: "checkout", date: "2026-99-99" }), TOKYO_NOW)?.selectedDate,
+    "2026-08-14",
+  );
+  assert.equal(parseReservationDateNavigation(new URLSearchParams({ mode: "invalid" }), TOKYO_NOW), null);
+});
+
+test("어제·오늘·내일과 화살표는 고정된 오늘과 현재 선택일을 각각 기준으로 이동한다", () => {
+  const today = "2026-08-14";
+  assert.equal(getPreviousReservationDate(today), "2026-08-13");
+  assert.equal(getNextReservationDate(today), "2026-08-15");
+  assert.equal(getNextReservationDate("2026-08-15"), "2026-08-16");
+  assert.equal(getNextReservationDate("2026-08-16"), "2026-08-17");
+  assert.equal(getPreviousReservationDate("2026-08-13"), "2026-08-12");
+  assert.equal(getReservationRelativeDate("2026-08-13", today), "yesterday");
+  assert.equal(getReservationRelativeDate("2026-08-14", today), "today");
+  assert.equal(getReservationRelativeDate("2026-08-15", today), "tomorrow");
+  assert.equal(getReservationRelativeDate("2026-08-17", today), "other");
+});
+
+test("체크아웃 날짜 URL은 기존 필터를 유지하고 충돌하는 날짜 필터와 페이지를 제거한다", () => {
+  const query = new URLSearchParams({
+    propertyId: "property-a",
+    roomId: "room-a",
+    provider: "AIRBNB,BOOKING,AGODA",
+    search: "908",
+    dateField: "stay",
+    from: "2026-08-01",
+    to: "2026-08-31",
+    page: "3",
+  });
+  const url = new URL(reservationDateNavigationHref(query, "checkout", "2026-08-15"), "https://stayboard.test");
+  assert.equal(url.searchParams.get("mode"), "checkout");
+  assert.equal(url.searchParams.get("date"), "2026-08-15");
+  assert.equal(url.searchParams.get("propertyId"), "property-a");
+  assert.equal(url.searchParams.get("roomId"), "room-a");
+  assert.equal(url.searchParams.get("provider"), "AIRBNB,BOOKING,AGODA");
+  assert.equal(url.searchParams.get("search"), "908");
+  assert.equal(url.searchParams.has("dateField"), false);
+  assert.equal(url.searchParams.has("from"), false);
+  assert.equal(url.searchParams.has("to"), false);
+  assert.equal(url.searchParams.has("page"), false);
+});
+
+test("날짜 탐색 모드는 기존 필터를 유지하면서 서버 조회 필드만 선택 날짜로 정규화한다", () => {
+  const navigation = parseReservationDateNavigation(
+    new URLSearchParams({ mode: "checkout", date: "2026-08-13" }),
+    TOKYO_NOW,
+  );
+  const filters = applyReservationDateNavigationToFilters({
+    ...EMPTY_RESERVATION_FILTERS,
+    propertyId: "property-a",
+    providers: ["AIRBNB", "BOOKING", "AGODA"],
+  }, navigation);
+  assert.equal(filters.dateField, "checkOut");
+  assert.equal(filters.from, "2026-08-13");
+  assert.equal(filters.to, "2026-08-13");
+  assert.equal(filters.propertyId, "property-a");
+  assert.deepEqual(filters.providers, ["AIRBNB", "BOOKING", "AGODA"]);
+});
+
+test("선택 날짜 표시는 한국어와 일본어 요일을 안정적으로 포맷한다", () => {
+  assert.equal(formatReservationNavigationDate("2026-08-14", "ko"), "2026.08.14 (금)");
+  assert.equal(formatReservationNavigationDate("2026-08-14", "ja"), "2026.08.14 (金)");
+});
+
+test("체크아웃 전용 Prisma 조회는 일반 목록의 과거 제외 정책과 분리된다", () => {
+  const activeWhere = readFileSync("src/features/reservations/active-reservation-where.ts", "utf8");
+  const dashboard = readFileSync("src/app/page.tsx", "utf8");
+  assert.match(activeWhere, /filters\.dateMode === "checkout"/);
+  assert.match(activeWhere, /\{ gte: filters\.from, lt: filters\.toExclusive \}/);
+  assert.match(activeWhere, /const endDateStart = laterDate\(businessDateStart, requestedEndDateStart\)/);
+  assert.match(dashboard, /\/reservations\?mode=checkout&date=\$\{today\}/);
+});
 
 test("날짜 이동은 날짜와 URL을 갱신하고 다른 필터를 유지한다", () => {
   const query = new URLSearchParams({ propertyId: "property-a", roomId: "room-a", provider: "AIRBNB", status: "UPCOMING", dateField: "checkOut", from: "2026-07-25", to: "2026-07-25", page: "3" });

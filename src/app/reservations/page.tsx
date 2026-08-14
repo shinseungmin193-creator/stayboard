@@ -6,6 +6,7 @@ import { hasScopedReservations, listReservations, toReservationViewModel } from 
 import { ReservationWorkspace } from "@/features/reservations/components/reservation-workspace";
 import { parseReservationFilters, serializeReservationFilters } from "@/features/reservations/reservation-filter-query";
 import { buildReservationRepositoryFilters, getReservationPage } from "@/features/reservations/reservation-filter-server";
+import { applyReservationDateNavigationToFilters, parseReservationDateNavigation } from "@/features/reservations/reservation-date-navigation";
 import { calendarProviderRegistry } from "@/providers/calendar/registry";
 
 export async function generateMetadata() { const i18n = await getTranslations(); return { title: i18n("common.reservation") }; }
@@ -29,14 +30,21 @@ export default async function ReservationsPage({ searchParams }: {searchParams: 
   context ? listCalendarRoomOptions(companyIds, context.scope) : Promise.resolve(DEMO_ROOM_OPTIONS)]
   );
   const query = toUrlSearchParams(params);
+  const now = new Date();
+  const dateNavigation = parseReservationDateNavigation(query, now);
   const providerOptions = calendarProviderRegistry.list().map((provider) => ({ value: provider.type, label: provider.displayName }));
-  const parsedFilters = parseReservationFilters(query, providerOptions.map((provider) => provider.value));
+  const parsedFilters = applyReservationDateNavigationToFilters(
+    parseReservationFilters(query, providerOptions.map((provider) => provider.value)),
+    dateNavigation,
+  );
   const propertyId = properties.some((property) => property.id === parsedFilters.propertyId) ? parsedFilters.propertyId : null;
   const eligibleRoomIds = new Set(rooms.filter((room) => !propertyId || room.propertyId === propertyId).map((room) => room.id));
   const filters = { ...parsedFilters, propertyId, roomId: parsedFilters.roomId && eligibleRoomIds.has(parsedFilters.roomId) ? parsedFilters.roomId : null };
   const { repositoryFilters, effectiveDateRange } = buildReservationRepositoryFilters({
     filters,
     page: getReservationPage(query),
+    now,
+    dateNavigation,
     companyIds,
     accessScope: context?.scope
   });
@@ -58,7 +66,8 @@ export default async function ReservationsPage({ searchParams }: {searchParams: 
         hasAnyReservations={hasAny}
         properties={properties}
         rooms={rooms}
-        providers={providerOptions} />
+        providers={providerOptions}
+        dateNavigation={dateNavigation ? { mode: dateNavigation.mode, selectedDate: dateNavigation.selectedDate, today: dateNavigation.today } : undefined} />
       
     </div>);
 
