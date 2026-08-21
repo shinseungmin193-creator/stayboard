@@ -6,7 +6,7 @@ import { FORBIDDEN_ACTION_RESULT, isAccessControlError, PERMISSIONS, requireCale
 import type { ActionResult } from "@/lib/action-result";
 import { actionFailureFromError, isPrismaUniqueError } from "@/lib/prisma-errors";
 import { syncCalendarSource } from "@/features/calendar-sync/application/sync-calendar-source";
-import type { CalendarConnectionResult, CalendarSourceDeleteImpact, CalendarSourceDeleteResult } from "./calendar-source.types";
+import type { CalendarConnectionResult, CalendarSourceDeleteImpact, CalendarSourceDeleteResult, CalendarSourceUrlReplacementActionData } from "./calendar-source.types";
 import { calendarSourceActiveSchema, calendarSourceDeleteImpactSchema, calendarSourceDeleteSchema, calendarSourceIdSchema, calendarSourceInputSchema, calendarSourceUpdateSchema, calendarSourceUrlReplacementSchema } from "./calendar-source.schemas";
 import { CalendarSourceServiceError, changeCalendarSourceActive, createCalendarSourceSafely, deleteCalendarSourceSafely, getCalendarSourceDeleteImpact, getCalendarSourceDeleteTarget, replaceCalendarSourceUrlSafely, testCalendarSourceConnection, updateCalendarSourceSafely } from "./calendar-source.service";
 
@@ -28,18 +28,26 @@ export async function updateCalendarSourceAction(_state: ActionResult, formData:
   catch (error) { return await serviceFailure(error, "updateCalendarSource"); }
 }
 
-export async function replaceCalendarSourceUrlAction(_state: ActionResult, formData: FormData): Promise<ActionResult> {
+export async function replaceCalendarSourceUrlAction(_state: ActionResult<CalendarSourceUrlReplacementActionData>, formData: FormData): Promise<ActionResult<CalendarSourceUrlReplacementActionData>> {
   const parsed = calendarSourceUrlReplacementSchema.safeParse({ calendarSourceId: formData.get("calendarSourceId"), calendarUrl: formData.get("calendarUrl") });
   if (!parsed.success) return { success: false, status: 422, errorCode: "VALIDATION_ERROR", message: "최신 ICS URL을 확인해 주세요.", fieldErrors: parsed.error.flatten().fieldErrors };
   try {
     const context = await requireCalendarSourceAccess(parsed.data.calendarSourceId, PERMISSIONS.CALENDAR_SOURCE_MANAGE);
-    await replaceCalendarSourceUrlSafely({ ...parsed.data, context });
-    let message = "iCal URL을 안전하게 교체하고 동기화를 완료했습니다.";
+    const replacement = await replaceCalendarSourceUrlSafely({ ...parsed.data, context });
+    const t = await getTranslations("calendarFeedSafety");
+    let syncFailed = false;
     try {
       await syncCalendarSource(parsed.data.calendarSourceId);
-    } catch (error) {
-      message = `iCal URL은 교체했지만 첫 동기화를 완료하지 못했습니다. ${error instanceof Error ? error.message : "다시 동기화해 주세요."}`;
+    } catch {
+      syncFailed = true;
     }
+    const emptyFeedProtected = replacement.safetyReasonCodes.includes("EMPTY_FEED_WITH_ACTIVE_RESERVATIONS");
+    const warning = replacement.syncSafetyStatus === "QUARANTINED" || syncFailed;
+    const message = emptyFeedProtected
+      ? t("urlUpdatedEmptyFeedWarning")
+      : warning
+        ? t("urlUpdatedSafetyWarning")
+        : t("urlUpdated");
     revalidatePath("/calendar-sources");
     revalidatePath("/rooms");
     revalidatePath("/reservations");
@@ -47,7 +55,7 @@ export async function replaceCalendarSourceUrlAction(_state: ActionResult, formD
     revalidatePath("/room-status");
     revalidatePath("/dashboard");
     revalidatePath(`/calendar-sources/${parsed.data.calendarSourceId}/sync-logs`);
-    return { success: true, message };
+    return { success: true, data: { warning, safetyReasonCodes: replacement.safetyReasonCodes }, message };
   } catch (error) {
     return await serviceFailure(error, "replaceCalendarSourceUrl");
   }

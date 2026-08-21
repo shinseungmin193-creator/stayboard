@@ -6,6 +6,7 @@ export interface CalendarRoomOption { id: string; name: string; propertyId: stri
 export interface CalendarSourceFilters { propertyId?: string; roomId?: string; provider?: CalendarProviderType; isActive?: boolean; companyIds?: readonly string[] }
 export interface CalendarConnectionResult { provider: string; responseTimeMs: number; fetchedAt: string; contentType: string | null; eventCount: number; uidCount: number; startCount: number; endCount: number; summaryCount: number; reservationCount: number; blockedCount: number; cancelledCount: number; unknownCount: number }
 export interface CalendarDraftConnectionResult extends CalendarConnectionResult { submittedUrl: string; normalizedUrl: string }
+export interface CalendarSourceUrlReplacementActionData { warning: boolean; safetyReasonCodes: CalendarFeedQuarantineReason[] }
 export interface CalendarSourceDeleteImpact { reservationCount: number; conflictCount: number; syncLogCount: number; cleaningTaskCount: number }
 export interface CalendarSourceDeleteResult extends CalendarSourceDeleteImpact { calendarSourceId: string; sourceName: string; provider: CalendarProviderType; detachedCleaningTaskCount: number }
 export interface CalendarSourceDeleteTarget {

@@ -25,7 +25,7 @@ function SyncStatus({ source }: {source: CalendarSourceSummary;}) {const i18n = 
   return <Badge variant="outline" className="gap-1"><Clock3 />{i18n("auto.m0209")}</Badge>;
 }
 
-export function CalendarSourceCard({ source, rooms, showActions = true, canManage = false, onSourceDeleted, onSourceUpdated }: {source: CalendarSourceSummary;rooms: CalendarRoomOption[];showActions?: boolean;canManage?: boolean;onSourceDeleted?: (calendarSourceId: string, message: string) => void;onSourceUpdated?: (message: string) => void;}) {const locale = useLocale(),localeTag = locale === "ja" ? "ja-JP" : "ko-KR";const formatter = new Intl.DateTimeFormat(localeTag, { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Tokyo" });const i18n = useTranslations();const formatDate = (value: Date | null) => value ? formatter.format(value) : i18n("auto.m0465");
+export function CalendarSourceCard({ source, rooms, showActions = true, canManage = false, onSourceDeleted, onSourceUpdated }: {source: CalendarSourceSummary;rooms: CalendarRoomOption[];showActions?: boolean;canManage?: boolean;onSourceDeleted?: (calendarSourceId: string, message: string) => void;onSourceUpdated?: (message: string, warning?: boolean) => void;}) {const locale = useLocale(),localeTag = locale === "ja" ? "ja-JP" : "ko-KR";const formatter = new Intl.DateTimeFormat(localeTag, { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Tokyo" });const i18n = useTranslations();const formatDate = (value: Date | null) => value ? formatter.format(value) : i18n("auto.m0465");
   return (
     <Card size="sm" className="overflow-visible">
       <CardHeader className="flex flex-col gap-3 border-b pb-3 sm:flex-row sm:items-start sm:justify-between">

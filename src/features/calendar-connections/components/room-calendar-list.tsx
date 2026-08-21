@@ -13,7 +13,7 @@ import { RoomCalendarRow } from "./room-calendar-row";
 export function RoomCalendarList({ summaries, rooms, canManage }: {summaries: RoomCalendarSummary[];rooms: CalendarRoomOption[];canManage: boolean;}) {const i18n = useTranslations();
   const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null);
   const [deletedSourceIds, setDeletedSourceIds] = useState<ReadonlySet<string>>(() => new Set());
-  const [notification, setNotification] = useState<string | null>(null);
+  const [notification, setNotification] = useState<{ message: string; warning: boolean } | null>(null);
   const selectedRoom = useMemo(() => {
     const room = summaries.find((item) => item.roomId === selectedRoomId) ?? null;
     return room ? { ...room, sources: room.sources.filter((source) => !deletedSourceIds.has(source.id)) } : null;
@@ -22,9 +22,9 @@ export function RoomCalendarList({ summaries, rooms, canManage }: {summaries: Ro
   const handleOpenChange = (open: boolean) => {if (!open) setSelectedRoomId(null);};
   const handleSourceDeleted = (calendarSourceId: string, message: string) => {
     setDeletedSourceIds((current) => new Set(current).add(calendarSourceId));
-    setNotification(message);
+    setNotification({ message, warning: false });
   };
-  const handleSourceUpdated = (message: string) => setNotification(message);
+  const handleSourceUpdated = (message: string, warning = false) => setNotification({ message, warning });
   useEffect(() => {
     if (!notification) return;
     const timeout = window.setTimeout(() => setNotification(null), 4000);
@@ -42,6 +42,6 @@ export function RoomCalendarList({ summaries, rooms, canManage }: {summaries: Ro
       </Table>
     </Card>
     <RoomCalendarDetailSheet room={selectedRoom} rooms={rooms} open={Boolean(selectedRoom)} onOpenChange={handleOpenChange} canManage={canManage} onSourceDeleted={handleSourceDeleted} onSourceUpdated={handleSourceUpdated} />
-    {notification && <div role="status" aria-live="polite" className="fixed right-4 bottom-[calc(1rem+env(safe-area-inset-bottom))] z-[70] max-w-sm rounded-lg border border-emerald-500/30 bg-popover px-4 py-3 text-sm text-popover-foreground shadow-lg">{notification}</div>}
+    {notification && <div role="status" aria-live="polite" className={`fixed right-4 bottom-[calc(1rem+env(safe-area-inset-bottom))] z-[70] max-w-sm rounded-lg border bg-popover px-4 py-3 text-sm shadow-lg ${notification.warning ? "border-amber-500/40 text-amber-800 dark:text-amber-300" : "border-emerald-500/30 text-popover-foreground"}`}>{notification.message}</div>}
   </>;
 }

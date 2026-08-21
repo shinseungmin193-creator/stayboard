@@ -2,7 +2,7 @@ import type { CalendarProviderType } from "../../../providers/calendar";
 import type { CalendarFeedFingerprint } from "../../calendar-sync/domain/calendar-feed-fingerprint";
 import type { CalendarFeedSafetyDiagnostics } from "../../calendar-sync/domain/calendar-feed-safety";
 
-export type CalendarSourceUrlReplacementPreparationErrorCode = "NOT_FOUND" | "SCOPE_CHANGED" | "DUPLICATE" | "UNCHANGED" | "FEED_QUARANTINED";
+export type CalendarSourceUrlReplacementPreparationErrorCode = "NOT_FOUND" | "SCOPE_CHANGED" | "DUPLICATE" | "UNCHANGED";
 
 export class CalendarSourceUrlReplacementPreparationError extends Error {
   constructor(readonly code: CalendarSourceUrlReplacementPreparationErrorCode) {
@@ -18,6 +18,7 @@ export interface PreparedCalendarSourceUrlReplacement {
   provider: CalendarProviderType;
   calendarUrl: string;
   fingerprint: CalendarFeedFingerprint;
+  syncSafetyStatus: "SAFE" | "QUARANTINED";
   safetyDiagnostics: CalendarFeedSafetyDiagnostics;
   baselineAt: Date;
 }
@@ -31,7 +32,7 @@ export async function prepareCalendarSourceUrlReplacement(
     inspect: (provider: CalendarProviderType, calendarUrl: string, sourceId: string) => Promise<{
       normalizedUrl: string;
       fingerprint: CalendarFeedFingerprint;
-      safetyStatus: "SAFE" | "QUARANTINED";
+      syncSafetyStatus: "SAFE" | "QUARANTINED";
       safetyDiagnostics: CalendarFeedSafetyDiagnostics;
       fetchedAt: Date;
     }>;
@@ -44,7 +45,6 @@ export async function prepareCalendarSourceUrlReplacement(
   if (normalizedUrl === source.calendarUrl) throw new CalendarSourceUrlReplacementPreparationError("UNCHANGED");
   if (await dependencies.hasDuplicate(source.roomId, normalizedUrl, source.id)) throw new CalendarSourceUrlReplacementPreparationError("DUPLICATE");
   const inspected = await dependencies.inspect(source.provider, normalizedUrl, source.id);
-  if (inspected.safetyStatus !== "SAFE") throw new CalendarSourceUrlReplacementPreparationError("FEED_QUARANTINED");
   return {
     calendarSourceId: source.id,
     roomId: source.roomId,
@@ -52,6 +52,7 @@ export async function prepareCalendarSourceUrlReplacement(
     provider: source.provider,
     calendarUrl: inspected.normalizedUrl,
     fingerprint: inspected.fingerprint,
+    syncSafetyStatus: inspected.syncSafetyStatus,
     safetyDiagnostics: inspected.safetyDiagnostics,
     baselineAt: inspected.fetchedAt,
   };

@@ -9,6 +9,7 @@ import { findCalendarFeedSafetyContext } from "@/features/calendar-sync/infrastr
 import { calendarProviderRegistry, CalendarFetchError, type CalendarFetchErrorCode, type CalendarProviderType } from "@/providers/calendar";
 import { analyzeCalendarFeed, CalendarParseError, type CalendarParseErrorCode } from "./calendar-source.analysis";
 import type { CalendarConnectionResult, CalendarDraftConnectionResult, CalendarSourceDeleteTarget } from "./calendar-source.types";
+import { validateCalendarFeedConnection } from "./domain/calendar-feed-connection-validation";
 import { isCalendarSourceDeleteConfirmationValid } from "./domain/calendar-source-deletion";
 import { CalendarSourceUrlReplacementPreparationError, prepareCalendarSourceUrlReplacement } from "./domain/calendar-source-url-replacement";
 import { CalendarSourceDeletionRepositoryError, CalendarSourceUrlReplacementRepositoryError, countCalendarSourceDeleteImpact, createCalendarSource, deleteCalendarSourceTransaction, findCalendarRoom, findCalendarSource, findCalendarSourceDeleteTarget, findDuplicateCalendarUrl, replaceCalendarSourceUrlTransaction, setCalendarSourceActive, updateCalendarSource } from "./calendar-source.repository";
@@ -26,6 +27,7 @@ type FeedSafetyContext = NonNullable<Awaited<ReturnType<typeof findCalendarFeedS
 async function inspectCalendarFeed(provider: CalendarProviderType, submittedUrl: string, options?: {
   safetyContext?: FeedSafetyContext;
   baselineReset?: boolean;
+  syncSafetyPolicy?: "ENFORCE" | "REPORT";
 }) {
   const normalizedUrl = validateProviderUrl(provider, submittedUrl);
   const handler = calendarProviderRegistry.get(provider);
@@ -33,6 +35,18 @@ async function inspectCalendarFeed(provider: CalendarProviderType, submittedUrl:
   try {
     const result = await handler.fetchCalendar({ calendarUrl: normalizedUrl });
     const analysis = analyzeCalendarFeed(result, Math.round(performance.now() - started), new URL(normalizedUrl).hostname);
+    const connectionValidation = validateCalendarFeedConnection({
+      provider,
+      fetchedEventCount: analysis.parsed.totalEventCount,
+      counts: analysis.classified,
+      fingerprint: analysis.fingerprint,
+    });
+    if (!connectionValidation.valid) {
+      if (connectionValidation.reason === "PROVIDER_IDENTITY_MISMATCH") {
+        throw new CalendarSourceServiceError("PROVIDER_MISMATCH", "새 캘린더 내용이 선택한 OTA Provider와 일치하지 않습니다.");
+      }
+      throw new CalendarSourceServiceError("CLASSIFICATION", "새 캘린더 이벤트를 선택한 OTA 예약으로 분류할 수 없습니다.");
+    }
     const context = options?.safetyContext;
     const previous = context?.syncLogs[0] ?? null;
     const safety = validateCalendarFeedTransition({
@@ -49,7 +63,7 @@ async function inspectCalendarFeed(provider: CalendarProviderType, submittedUrl:
       incomingReservations: analysis.classified.reservations,
       baselineReset: options?.baselineReset,
     });
-    if (safety.status === "QUARANTINED") {
+    if (safety.status === "QUARANTINED" && options?.syncSafetyPolicy !== "REPORT") {
       throw new CalendarSourceServiceError("FEED_QUARANTINED", "캘린더 내용이 안전 기준을 충족하지 않아 연결을 저장하지 않았습니다. Booking.com에서 최신 iCal URL을 다시 확인해 주세요.");
     }
     return { ...analysis, safety, submittedUrl, normalizedUrl };
@@ -119,12 +133,12 @@ export async function replaceCalendarSourceUrlSafely(input: {
           inspect: async (provider, calendarUrl, sourceId) => {
             const safetyContext = await findCalendarFeedSafetyContext(sourceId);
             if (!safetyContext) throw new CalendarSourceServiceError("NOT_FOUND", "캘린더 연결을 찾을 수 없습니다.");
-            const inspected = await inspectCalendarFeed(provider, calendarUrl, { safetyContext, baselineReset: true });
-            return { normalizedUrl: inspected.normalizedUrl, fingerprint: inspected.fingerprint, safetyStatus: inspected.safety.status, safetyDiagnostics: inspected.safety.diagnostics, fetchedAt: new Date(inspected.connection.fetchedAt) };
+            const inspected = await inspectCalendarFeed(provider, calendarUrl, { safetyContext, baselineReset: true, syncSafetyPolicy: "REPORT" });
+            return { normalizedUrl: inspected.normalizedUrl, fingerprint: inspected.fingerprint, syncSafetyStatus: inspected.safety.status, safetyDiagnostics: inspected.safety.diagnostics, fetchedAt: new Date(inspected.connection.fetchedAt) };
           },
         },
       );
-      return replaceCalendarSourceUrlTransaction({
+      const updated = await replaceCalendarSourceUrlTransaction({
         calendarSourceId: prepared.calendarSourceId,
         expectedRoomId: prepared.roomId,
         expectedProvider: prepared.provider as DbProviderType,
@@ -136,6 +150,11 @@ export async function replaceCalendarSourceUrlSafely(input: {
         auditMetadata: withAccessAuditMetadata(input.context, {}) as Prisma.InputJsonObject,
         now: prepared.baselineAt,
       });
+      return {
+        ...updated,
+        syncSafetyStatus: prepared.syncSafetyStatus,
+        safetyReasonCodes: prepared.safetyDiagnostics.reasonCodes,
+      };
     });
   } catch (error) {
     if (error instanceof CalendarSyncAlreadyRunningError) throw new CalendarSourceServiceError("SYNC_IN_PROGRESS", "현재 동기화 중인 캘린더입니다. 완료 후 다시 시도해 주세요.");
@@ -143,7 +162,6 @@ export async function replaceCalendarSourceUrlSafely(input: {
       if (error.code === "NOT_FOUND") throw new CalendarSourceServiceError("NOT_FOUND", "캘린더 연결을 찾을 수 없습니다.");
       if (error.code === "DUPLICATE") throw new CalendarSourceServiceError("DUPLICATE", "같은 객실에 동일한 ICS URL이 이미 등록되어 있습니다.");
       if (error.code === "UNCHANGED") throw new CalendarSourceServiceError("URL_CHANGE_REQUIRES_REFRESH", "현재 URL과 다른 최신 iCal URL을 입력해 주세요.");
-      if (error.code === "FEED_QUARANTINED") throw new CalendarSourceServiceError("FEED_QUARANTINED", "캘린더 내용이 안전 기준을 충족하지 않아 연결을 저장하지 않았습니다.");
       throw new CalendarSourceServiceError("SCOPE_CHANGED", "캘린더 연결 범위가 변경되었습니다. 새로고침 후 다시 시도해 주세요.");
     }
     if (error instanceof CalendarSourceUrlReplacementRepositoryError) {

@@ -4,18 +4,21 @@ import { useActionState, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Link2, TriangleAlert } from "lucide-react";
-import { INITIAL_ACTION_RESULT } from "@/lib/action-result";
+import type { ActionResult } from "@/lib/action-result";
 import { ActionMessage } from "@/components/shared/action-message";
 import { FieldError } from "@/components/shared/field-error";
 import { SubmitButton } from "@/components/shared/submit-button";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogClose, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { CalendarProviderType } from "@/lib/generated/prisma/enums";
+import type { CalendarSourceUrlReplacementActionData } from "../calendar-source.types";
 import { getProviderLabel } from "@/features/reservations/provider-visuals";
 import { replaceCalendarSourceUrlAction } from "../calendar-source.actions";
+
+const INITIAL_URL_REPLACEMENT_RESULT: ActionResult<CalendarSourceUrlReplacementActionData> = { success: true };
 
 export function CalendarSourceUrlReplaceDialog({
   calendarSourceId,
@@ -26,19 +29,21 @@ export function CalendarSourceUrlReplaceDialog({
   calendarSourceId: string;
   provider: CalendarProviderType;
   reconnectRequired?: boolean;
-  onUpdated?: (message: string) => void;
+  onUpdated?: (message: string, warning?: boolean) => void;
 }) {
   const t = useTranslations();
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const submitted = useRef(false);
-  const [result, action] = useActionState(replaceCalendarSourceUrlAction, INITIAL_ACTION_RESULT);
+  const closeRef = useRef<HTMLButtonElement>(null);
+  const [result, action] = useActionState(replaceCalendarSourceUrlAction, INITIAL_URL_REPLACEMENT_RESULT);
 
   useEffect(() => {
     if (!submitted.current || !result.success) return;
     submitted.current = false;
-    setOpen(false);
-    onUpdated?.(result.message ?? t("calendarSourceEditing.urlSaved"));
+    const warning = result.data?.warning ?? false;
+    if (!warning) closeRef.current?.click();
+    onUpdated?.(result.message ?? t("calendarSourceEditing.urlSaved"), warning);
     router.refresh();
   }, [onUpdated, result, router, t]);
 
@@ -53,6 +58,7 @@ export function CalendarSourceUrlReplaceDialog({
         <Link2 />{t("calendarFeedSafety.replaceAction")}
       </DialogTrigger>
       <DialogContent className="sm:max-w-lg">
+        <DialogClose ref={closeRef} className="hidden" aria-hidden>Close</DialogClose>
         <DialogHeader>
           <DialogTitle>{t("calendarFeedSafety.replaceTitle")}</DialogTitle>
           <DialogDescription>{t("calendarFeedSafety.replaceDescription")}</DialogDescription>
@@ -70,7 +76,9 @@ export function CalendarSourceUrlReplaceDialog({
             <p className="text-xs text-muted-foreground">{t("calendarFeedSafety.replaceValidation")}</p>
             <FieldError errors={!result.success ? result.fieldErrors?.calendarUrl : undefined} />
           </div>
-          <ActionMessage result={result} />
+          {result.success && result.data?.warning
+            ? <div role="status" aria-live="polite" className="flex gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs leading-5 text-amber-800 dark:text-amber-300"><TriangleAlert className="mt-0.5 size-4 shrink-0" /><p>{result.message}</p></div>
+            : <ActionMessage result={result} />}
           <div className="flex justify-end"><SubmitButton>{t("calendarFeedSafety.validateAndReplace")}</SubmitButton></div>
         </form>
       </DialogContent>
