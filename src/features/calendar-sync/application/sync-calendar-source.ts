@@ -8,6 +8,7 @@ import { withCalendarSourceAdvisoryLock } from "../infrastructure/calendar-sync-
 import { IcsDocumentParseError, parseIcsCalendar } from "../infrastructure/ics-parser";
 import { createRunningSyncLog, failSyncLog, findCalendarSourceForSync, markStaleRunningSyncLogs, persistReservationSync } from "../infrastructure/reservation-sync.repository";
 import { reservationNormalizerRegistry } from "../providers/normalizer-registry";
+import { classifyStoredCalendarEvent } from "../providers/reservation-normalizer";
 import { standardizeSyncError } from "../domain/sync-error";
 import { countFailedCalendarEvents, createCalendarSyncDiagnosticPayload, type CalendarSyncDiagnosticPayload } from "../domain/calendar-sync-diagnostics";
 import { isCalendarSyncWarning } from "../domain/sync-health";
@@ -64,7 +65,7 @@ export async function syncCalendarSource(calendarSourceId: string, signal?: Abor
       fetchedCount = parsed.totalEventCount;
       const failedEventCount = countFailedCalendarEvents(parsed.issues);
       const classified = classifyCalendarEvents(parsed.events, normalizer, parsed.excludedCount, failedEventCount);
-      const { reservations, unknownEvents, eventDiagnostics: classifiedDiagnostics, eventDiagnosticTruncatedCount } = classified;
+      const { reservations, observedUids, unknownEvents, eventDiagnostics: classifiedDiagnostics, eventDiagnosticTruncatedCount } = classified;
       eventCounts = {
         parsedEventCount: classified.parsedEventCount,
         reservationEventCount: classified.reservationEventCount,
@@ -86,6 +87,12 @@ export async function syncCalendarSource(calendarSourceId: string, signal?: Abor
       });
       const safetyContext = await findCalendarFeedSafetyContext(source.id);
       if (!safetyContext) throw new CalendarSyncError("캘린더 연결을 찾을 수 없습니다.");
+      const knownNonReservationIds = new Set(safetyContext.reservations.flatMap((reservation) => {
+        const classification = classifyStoredCalendarEvent(normalizer, reservation);
+        return classification === "BLOCKED" || classification === "UNKNOWN" ? [reservation.id] : [];
+      }));
+      const sourceReservationsForSafety = safetyContext.reservations.filter((reservation) => !knownNonReservationIds.has(reservation.id));
+      const roomReservationsForSafety = safetyContext.room.reservations.filter((reservation) => !knownNonReservationIds.has(reservation.id));
       const previous = safetyContext.syncLogs[0] ?? null;
       const safety = validateCalendarFeedTransition({
         provider: providerType,
@@ -96,8 +103,8 @@ export async function syncCalendarSource(calendarSourceId: string, signal?: Abor
         fingerprint,
         baselineFingerprint: readCalendarFeedFingerprint(safetyContext.feedFingerprint),
         previousSuccessfulCounts: previous ? { fetchedCount: previous.fetchedCount, reservationCount: previous.reservationEventCount, unknownCount: previous.unknownEventCount } : null,
-        sourceReservations: safetyContext.reservations,
-        roomReservations: safetyContext.room.reservations,
+        sourceReservations: sourceReservationsForSafety,
+        roomReservations: roomReservationsForSafety,
         incomingReservations: reservations,
       });
       safetyDiagnostics = safety.diagnostics;
@@ -111,6 +118,7 @@ export async function syncCalendarSource(calendarSourceId: string, signal?: Abor
         roomId: source.roomId,
         provider: source.provider,
         reservations,
+        observedUids,
         unknownEventDetails,
         eventDiagnostics: eventDiagnostics as unknown as Prisma.InputJsonValue,
         eventCounts,

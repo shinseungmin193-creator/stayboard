@@ -33,6 +33,7 @@ export const EMPTY_CALENDAR_EVENT_CLASSIFICATION_COUNTS: CalendarEventClassifica
 
 export interface ClassifiedCalendarEvents extends CalendarEventClassificationCounts {
   reservations: NormalizedReservation[];
+  observedUids: string[];
   blockedUids: string[];
   unknownUids: string[];
   unknownEvents: UnknownCalendarEventDetail[];
@@ -100,6 +101,7 @@ export function classifyCalendarEvents(
     failedEventCount,
     skippedEventCount: parserExcludedCount + blockedEventCount + unknownEventCount,
     reservations: [...reservations.values()],
+    observedUids: [...new Set(events.map((event) => event.uid))],
     blockedUids,
     unknownUids,
     unknownEvents,

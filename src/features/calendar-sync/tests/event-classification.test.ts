@@ -11,12 +11,14 @@ import { BookingReservationNormalizer } from "../providers/booking-normalizer";
 import { getCalendarProviderLabel } from "../../../providers/calendar/types";
 import { getDashboardDateInput } from "../../dashboard/dashboard-time";
 import { countFailedCalendarEvents, createCalendarSyncDiagnosticPayload, readCalendarSyncDiagnosticPayload } from "../domain/calendar-sync-diagnostics";
+import { findReservationConflictPairs, type ConflictCandidate } from "../../reservation-conflicts/domain/reservation-conflict";
 
 const ics = (events: string) => `BEGIN:VCALENDAR\r\nVERSION:2.0\r\n${events}END:VCALENDAR\r\n`;
 const event = ({ uid = "one", summary, status, description, organizer }: { uid?: string; summary?: string; status?: string; description?: string; organizer?: string }) => `BEGIN:VEVENT\r\nUID:${uid}\r\nDTSTART;VALUE=DATE:20260721\r\nDTEND;VALUE=DATE:20260723\r\n${summary == null ? "" : `SUMMARY:${summary}\r\n`}${status == null ? "" : `STATUS:${status}\r\n`}${description == null ? "" : `DESCRIPTION:${description}\r\n`}${organizer == null ? "" : `ORGANIZER:${organizer}\r\n`}END:VEVENT\r\n`;
 const parsedEvent = (input: Parameters<typeof event>[0]) => parseIcsCalendar(ics(event(input))).events[0];
 const normalized = (overrides: Partial<NormalizedReservation> = {}): NormalizedReservation => ({ rawUid: "one", providerReservationId: "one", guestName: null, startDate: new Date("2026-07-21T00:00:00.000Z"), endDate: new Date("2026-07-23T00:00:00.000Z"), status: "CONFIRMED", summary: "Reserved", description: null, providerCreatedAt: null, providerUpdatedAt: null, ...overrides });
 const existing = (overrides: Partial<ExistingReservation> = {}): ExistingReservation => ({ id: "existing", createdAt: new Date("2026-01-01T00:00:00.000Z"), ...normalized(), ...overrides });
+const conflictCandidate = (id: string, reservation: NormalizedReservation, overrides: Partial<ConflictCandidate> = {}): ConflictCandidate => ({ id, roomId: "room", startDate: reservation.startDate, endDate: reservation.endDate, status: reservation.status, ...overrides });
 
 test("Airbnb 차단 문구를 대소문자·공백·Unicode 차이와 무관하게 BLOCKED로 분류한다", () => {
   const normalizer = new AirbnbReservationNormalizer();
@@ -35,8 +37,8 @@ test("Airbnb 실제 예약과 guestName 없는 예약을 RESERVATION으로 유�
 test("Booking.com 실제 응답의 UID·ORGANIZER 신호를 조합해 예약을 분류한다", () => {
   const normalizer = new BookingReservationNormalizer();
   assert.equal(normalizer.classifyEvent(parsedEvent({ uid: "stay-1@booking.com", organizer: "mailto:calendar@booking.com", summary: "Stay - Booking.com" })), "RESERVATION");
-  assert.equal(normalizer.classifyEvent(parsedEvent({ uid: "closed@booking.com", organizer: "mailto:calendar@booking.com", summary: "CLOSED - Not available" })), "RESERVATION");
-  assert.equal(normalizer.classifyEvent(parsedEvent({ uid: "closed@booking.com", summary: "closed-not_available" })), "RESERVATION");
+  assert.equal(normalizer.classifyEvent(parsedEvent({ uid: "closed@booking.com", organizer: "mailto:calendar@booking.com", summary: "CLOSED - Not available" })), "BLOCKED");
+  assert.equal(normalizer.classifyEvent(parsedEvent({ uid: "closed@booking.com", summary: "closed-not_available" })), "BLOCKED");
   assert.equal(normalizer.classifyEvent(parsedEvent({ uid: "stay-2@booking.com", organizer: "mailto:calendar@booking.com", summary: "Maintenance" })), "BLOCKED");
   assert.equal(normalizer.classifyEvent(parsedEvent({ uid: "stay-3@booking.com", organizer: "mailto:calendar@booking.com", summary: "Stay - Booking.com", status: "CANCELED" })), "CANCELLED");
   assert.equal(normalizer.classifyEvent(parsedEvent({ summary: "Unverified event" })), "UNKNOWN");
@@ -47,13 +49,14 @@ test("Booking.com 실제형 fixture의 마스킹 예약·차단·취소·UNKNOWN
   const parsed = parseIcsCalendar(content);
   const normalizer = new BookingReservationNormalizer();
   assert.equal(parsed.totalEventCount, 5);
-  assert.deepEqual(parsed.events.map((item) => normalizer.classifyEvent(item)), ["RESERVATION", "RESERVATION", "BLOCKED", "CANCELLED", "UNKNOWN"]);
+  assert.deepEqual(parsed.events.map((item) => normalizer.classifyEvent(item)), ["RESERVATION", "BLOCKED", "BLOCKED", "CANCELLED", "UNKNOWN"]);
   const result = classifyCalendarEvents(parsed.events, normalizer);
-  assert.deepEqual({ reservation: result.reservationEventCount, blocked: result.blockedEventCount, cancelled: result.cancelledEventCount, unknown: result.unknownEventCount }, { reservation: 2, blocked: 1, cancelled: 1, unknown: 1 });
+  assert.deepEqual({ reservation: result.reservationEventCount, blocked: result.blockedEventCount, cancelled: result.cancelledEventCount, unknown: result.unknownEventCount }, { reservation: 1, blocked: 2, cancelled: 1, unknown: 1 });
+  assert.deepEqual(result.observedUids, parsed.events.map((item) => item.uid));
   assert.equal(getDashboardDateInput(result.reservations[0].startDate), "2026-07-26");
   assert.equal(getDashboardDateInput(result.reservations[0].endDate), "2026-07-28");
   const persistence = classifyReservations([], result.reservations);
-  assert.equal(persistence.create.length, 2);
+  assert.equal(persistence.create.length, 1);
   assert.equal(getCalendarProviderLabel("BOOKING"), "Booking.com");
 });
 
@@ -65,6 +68,42 @@ test("Booking.com 개별 fixture는 실제 예약·명시적 차단·취소를 �
   assert.equal(classifyCalendarEvents([reservation], normalizer).reservations[0].status, "CONFIRMED");
   assert.equal(normalizer.classifyEvent(fixture("booking-blocked")), "BLOCKED");
   assert.equal(normalizer.classifyEvent(fixture("booking-cancelled")), "CANCELLED");
+});
+
+test("교차 OTA 차단 이벤트는 충돌을 만들지 않고 실제 예약끼리의 겹침만 충돌로 남긴다", () => {
+  const booking = classifyCalendarEvents([
+    parsedEvent({ uid: "booking-stay@booking.com", organizer: "mailto:calendar@booking.com", summary: "Stay - Booking.com" }),
+  ], new BookingReservationNormalizer());
+  const airbnbBlock = classifyCalendarEvents([
+    parsedEvent({ uid: "airbnb-block", summary: "Airbnb (Not available)" }),
+  ], new AirbnbReservationNormalizer());
+  const agodaBlock = classifyCalendarEvents([
+    parsedEvent({ uid: "agoda-block", summary: "Calendar-blocked", status: "CONFIRMED" }),
+  ], new AgodaReservationNormalizer());
+
+  assert.equal(booking.reservations.length, 1);
+  assert.equal(airbnbBlock.reservations.length, 0);
+  assert.equal(agodaBlock.reservations.length, 0);
+  assert.deepEqual(findReservationConflictPairs([
+    ...booking.reservations.map((reservation) => conflictCandidate("booking", reservation)),
+    ...airbnbBlock.reservations.map((reservation) => conflictCandidate("airbnb-block", reservation)),
+    ...agodaBlock.reservations.map((reservation) => conflictCandidate("agoda-block", reservation)),
+  ]), []);
+
+  const airbnbReservation = classifyCalendarEvents([
+    parsedEvent({ uid: "airbnb-stay", summary: "Reserved" }),
+  ], new AirbnbReservationNormalizer()).reservations[0];
+  assert.equal(findReservationConflictPairs([
+    conflictCandidate("booking", booking.reservations[0]),
+    conflictCandidate("airbnb", airbnbReservation),
+  ]).length, 1);
+  assert.equal(findReservationConflictPairs([
+    conflictCandidate("booking", booking.reservations[0]),
+    conflictCandidate("airbnb-next", airbnbReservation, {
+      startDate: booking.reservations[0].endDate,
+      endDate: new Date("2026-07-25T00:00:00.000Z"),
+    }),
+  ]).length, 0);
 });
 
 test("Booking.com은 provider identity 없는 CONFIRMED·DESCRIPTION 문구를 예약으로 강제하지 않는다", () => {
@@ -100,6 +139,7 @@ test("Booking UID 중복은 새 예약을 만들지 않고 기존 예약을 upda
 test("Agoda는 명확한 상태·도메인 신호만 예약으로 인정한다", () => {
   const normalizer = new AgodaReservationNormalizer();
   assert.equal(normalizer.classifyEvent(parsedEvent({ uid: "stay-1@agoda.com", summary: "Agoda reservation" })), "RESERVATION");
+  assert.equal(normalizer.classifyEvent(parsedEvent({ uid: "00000000-0000-0000-0000-000000000000@agoda.com", summary: "BOOKED", description: "BOOKED" })), "RESERVATION");
   assert.equal(normalizer.classifyEvent(parsedEvent({ summary: "Agoda reservation", status: "CONFIRMED" })), "RESERVATION");
   assert.equal(normalizer.classifyEvent(parsedEvent({ summary: "Stop sell" })), "BLOCKED");
   assert.equal(normalizer.classifyEvent(parsedEvent({ summary: "Calendar-blocked", status: "CONFIRMED" })), "BLOCKED");
@@ -163,6 +203,7 @@ test("분류 결과는 예약만 저장 대상으로 만들고 차단·미분류
   assert.deepEqual({ parsed: result.parsedEventCount, reservation: result.reservationEventCount, blocked: result.blockedEventCount, cancelled: result.cancelledEventCount, unknown: result.unknownEventCount, failed: result.failedEventCount, skipped: result.skippedEventCount }, { parsed: 4, reservation: 1, blocked: 1, cancelled: 1, unknown: 1, failed: 2, skipped: 4 });
   assert.deepEqual(result.reservations.map((reservation) => reservation.rawUid), ["reservation", "cancelled"]);
   assert.equal(result.reservations[1].status, "CANCELLED");
+  assert.deepEqual(result.observedUids, ["reservation", "blocked", "unknown", "cancelled"]);
 });
 
 test("BLOCKED·UNKNOWN·누락 UID는 명시적 STATUS:CANCELLED 없이 기존 예약을 변경하지 않는다", () => {
@@ -170,7 +211,7 @@ test("BLOCKED·UNKNOWN·누락 UID는 명시적 STATUS:CANCELLED 없이 기존 �
   const unknown = existing({ id: "unknown", rawUid: "unknown", providerReservationId: "unknown" });
   const missing = existing({ id: "missing", rawUid: "missing", providerReservationId: "missing" });
   const result = classifyReservations([blocked, unknown, missing], []);
-  assert.deepEqual(result, { create: [], update: [], unchanged: [] });
+  assert.deepEqual(result, { create: [], update: [], unchanged: [], staleCancellationIds: [] });
 });
 
 test("캘린더 전체 파싱 실패 시 동기화가 중단되어 기존 예약을 보존한다", () => {

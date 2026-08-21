@@ -11,6 +11,8 @@ const safetyReservationSelect = {
   startDate: true,
   endDate: true,
   status: true,
+  summary: true,
+  description: true,
 } as const;
 
 export function findCalendarFeedSafetyContext(calendarSourceId: string) {

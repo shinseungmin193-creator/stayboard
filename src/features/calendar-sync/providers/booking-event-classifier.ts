@@ -5,6 +5,10 @@ import { calendarProperty, hasProviderDomain, isCancelledCalendarEvent, matchesC
 const BOOKING_DOMAIN = "booking.com";
 const BOOKING_EXPLICIT_BLOCKED_SUMMARIES = new Set([
   "blocked",
+  "closed not available",
+  "closed",
+  "not available",
+  "unavailable",
   "owner use",
   "maintenance",
   "stop sell",

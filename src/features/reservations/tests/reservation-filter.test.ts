@@ -219,7 +219,7 @@ test("목록과 결과 개수는 동일한 활성 예약 서버 조건을 사용
   assert.doesNotMatch(activeWhere, /property: filters\.companyIds/);
 });
 
-test("존재하지 않는 캘린더 현재성 필드를 사용하지 않고 누락만으로 취소 처리하지 않는다", () => {
+test("존재하지 않는 현재성 필드 대신 완전 파싱·관찰 UID·실제 겹침으로만 stale 취소한다", () => {
   const paths = [
     "prisma/schema.prisma",
     "src/features/reservations/active-reservation-where.ts",
@@ -228,5 +228,11 @@ test("존재하지 않는 캘린더 현재성 필드를 사용하지 않고 누�
   ];
   for (const path of paths) assert.doesNotMatch(readFileSync(path, "utf8"), /isCurrentCalendarEntry/);
   const syncSource = readFileSync(paths[3], "utf8");
-  assert.doesNotMatch(syncSource, /data: \{ status: "CANCELLED" \}/);
+  const conflictRepository = readFileSync(paths[2], "utf8");
+  const classificationSource = readFileSync("src/features/calendar-sync/domain/classify-reservations.ts", "utf8");
+  assert.match(conflictRepository, /calendarSource: \{ is: \{ isActive: true \} \}/);
+  assert.match(syncSource, /classification\.staleCancellationIds/);
+  assert.match(syncSource, /fullyParsed: input\.eventCounts\.parsedEventCount > 0 && input\.eventCounts\.failedEventCount === 0/);
+  assert.match(classificationSource, /reconciliation\.observedUids\.has\(reservation\.rawUid\)/);
+  assert.match(classificationSource, /activeIncoming\.some\(\(candidate\) => overlaps\(reservation, candidate\)\)/);
 });
