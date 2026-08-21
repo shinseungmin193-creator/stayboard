@@ -222,7 +222,7 @@ test("HTTP 환경처럼 randomUUID가 없어도 안전한 신규 행 ID를 생�
       return values;
     },
   });
-  assert.equal(clientId, "00000001000000020000000300000004");
+  assert.equal(clientId, "01020304-0000-4000-8000-000000000000");
 });
 
 test("연결 추가는 Provider별 배열에 즉시 새 행을 추가하고 기본 이름을 순번대로 만든다", () => {

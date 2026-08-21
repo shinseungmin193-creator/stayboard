@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
+import { createClientOperationId } from "../../../lib/client-operation-id";
 import { snapshotCleaningPhotoFiles } from "../domain/cleaning-photo-selection";
 
 function source(path: string) {
@@ -46,13 +47,43 @@ test("file input snapshots the transient mobile FileList before clearing and sta
   liveList.length = 0;
 
   assert.deepEqual(snapshot, [file]);
-  const snapshotIndex = uploader.indexOf("snapshotCleaningPhotoFiles(event.currentTarget.files)");
-  const clearIndex = uploader.indexOf('event.currentTarget.value = ""');
+  const snapshotIndex = uploader.indexOf("snapshotCleaningPhotoFiles(input.files)");
+  const clearIndex = uploader.indexOf('input.value = ""');
   const enqueueIndex = uploader.indexOf("addFiles(files)", clearIndex);
   assert.ok(snapshotIndex >= 0 && clearIndex > snapshotIndex && enqueueIndex > clearIndex);
   assert.match(uploader, /if \(additions\.some\(\(item\) => item\.uploadable\)\) void uploadQueuedItems\(\)/);
   assert.match(uploader, /uploadInFlightRef\.current/);
   assert.match(uploader, /while \(true\)/);
+});
+
+test("HTTP IP처럼 randomUUID가 없는 환경에서도 업로드 ID를 만들고 POST 경로를 유지한다", () => {
+  const uploader = source("src/features/cleaning/components/cleaning-photo-uploader.tsx");
+  const id = createClientOperationId("cleaning-upload", {
+    getRandomValues: (values) => {
+      values.set([10, 20, 30, 40]);
+      return values;
+    },
+  });
+
+  assert.equal(id, "0a141e28-0000-4000-8000-000000000000");
+  assert.match(createClientOperationId("cleaning-upload", {}), /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+  assert.match(uploader, /createClientOperationId\("cleaning-upload"\)/);
+  assert.doesNotMatch(uploader, /crypto\.randomUUID\(\)/);
+  assert.match(uploader, /xhr\.open\("POST"/);
+  assert.match(uploader, /xhr\.send\(formData\)/);
+});
+
+test("사진 선택 준비 예외를 사용자에게 알리고 미리보기 실패는 원본 업로드를 막지 않는다", () => {
+  const uploader = source("src/features/cleaning/components/cleaning-photo-uploader.tsx");
+  assert.match(uploader, /const handleFileInputChange[\s\S]*?try \{[\s\S]*?catch \(error\)/);
+  assert.match(uploader, /messages\.uploadStartFailed/);
+  assert.match(uploader, /A preview failure must not block upload/);
+  assert.match(uploader, /previewUrl: string \| null/);
+  assert.match(uploader, /CLEANING_PHOTO_FILE_SELECTED/);
+  assert.match(uploader, /CLEANING_PHOTO_VALIDATION_COMPLETE/);
+  assert.match(uploader, /CLEANING_PHOTO_REQUEST_START/);
+  assert.match(uploader, /CLEANING_PHOTO_REQUEST_SUCCESS/);
+  assert.match(uploader, /CLEANING_PHOTO_REQUEST_FAILED/);
 });
 
 test("pending cleaning tasks expose an unobstructed start button independent of assignment", () => {

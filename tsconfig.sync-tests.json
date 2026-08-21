@@ -2,7 +2,7 @@
   "compilerOptions": { "target": "ES2022", "module": "CommonJS", "moduleResolution": "Node", "esModuleInterop": true, "strict": true, "skipLibCheck": true, "rootDir": "src", "outDir": ".sync-tests", "baseUrl": ".", "paths": { "@/*": ["src/*"] } },
   "include": [
     "src/features/access-control/domain/**/*.ts", "src/features/access-control/tests/**/*.ts", "src/features/developer-role-switch/domain/**/*.ts", "src/features/developer-role-switch/tests/**/*.ts",
-    "src/features/auth/auth.schemas.ts", "src/features/auth/domain/**/*.ts", "src/features/auth/tests/**/*.ts", "src/lib/base-path.ts",
+    "src/features/auth/auth.schemas.ts", "src/features/auth/domain/**/*.ts", "src/features/auth/tests/**/*.ts", "src/lib/base-path.ts", "src/lib/client-operation-id.ts",
     "src/features/user-management/domain/**/*.ts", "src/features/user-management/tests/**/*.ts",
     "src/features/member-management/domain/**/*.ts", "src/features/member-management/tests/**/*.ts", "src/features/invitation-codes/invitation-code.constants.ts", "src/features/invitation-codes/invitation-code.policy.ts", "src/features/invitation-codes/invitation-code.view-model.ts", "src/features/invitation-codes/tests/**/*.ts",
     "src/features/calendar-sync/calendar-sync.constants.ts", "src/features/calendar-sync/domain/**/*.ts", "src/features/calendar-sync/infrastructure/ics-parser.ts", "src/features/calendar-sync/providers/reservation-normalizer.ts", "src/features/calendar-sync/providers/airbnb-normalizer.ts", "src/features/calendar-sync/providers/booking-normalizer.ts", "src/features/calendar-sync/providers/agoda-normalizer.ts", "src/features/calendar-sync/tests/**/*.ts",

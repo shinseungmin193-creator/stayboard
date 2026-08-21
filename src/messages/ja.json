@@ -439,8 +439,9 @@
       "assignFailed": "担当者を変更できませんでした。",
       "completeFailed": "清掃タスクを完了できませんでした。",
       "noteFailed": "メモを保存できませんでした。",
-      "uploadFailed": "写真をアップロードできませんでした。"
-      ,"deleteFailed": "写真を削除できませんでした。"
+      "uploadFailed": "写真をアップロードできませんでした。",
+      "uploadStartFailed": "写真のアップロードを開始できませんでした。もう一度選択してください。",
+      "deleteFailed": "写真を削除できませんでした。"
     }
   },
   "developerManagement": {

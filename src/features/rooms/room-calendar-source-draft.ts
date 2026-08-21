@@ -1,4 +1,5 @@
 import type { CalendarDraftConnectionResult } from "../calendar-sources/calendar-source.types";
+import { createClientOperationId, type ClientOperationCrypto } from "../../lib/client-operation-id";
 import type { RoomCalendarSourceSummary } from "./room.types";
 import type { RoomCalendarProvider } from "./room-calendar-draft";
 import type { RoomCalendarSourceUpdateDraft } from "./update-room-with-calendar-sources";
@@ -36,34 +37,10 @@ export type CalendarSourceDraft =
       testState: CalendarConnectionTestState;
     };
 
-type CalendarDraftCrypto = {
-  randomUUID?: () => string;
-  getRandomValues?: (values: Uint32Array) => Uint32Array;
-};
-
-let fallbackClientIdSequence = 0;
-
 export function createCalendarSourceClientId(
-  cryptoApi: CalendarDraftCrypto | undefined = typeof globalThis.crypto === "undefined" ? undefined : globalThis.crypto,
+  cryptoApi: ClientOperationCrypto | undefined = typeof globalThis.crypto === "undefined" ? undefined : globalThis.crypto,
 ): string {
-  try {
-    const uuid = cryptoApi?.randomUUID?.();
-    if (uuid) return uuid;
-  } catch {
-    // randomUUID는 HTTP 같은 비보안 컨텍스트에서 제공되지 않거나 거부될 수 있다.
-  }
-
-  try {
-    if (cryptoApi?.getRandomValues) {
-      const values = cryptoApi.getRandomValues(new Uint32Array(4));
-      return Array.from(values, (value) => value.toString(16).padStart(8, "0")).join("");
-    }
-  } catch {
-    // 오래된 브라우저에서도 UI 행 추가 자체는 계속 동작해야 한다.
-  }
-
-  fallbackClientIdSequence += 1;
-  return `draft-${Date.now().toString(36)}-${fallbackClientIdSequence.toString(36)}`;
+  return createClientOperationId("draft", cryptoApi);
 }
 
 export function createNewCalendarSourceDraft(input: {

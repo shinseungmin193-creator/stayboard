@@ -7,6 +7,7 @@ import { useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
 import { withBasePath } from "@/lib/base-path";
+import { createClientOperationId } from "@/lib/client-operation-id";
 import { cn } from "@/lib/utils";
 import {
   CLEANING_PHOTO_ACCEPT,
@@ -23,7 +24,7 @@ interface UploadItem {
   uploadId: string;
   fingerprint: string;
   file: File;
-  previewUrl: string;
+  previewUrl: string | null;
   status: UploadStatus;
   progress: number;
   message: string | null;
@@ -42,8 +43,39 @@ interface UploadResponse extends CleaningActionResult {
   photo?: CleaningPhotoViewModel;
 }
 
+type CleaningPhotoDiagnosticEvent =
+  | "CLEANING_PHOTO_FILE_SELECTED"
+  | "CLEANING_PHOTO_VALIDATION_COMPLETE"
+  | "CLEANING_PHOTO_PROCESSING_START"
+  | "CLEANING_PHOTO_PROCESSING_COMPLETE"
+  | "CLEANING_PHOTO_PROCESSING_FAILED"
+  | "CLEANING_PHOTO_REQUEST_START"
+  | "CLEANING_PHOTO_REQUEST_SUCCESS"
+  | "CLEANING_PHOTO_REQUEST_FAILED";
+
+function reportCleaningPhotoDiagnostic(
+  event: CleaningPhotoDiagnosticEvent,
+  details: Record<string, string | number | boolean | undefined> = {},
+) {
+  const payload = { event, ...details };
+  if (event.endsWith("_FAILED")) {
+    console.error("[cleaning-photo-upload]", payload);
+  } else if (process.env.NODE_ENV === "development") {
+    console.info("[cleaning-photo-upload]", payload);
+  }
+}
+
+function diagnosticError(error: unknown) {
+  return {
+    errorName: error instanceof Error ? error.name : "UnknownError",
+    errorMessage: process.env.NODE_ENV === "development" && error instanceof Error
+      ? error.message.slice(0, 200)
+      : undefined,
+  };
+}
+
 function createUploadId() {
-  return crypto.randomUUID();
+  return createClientOperationId("cleaning-upload");
 }
 
 function fileFingerprint(file: File) {
@@ -59,34 +91,54 @@ function uploadPhotoRequest(input: {
   statusMessages: Partial<Record<number, string>>;
 }): Promise<UploadResponse> {
   return new Promise((resolve, reject) => {
-    const formData = new FormData();
-    formData.set("photo", input.item.file);
-    const xhr = new XMLHttpRequest();
-    input.register(xhr);
-    xhr.open("POST", withBasePath(`/api/cleaning/tasks/${input.taskId}/photos`));
-    xhr.setRequestHeader("X-Cleaning-Upload-Id", input.item.uploadId);
-    xhr.timeout = 120_000;
-    xhr.upload.onprogress = (event) => {
-      if (event.lengthComputable) input.onProgress(Math.round((event.loaded / event.total) * 100));
-    };
-    xhr.onload = () => {
+    let settled = false;
+    const fail = (message: string, error?: unknown, status?: number) => {
+      if (settled) return;
+      settled = true;
       input.register(null);
-      let response: UploadResponse | null = null;
-      try {
-        response = JSON.parse(xhr.responseText) as UploadResponse;
-      } catch {
-        response = null;
-      }
-      if (xhr.status >= 200 && xhr.status < 300 && response?.success && response.photo?.id) {
-        resolve(response);
-        return;
-      }
-      reject(new Error(response?.message || input.statusMessages[xhr.status] || input.fallbackMessage));
+      reportCleaningPhotoDiagnostic("CLEANING_PHOTO_REQUEST_FAILED", {
+        status,
+        ...diagnosticError(error),
+      });
+      reject(new Error(message));
     };
-    xhr.onerror = () => { input.register(null); reject(new Error(input.fallbackMessage)); };
-    xhr.ontimeout = () => { input.register(null); reject(new Error(input.fallbackMessage)); };
-    xhr.onabort = () => { input.register(null); reject(new Error(input.fallbackMessage)); };
-    xhr.send(formData);
+
+    try {
+      const formData = new FormData();
+      formData.set("photo", input.item.file);
+      const xhr = new XMLHttpRequest();
+      input.register(xhr);
+      xhr.open("POST", withBasePath(`/api/cleaning/tasks/${input.taskId}/photos`));
+      xhr.setRequestHeader("X-Cleaning-Upload-Id", input.item.uploadId);
+      xhr.timeout = 120_000;
+      xhr.upload.onprogress = (event) => {
+        if (event.lengthComputable) input.onProgress(Math.round((event.loaded / event.total) * 100));
+      };
+      xhr.onload = () => {
+        let response: UploadResponse | null = null;
+        try {
+          response = JSON.parse(xhr.responseText) as UploadResponse;
+        } catch {
+          response = null;
+        }
+        if (xhr.status >= 200 && xhr.status < 300 && response?.success && response.photo?.id) {
+          if (settled) return;
+          settled = true;
+          input.register(null);
+          reportCleaningPhotoDiagnostic("CLEANING_PHOTO_REQUEST_SUCCESS", { status: xhr.status });
+          resolve(response);
+          return;
+        }
+        fail(response?.message || input.statusMessages[xhr.status] || input.fallbackMessage, undefined, xhr.status);
+      };
+      xhr.onerror = () => fail(input.fallbackMessage, undefined, xhr.status || undefined);
+      xhr.ontimeout = () => fail(input.fallbackMessage, undefined, xhr.status || undefined);
+      xhr.onabort = () => fail(input.fallbackMessage, undefined, xhr.status || undefined);
+      reportCleaningPhotoDiagnostic("CLEANING_PHOTO_REQUEST_START");
+      xhr.send(formData);
+    } catch (error) {
+      fail(input.fallbackMessage, error);
+    }
   });
 }
 
@@ -164,7 +216,7 @@ export function CleaningPhotoUploader({
   const removeItem = (uploadId: string) => {
     commitItems((current) => {
       const item = current.find((candidate) => candidate.uploadId === uploadId);
-      if (item) {
+      if (item?.previewUrl) {
         URL.revokeObjectURL(item.previewUrl);
         previewUrlsRef.current.delete(item.previewUrl);
       }
@@ -213,6 +265,12 @@ export function CleaningPhotoUploader({
           onResult({ success: false, message });
         }
       }
+    } catch (error) {
+      reportCleaningPhotoDiagnostic("CLEANING_PHOTO_PROCESSING_FAILED", {
+        stage: "upload-queue",
+        ...diagnosticError(error),
+      });
+      onResult({ success: false, message: t("messages.uploadStartFailed") });
     } finally {
       uploadInFlightRef.current = false;
       setIsUploading(false);
@@ -221,6 +279,7 @@ export function CleaningPhotoUploader({
 
   const addFiles = (files: readonly File[]) => {
     if (!files.length || disabled) return;
+    reportCleaningPhotoDiagnostic("CLEANING_PHOTO_PROCESSING_START", { fileCount: files.length });
     const known = new Set(itemsRef.current.map((item) => item.fingerprint));
     const additions: UploadItem[] = [];
     for (const file of files) {
@@ -228,9 +287,18 @@ export function CleaningPhotoUploader({
       if (known.has(fingerprint)) continue;
       known.add(fingerprint);
       const typeAllowed = isSupportedCleaningPhotoSelection({ declaredMimeType: file.type, fileName: file.name });
-      const previewUrl = URL.createObjectURL(file);
-      previewUrlsRef.current.add(previewUrl);
       const uploadable = file.size > 0 && file.size <= MAX_CLEANING_PHOTO_SIZE && typeAllowed;
+      let previewUrl: string | null = null;
+      try {
+        previewUrl = URL.createObjectURL(file);
+        previewUrlsRef.current.add(previewUrl);
+      } catch (error) {
+        // A preview failure must not block upload of an otherwise valid original file.
+        reportCleaningPhotoDiagnostic("CLEANING_PHOTO_PROCESSING_FAILED", {
+          stage: "preview",
+          ...diagnosticError(error),
+        });
+      }
       additions.push({
         uploadId: createUploadId(),
         fingerprint,
@@ -248,15 +316,32 @@ export function CleaningPhotoUploader({
         uploadable,
       });
     }
+    reportCleaningPhotoDiagnostic("CLEANING_PHOTO_VALIDATION_COMPLETE", {
+      selectedCount: files.length,
+      acceptedCount: additions.filter((item) => item.uploadable).length,
+      rejectedCount: additions.filter((item) => !item.uploadable).length,
+    });
+    reportCleaningPhotoDiagnostic("CLEANING_PHOTO_PROCESSING_COMPLETE", { queuedCount: additions.length });
     if (!additions.length) return;
     commitItems((current) => [...current, ...additions]);
     if (additions.some((item) => item.uploadable)) void uploadQueuedItems();
   };
 
   const handleFileInputChange = (event: ChangeEvent<HTMLInputElement>) => {
-    const files = snapshotCleaningPhotoFiles(event.currentTarget.files);
-    event.currentTarget.value = "";
-    addFiles(files);
+    const input = event.currentTarget;
+    try {
+      const files = snapshotCleaningPhotoFiles(input.files);
+      input.value = "";
+      reportCleaningPhotoDiagnostic("CLEANING_PHOTO_FILE_SELECTED", { fileCount: files.length });
+      addFiles(files);
+    } catch (error) {
+      input.value = "";
+      reportCleaningPhotoDiagnostic("CLEANING_PHOTO_PROCESSING_FAILED", {
+        stage: "file-selection",
+        ...diagnosticError(error),
+      });
+      onResult({ success: false, message: t("messages.uploadStartFailed") });
+    }
   };
 
   const deleteStoredPhoto = async (photo: CleaningPhotoViewModel) => {
@@ -287,7 +372,9 @@ export function CleaningPhotoUploader({
     {items.length > 0 && <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
       {items.map((item) => <div key={item.uploadId} className="space-y-1.5">
         <div className="relative aspect-[4/3] overflow-hidden rounded-xl bg-muted">
-          <Image unoptimized src={item.previewUrl} alt={item.file.name} fill sizes="(max-width: 640px) 45vw, 220px" className="object-cover" />
+          {item.previewUrl
+            ? <Image unoptimized src={item.previewUrl} alt={item.file.name} fill sizes="(max-width: 640px) 45vw, 220px" className="object-cover" />
+            : <div role="img" aria-label={item.file.name} className="grid size-full place-items-center text-muted-foreground"><ImagePlus className="size-8" /></div>}
           {item.status === "uploading" && <div className="absolute inset-0 grid place-items-center bg-black/55 text-xs font-semibold text-white"><LoaderCircle className="mb-1 size-5 animate-spin" />{item.progress}%</div>}
           {item.status === "uploaded" && <span className="absolute right-1.5 top-1.5 rounded-full bg-emerald-600 p-1 text-white"><CircleCheck className="size-3.5" /></span>}
           {(item.status === "selected" || item.status === "failed") && <button type="button" className="absolute right-1.5 top-1.5 rounded-full bg-black/65 p-1 text-white" aria-label={t("photos.removeSelected")} onClick={() => removeItem(item.uploadId)} disabled={disabled || isUploading}><Trash2 className="size-3.5" /></button>}
@@ -306,7 +393,7 @@ export function CleaningPhotoUploader({
         <Button type="button" variant="outline" data-cleaning-photo-trigger={`${taskId}:gallery`} aria-controls={galleryInputId} disabled={pickerDisabled} onClick={() => galleryInputRef.current?.click()}><ImagePlus />{t("photos.select")}</Button>
       </div>
       {isUploading && <p role="status" aria-live="polite" className="flex items-center justify-center gap-2 text-sm font-medium"><LoaderCircle className="size-4 animate-spin" />{t("photos.uploadingFiles")}</p>}
-      {items.some((item) => item.uploadable && (item.status === "selected" || item.status === "failed")) && <Button type="button" className="w-full" disabled={disabled || isUploading} onClick={uploadQueuedItems}>
+      {items.some((item) => item.uploadable && (item.status === "selected" || item.status === "failed")) && <Button type="button" className="w-full" disabled={disabled || isUploading} onClick={() => { void uploadQueuedItems(); }}>
         {isUploading ? <><LoaderCircle className="animate-spin" />{t("photos.uploadingFiles")}</> : hasFailedFiles ? <><RotateCcw />{t("photos.retryUpload")}</> : <><Upload />{t("photos.uploadSelected")}</>}
       </Button>}
       <p className="text-xs text-muted-foreground">{t("photos.fileGuide")}</p>
