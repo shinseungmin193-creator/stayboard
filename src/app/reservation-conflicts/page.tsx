@@ -1,24 +1,140 @@
-﻿import { getTranslations } from "next-intl/server";import { addDays } from "date-fns";
 import Link from "next/link";
-import type { CalendarProviderType, ReservationConflictStatus } from "@/lib/generated/prisma/enums";
-import { listPropertyOptions } from "@/features/properties";
+import { getTranslations } from "next-intl/server";
+import { AccessDenied, authorizeAccess, companyScopeIds, getCurrentAccessContext, hasPermission, PERMISSIONS } from "@/features/access-control";
 import { listCalendarRoomOptions } from "@/features/calendar-sources";
-import { listReservationConflicts } from "@/features/reservation-conflicts/infrastructure/reservation-conflict-list.repository";
-import { RESERVATION_CONFLICT_DEFAULT_FUTURE_DAYS, RESERVATION_CONFLICT_DEFAULT_PAST_DAYS } from "@/features/reservation-conflicts/reservation-conflict.constants";
+import { DEMO_PROPERTY_OPTIONS, DEMO_ROOM_OPTIONS, getDemoConflicts } from "@/features/demo";
+import { listPropertyOptions } from "@/features/properties";
 import { ReservationConflictList } from "@/features/reservation-conflicts/components/reservation-conflict-list";
+import { RESERVATION_CONFLICT_DEFAULT_FUTURE_DAYS, RESERVATION_CONFLICT_DEFAULT_PAST_DAYS } from "@/features/reservation-conflicts/reservation-conflict.constants";
+import {
+  getReservationConflictTodayStart,
+  RESERVATION_CONFLICT_VIEW_STATUSES,
+  type ReservationConflictViewStatus,
+} from "@/features/reservation-conflicts/domain/reservation-conflict-dismissal";
+import { listReservationConflicts } from "@/features/reservation-conflicts/infrastructure/reservation-conflict-list.repository";
+import type { ConflictBulkDismissalInput } from "@/features/reservation-conflicts/reservation-conflict.types";
+import { getProviderLabel } from "@/features/reservations/provider-visuals";
 import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
-import { AccessDenied, authorizeAccess, companyScopeIds, getCurrentAccessContext, PERMISSIONS } from "@/features/access-control";
-import { DEMO_PROPERTY_OPTIONS, DEMO_ROOM_OPTIONS, getDemoConflicts } from "@/features/demo";
-import { getProviderLabel } from "@/features/reservations/provider-visuals";
-export const dynamic = "force-dynamic";export async function generateMetadata() { const i18n = await getTranslations(); return { title: i18n("conflict.label") }; }
-const providers = ["AIRBNB", "BOOKING", "AGODA"] as const;const statuses = ["ACTIVE", "RESOLVED"] as const;const timeZone = "Asia/Tokyo";
-function inputDate(date: Date) {const parts = new Intl.DateTimeFormat("en", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(date);const part = (type: Intl.DateTimeFormatPartTypes) => parts.find((item) => item.type === type)?.value ?? "";return `${part("year")}-${part("month")}-${part("day")}`;}
-function parseDate(value: string | undefined, fallback: Date) {if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return fallback;const parsed = new Date(`${value}T00:00:00+09:00`);return Number.isFinite(parsed.getTime()) ? parsed : fallback;}
-export default async function ReservationConflictsPage({ searchParams }: {searchParams: Promise<Record<string, string | string[] | undefined>>;}) {const i18n = await getTranslations();
-  const context = await getCurrentAccessContext();const access = context ? await authorizeAccess(PERMISSIONS.RESERVATION_READ) : null;if (access && !access.allowed) return <AccessDenied role={access.context?.role ?? null} />;const companyIds = context ? companyScopeIds(context) : undefined;
-  const params = await searchParams;const value = (key: string) => typeof params[key] === "string" ? params[key] : undefined;const today = parseDate(inputDate(new Date()), new Date());const from = parseDate(value("from"), addDays(today, -RESERVATION_CONFLICT_DEFAULT_PAST_DAYS));const requestedTo = parseDate(value("to"), addDays(today, RESERVATION_CONFLICT_DEFAULT_FUTURE_DAYS));const to = requestedTo < from ? from : requestedTo;const pageNumber = Number(value("page"));const requestedPage = Number.isInteger(pageNumber) && pageNumber > 0 ? pageNumber : 1;const providerValue = value("provider");const statusValue = value("status");
-  const [properties, rooms] = context ? await Promise.all([listPropertyOptions(companyIds, context.scope), listCalendarRoomOptions(companyIds, context.scope)]) : [DEMO_PROPERTY_OPTIONS, DEMO_ROOM_OPTIONS];const rawPropertyId = value("propertyId");const propertyId = properties.some((item) => item.id === rawPropertyId) ? rawPropertyId : undefined;const eligibleRooms = propertyId ? rooms.filter((room) => room.propertyId === propertyId) : rooms;const rawRoomId = value("roomId");const roomId = eligibleRooms.some((room) => room.id === rawRoomId) ? rawRoomId : undefined;
-  const filters = { propertyId, roomId, provider: providers.includes(providerValue as typeof providers[number]) ? providerValue as CalendarProviderType : undefined, status: statuses.includes(statusValue as typeof statuses[number]) ? statusValue as ReservationConflictStatus : "ACTIVE" as const, from, toExclusive: addDays(to, 1), page: requestedPage, companyIds, accessScope: context?.scope };const result = context ? await listReservationConflicts(filters) : getDemoConflicts(filters);const query = new URLSearchParams();if (propertyId) query.set("propertyId", propertyId);if (roomId) query.set("roomId", roomId);if (filters.provider) query.set("provider", filters.provider);query.set("status", filters.status);query.set("from", inputDate(from));query.set("to", inputDate(to));const href = (target: number) => {const copy = new URLSearchParams(query);copy.set("page", String(target));return `/reservation-conflicts?${copy}`;};
-  return <div className="space-y-5"><PageHeader eyebrow={i18n("conflict.eyebrow")} title={i18n("conflict.label")} description={i18n("auto.m0077", { value0: result.totalCount })} /><form method="get" className="grid gap-2 rounded-xl border bg-card p-3 sm:grid-cols-2 xl:grid-cols-6"><select name="propertyId" defaultValue={propertyId ?? ""} aria-label={i18n("auto.m0078")} className="h-8 rounded-lg border bg-background px-2 text-sm"><option value="">{i18n("auto.m0079")}</option>{properties.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select><select name="roomId" defaultValue={roomId ?? ""} aria-label={i18n("auto.m0080")} className="h-8 rounded-lg border bg-background px-2 text-sm"><option value="">{i18n("auto.m0081")}</option>{eligibleRooms.map((item) => <option key={item.id} value={item.id}>{item.propertyName} · {item.name}</option>)}</select><select name="provider" defaultValue={filters.provider ?? ""} aria-label={i18n("auto.m0082")} className="h-8 rounded-lg border bg-background px-2 text-sm"><option value="">{i18n("auto.m0083")}</option>{providers.map((item) => <option key={item} value={item}>{getProviderLabel(item, i18n)}</option>)}</select><select name="status" defaultValue={filters.status} aria-label={i18n("auto.m0084", { value0: i18n("conflict.label") })} className="h-8 rounded-lg border bg-background px-2 text-sm">{statuses.map((item) => <option key={item}>{i18n(`conflictStatus.${item}`)}</option>)}</select><input type="date" name="from" aria-label={i18n("auto.m0085", { value0: i18n("conflict.label") })} defaultValue={inputDate(from)} className="h-8 rounded-lg border bg-background px-2 text-sm" /><input type="date" name="to" aria-label={i18n("auto.m0086", { value0: i18n("conflict.label") })} defaultValue={inputDate(to)} className="h-8 rounded-lg border bg-background px-2 text-sm" /><Button type="submit" variant="outline">{i18n("auto.m0087")}</Button></form><ReservationConflictList conflicts={result.items} /><div className="flex justify-between text-xs text-muted-foreground"><span>{result.page} / {result.totalPages}{i18n("auto.m0088")}</span><div className="flex gap-2"><Button nativeButton={false} render={<Link href={href(Math.max(1, result.page - 1))} />} size="sm" variant="outline" disabled={result.page <= 1}>{i18n("auto.m0014")}</Button><Button nativeButton={false} render={<Link href={href(Math.min(result.totalPages, result.page + 1))} />} size="sm" variant="outline" disabled={result.page >= result.totalPages}>{i18n("auto.m0015")}</Button></div></div></div>;
+import { DEFAULT_TIMEZONE } from "@/lib/constants";
+import type { CalendarProviderType } from "@/lib/generated/prisma/enums";
+import { getZonedDateInput, getZonedMidnight, isValidDateInput, shiftDateInput } from "@/lib/zoned-date";
+
+export const dynamic = "force-dynamic";
+
+export async function generateMetadata() {
+  const i18n = await getTranslations();
+  return { title: i18n("conflict.label") };
+}
+
+const providers = ["AIRBNB", "BOOKING", "AGODA"] as const;
+
+function validDateOrFallback(value: string | undefined, fallback: string) {
+  return isValidDateInput(value) ? value : fallback;
+}
+
+export default async function ReservationConflictsPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const i18n = await getTranslations();
+  const context = await getCurrentAccessContext();
+  const access = context ? await authorizeAccess(PERMISSIONS.RESERVATION_READ) : null;
+  if (access && !access.allowed) return <AccessDenied role={access.context?.role ?? null} />;
+  const companyIds = context ? companyScopeIds(context) : undefined;
+  const params = await searchParams;
+  const value = (key: string) => typeof params[key] === "string" ? params[key] : undefined;
+  const todayInput = getZonedDateInput(new Date(), DEFAULT_TIMEZONE);
+  const fromInput = validDateOrFallback(value("from"), shiftDateInput(todayInput, -RESERVATION_CONFLICT_DEFAULT_PAST_DAYS));
+  const requestedToInput = validDateOrFallback(value("to"), shiftDateInput(todayInput, RESERVATION_CONFLICT_DEFAULT_FUTURE_DAYS));
+  const toInput = requestedToInput < fromInput ? fromInput : requestedToInput;
+  const from = getZonedMidnight(fromInput, DEFAULT_TIMEZONE);
+  const toExclusive = getZonedMidnight(shiftDateInput(toInput, 1), DEFAULT_TIMEZONE);
+  const todayStart = getReservationConflictTodayStart();
+  const pageNumber = Number(value("page"));
+  const requestedPage = Number.isInteger(pageNumber) && pageNumber > 0 ? pageNumber : 1;
+  const providerValue = value("provider");
+  const statusValue = value("status");
+  const status = RESERVATION_CONFLICT_VIEW_STATUSES.includes(statusValue as ReservationConflictViewStatus)
+    ? statusValue as ReservationConflictViewStatus
+    : "ACTIVE";
+  const [properties, rooms] = context
+    ? await Promise.all([listPropertyOptions(companyIds, context.scope), listCalendarRoomOptions(companyIds, context.scope)])
+    : [DEMO_PROPERTY_OPTIONS, DEMO_ROOM_OPTIONS];
+  const rawPropertyId = value("propertyId");
+  const propertyId = properties.some((item) => item.id === rawPropertyId) ? rawPropertyId : undefined;
+  const eligibleRooms = propertyId ? rooms.filter((room) => room.propertyId === propertyId) : rooms;
+  const rawRoomId = value("roomId");
+  const roomId = eligibleRooms.some((room) => room.id === rawRoomId) ? rawRoomId : undefined;
+  const provider = providers.includes(providerValue as typeof providers[number])
+    ? providerValue as CalendarProviderType
+    : undefined;
+  const filters = {
+    propertyId,
+    roomId,
+    provider,
+    status,
+    from,
+    toExclusive,
+    todayStart,
+    page: requestedPage,
+    companyIds,
+    accessScope: context?.scope,
+  };
+  const result = context ? await listReservationConflicts(filters) : getDemoConflicts(filters);
+  const query = new URLSearchParams();
+  if (propertyId) query.set("propertyId", propertyId);
+  if (roomId) query.set("roomId", roomId);
+  if (provider) query.set("provider", provider);
+  query.set("status", status);
+  query.set("from", fromInput);
+  query.set("to", toInput);
+  const href = (target: number) => {
+    const copy = new URLSearchParams(query);
+    copy.set("page", String(target));
+    return `/reservation-conflicts?${copy}`;
+  };
+  const bulkFilter: ConflictBulkDismissalInput = { propertyId, roomId, provider, from: fromInput, to: toInput };
+  const canManage = Boolean(context && hasPermission(context.role, PERMISSIONS.ROOM_MANAGE));
+
+  return (
+    <div className="space-y-5">
+      <PageHeader eyebrow={i18n("conflict.eyebrow")} title={i18n("conflict.label")} description={i18n("auto.m0077", { value0: result.totalCount })} />
+      <form method="get" className="grid gap-2 rounded-xl border bg-card p-3 sm:grid-cols-2 xl:grid-cols-7">
+        <select name="propertyId" defaultValue={propertyId ?? ""} aria-label={i18n("auto.m0078")} className="h-8 rounded-lg border bg-background px-2 text-sm">
+          <option value="">{i18n("auto.m0079")}</option>
+          {properties.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+        </select>
+        <select name="roomId" defaultValue={roomId ?? ""} aria-label={i18n("auto.m0080")} className="h-8 rounded-lg border bg-background px-2 text-sm">
+          <option value="">{i18n("auto.m0081")}</option>
+          {eligibleRooms.map((item) => <option key={item.id} value={item.id}>{item.propertyName} · {item.name}</option>)}
+        </select>
+        <select name="provider" defaultValue={provider ?? ""} aria-label={i18n("auto.m0082")} className="h-8 rounded-lg border bg-background px-2 text-sm">
+          <option value="">{i18n("auto.m0083")}</option>
+          {providers.map((item) => <option key={item} value={item}>{getProviderLabel(item, i18n)}</option>)}
+        </select>
+        <select name="status" defaultValue={status} aria-label={i18n("auto.m0084", { value0: i18n("conflict.label") })} className="h-8 rounded-lg border bg-background px-2 text-sm">
+          {RESERVATION_CONFLICT_VIEW_STATUSES.map((item) => <option key={item} value={item}>{i18n(`conflictFilter.${item}`)}</option>)}
+        </select>
+        <input type="date" name="from" aria-label={i18n("auto.m0085", { value0: i18n("conflict.label") })} defaultValue={fromInput} className="h-8 rounded-lg border bg-background px-2 text-sm" />
+        <input type="date" name="to" aria-label={i18n("auto.m0086", { value0: i18n("conflict.label") })} defaultValue={toInput} className="h-8 rounded-lg border bg-background px-2 text-sm" />
+        <Button type="submit" variant="outline">{i18n("auto.m0087")}</Button>
+      </form>
+      <ReservationConflictList
+        conflicts={result.items}
+        canManage={canManage}
+        dismissibleCount={result.dismissibleCount}
+        showBulkDismissal={status !== "DISMISSED"}
+        bulkFilter={bulkFilter}
+      />
+      <div className="flex justify-between text-xs text-muted-foreground">
+        <span>{result.page} / {result.totalPages}{i18n("auto.m0088")}</span>
+        <div className="flex gap-2">
+          <Button nativeButton={false} render={<Link href={href(Math.max(1, result.page - 1))} />} size="sm" variant="outline" disabled={result.page <= 1}>{i18n("auto.m0014")}</Button>
+          <Button nativeButton={false} render={<Link href={href(Math.min(result.totalPages, result.page + 1))} />} size="sm" variant="outline" disabled={result.page >= result.totalPages}>{i18n("auto.m0015")}</Button>
+        </div>
+      </div>
+    </div>
+  );
 }

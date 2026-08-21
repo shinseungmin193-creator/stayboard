@@ -163,7 +163,7 @@ test("피드 fingerprint에는 원문 UID, organizer, URL token이 남지 않는
   assert.equal(result.calendarHostname, "ical.booking.com");
 });
 
-test("격리 검증은 예약 persistence보다 먼저 실행되고 URL 교체는 CalendarSource를 재생성하지 않는다", () => {
+test("격리 검증은 일반 sync persistence보다 먼저 실행되고 URL 교체는 같은 CalendarSource 안에서 source-scoped 교체한다", () => {
   const syncSource = readFileSync("src/features/calendar-sync/application/sync-calendar-source.ts", "utf8");
   assert.ok(syncSource.indexOf("validateCalendarFeedTransition") < syncSource.indexOf("persistReservationSync({"));
   const repository = readFileSync("src/features/calendar-sources/calendar-source.repository.ts", "utf8");
@@ -171,6 +171,8 @@ test("격리 검증은 예약 persistence보다 먼저 실행되고 URL 교체�
   const replacement = repository.slice(start, repository.indexOf("export function setCalendarSourceActive", start));
   assert.match(replacement, /calendarSource\.update/);
   assert.doesNotMatch(replacement, /calendarSource\.(delete|create)/);
-  assert.doesNotMatch(replacement, /reservation\.(delete|create|update)/);
-  assert.doesNotMatch(replacement, /cleaningTask|reservationConflict/);
+  assert.match(replacement, /reservation\.deleteMany/);
+  assert.match(replacement, /calendarSourceId: source\.id/);
+  assert.match(replacement, /reservation\.createMany/);
+  assert.match(replacement, /syncLog\.create/);
 });

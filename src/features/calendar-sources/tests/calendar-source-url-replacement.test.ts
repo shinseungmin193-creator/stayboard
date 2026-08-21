@@ -1,10 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { validateCalendarFeedConnection } from "../domain/calendar-feed-connection-validation";
-import { prepareCalendarSourceUrlReplacement } from "../domain/calendar-source-url-replacement";
+import { planCalendarSourceReservationReplacement, prepareCalendarSourceUrlReplacement } from "../domain/calendar-source-url-replacement";
 import type { CalendarFeedFingerprint } from "../../calendar-sync/domain/calendar-feed-fingerprint";
 import type { CalendarFeedSafetyDiagnostics } from "../../calendar-sync/domain/calendar-feed-safety";
 import type { CalendarEventClassificationCounts } from "../../calendar-sync/domain/classify-calendar-events";
+import type { NormalizedReservation } from "../../calendar-sync/domain/normalized-reservation";
 
 const fingerprint: CalendarFeedFingerprint = {
   version: 1,
@@ -59,6 +61,31 @@ const emptyFingerprint: CalendarFeedFingerprint = {
   organizerDomainFingerprint: null,
   providerIdentityRatio: 0,
 };
+const eventDiagnostics = { version: 1 as const, events: [], truncatedEventCount: 0, exclusionReasonCounts: {} };
+const incomingReservation: NormalizedReservation = {
+  rawUid: "new-booking@booking.com",
+  providerReservationId: "new-booking",
+  guestName: null,
+  startDate: new Date("2026-08-23T00:00:00.000Z"),
+  endDate: new Date("2026-08-25T00:00:00.000Z"),
+  status: "CONFIRMED",
+  summary: "Stay - Booking.com",
+  description: null,
+  providerCreatedAt: null,
+  providerUpdatedAt: null,
+};
+const defaultInspection = {
+  normalizedUrl: "https://ical.booking.com/v1/export?t=new-secret",
+  fingerprint,
+  safetyDiagnostics,
+  fetchedCount: 3,
+  eventCounts: { ...emptyCounts, parsedEventCount: 3, reservationEventCount: 1 },
+  reservations: [incomingReservation],
+  unknownEvents: [],
+  eventDiagnostics,
+  warning: false,
+  fetchedAt: new Date("2026-08-10T03:00:00.000Z"),
+};
 
 test("Booking URL 직접 교체는 전체 검증 후 기존 CalendarSource ID·Provider·Room을 유지하고 새 baseline을 만든다", async () => {
   const calls: string[] = [];
@@ -66,17 +93,18 @@ test("Booking URL 직접 교체는 전체 검증 후 기존 CalendarSource ID·P
   const result = await prepareCalendarSourceUrlReplacement(
     { calendarSourceId: "source-existing", expectedRoomId: "room-1", submittedUrl: "https://ical.booking.com/v1/export?t=new-secret" },
     {
-      findSource: async () => { calls.push("find-source"); return { id: "source-existing", roomId: "room-1", companyId: "company-1", provider: "BOOKING", calendarUrl: "https://ical.booking.com/v1/export?t=old-secret" }; },
+      findSource: async () => { calls.push("find-source"); return { id: "source-existing", roomId: "room-1", propertyId: "property-1", companyId: "company-1", provider: "BOOKING", calendarUrl: "https://ical.booking.com/v1/export?t=old-secret" }; },
       validateUrl: (_provider, value) => { calls.push("provider-url-validation"); return value; },
       hasDuplicate: async () => { calls.push("duplicate-check"); return false; },
-      inspect: async () => { calls.push("fetch-parse-classify-safety"); return { normalizedUrl: "https://ical.booking.com/v1/export?t=new-secret", fingerprint, syncSafetyStatus: "SAFE", safetyDiagnostics, fetchedAt }; },
+      inspect: async () => { calls.push("fetch-parse-classify"); return { ...defaultInspection, fetchedAt }; },
     },
   );
-  assert.deepEqual(calls, ["find-source", "provider-url-validation", "duplicate-check", "fetch-parse-classify-safety"]);
-  assert.deepEqual({ id: result.calendarSourceId, roomId: result.roomId, provider: result.provider, companyId: result.companyId }, { id: "source-existing", roomId: "room-1", provider: "BOOKING", companyId: "company-1" });
+  assert.deepEqual(calls, ["find-source", "provider-url-validation", "duplicate-check", "fetch-parse-classify"]);
+  assert.deepEqual({ id: result.calendarSourceId, roomId: result.roomId, propertyId: result.propertyId, provider: result.provider, companyId: result.companyId }, { id: "source-existing", roomId: "room-1", propertyId: "property-1", provider: "BOOKING", companyId: "company-1" });
+  assert.equal(result.previousCalendarUrl, "https://ical.booking.com/v1/export?t=old-secret");
   assert.equal(result.calendarUrl, "https://ical.booking.com/v1/export?t=new-secret");
   assert.equal(result.fingerprint, fingerprint);
-  assert.equal(result.syncSafetyStatus, "SAFE");
+  assert.deepEqual(result.reservations, [incomingReservation]);
   assert.equal(result.baselineAt, fetchedAt);
 });
 
@@ -87,34 +115,33 @@ test("정상 빈 Booking VCALENDAR는 Provider identity가 없어도 연결 검�
   );
 });
 
-test("기존 활성 예약이 있는 빈 feed의 sync quarantine은 URL 교체를 막지 않는다", async () => {
-  const diagnostics: CalendarFeedSafetyDiagnostics = { ...safetyDiagnostics, reasonCodes: ["EMPTY_FEED_WITH_ACTIVE_RESERVATIONS"] };
+test("정상 빈 feed는 기존 source 예약 유무와 관계없이 source 교체 준비를 통과한다", async () => {
   const result = await prepareCalendarSourceUrlReplacement(
     { calendarSourceId: "source-existing", expectedRoomId: "room-1", submittedUrl: "https://ical.booking.com/v1/export?t=empty" },
     {
-      findSource: async () => ({ id: "source-existing", roomId: "room-1", companyId: "company-1", provider: "BOOKING", calendarUrl: "https://ical.booking.com/v1/export?t=old" }),
+      findSource: async () => ({ id: "source-existing", roomId: "room-1", propertyId: "property-1", companyId: "company-1", provider: "BOOKING", calendarUrl: "https://ical.booking.com/v1/export?t=old" }),
       validateUrl: (_provider, value) => value,
       hasDuplicate: async () => false,
-      inspect: async () => ({ normalizedUrl: "https://ical.booking.com/v1/export?t=empty", fingerprint: emptyFingerprint, syncSafetyStatus: "QUARANTINED", safetyDiagnostics: diagnostics, fetchedAt: new Date("2026-08-10T03:00:00.000Z") }),
+      inspect: async () => ({ ...defaultInspection, normalizedUrl: "https://ical.booking.com/v1/export?t=empty", fingerprint: emptyFingerprint, safetyDiagnostics: { ...safetyDiagnostics, reasonCodes: [], existingFutureReservationCount: 0, missingFutureReservationCount: 0, incomingReservationCount: 0 }, fetchedCount: 0, eventCounts: emptyCounts, reservations: [], fetchedAt: new Date("2026-08-10T03:00:00.000Z") }),
     },
   );
   assert.equal(result.calendarSourceId, "source-existing");
   assert.equal(result.calendarUrl, "https://ical.booking.com/v1/export?t=empty");
-  assert.equal(result.syncSafetyStatus, "QUARANTINED");
-  assert.deepEqual(result.safetyDiagnostics.reasonCodes, ["EMPTY_FEED_WITH_ACTIVE_RESERVATIONS"]);
+  assert.deepEqual(result.reservations, []);
+  assert.deepEqual(result.safetyDiagnostics.reasonCodes, []);
 });
 
 test("기존 예약이 없는 빈 feed는 URL 교체 허용 상태다", async () => {
   const result = await prepareCalendarSourceUrlReplacement(
     { calendarSourceId: "source-existing", expectedRoomId: "room-1", submittedUrl: "https://ical.booking.com/v1/export?t=empty-safe" },
     {
-      findSource: async () => ({ id: "source-existing", roomId: "room-1", companyId: "company-1", provider: "BOOKING", calendarUrl: "https://ical.booking.com/v1/export?t=old" }),
+      findSource: async () => ({ id: "source-existing", roomId: "room-1", propertyId: "property-1", companyId: "company-1", provider: "BOOKING", calendarUrl: "https://ical.booking.com/v1/export?t=old" }),
       validateUrl: (_provider, value) => value,
       hasDuplicate: async () => false,
-      inspect: async () => ({ normalizedUrl: "https://ical.booking.com/v1/export?t=empty-safe", fingerprint: emptyFingerprint, syncSafetyStatus: "SAFE", safetyDiagnostics: { ...safetyDiagnostics, reasonCodes: [], existingFutureReservationCount: 0, baselineReservationCount: 0, incomingReservationCount: 0 }, fetchedAt: new Date() }),
+      inspect: async () => ({ ...defaultInspection, normalizedUrl: "https://ical.booking.com/v1/export?t=empty-safe", fingerprint: emptyFingerprint, safetyDiagnostics: { ...safetyDiagnostics, reasonCodes: [], existingFutureReservationCount: 0, baselineReservationCount: 0, incomingReservationCount: 0 }, fetchedCount: 0, eventCounts: emptyCounts, reservations: [], fetchedAt: new Date() }),
     },
   );
-  assert.equal(result.syncSafetyStatus, "SAFE");
+  assert.deepEqual(result.reservations, []);
 });
 
 for (const failure of ["DOWNLOAD_FAILED", "PARSE_FAILED"] as const) {
@@ -122,7 +149,7 @@ for (const failure of ["DOWNLOAD_FAILED", "PARSE_FAILED"] as const) {
     await assert.rejects(() => prepareCalendarSourceUrlReplacement(
       { calendarSourceId: "source-existing", expectedRoomId: "room-1", submittedUrl: `https://ical.booking.com/v1/export?t=${failure}` },
       {
-        findSource: async () => ({ id: "source-existing", roomId: "room-1", companyId: "company-1", provider: "BOOKING", calendarUrl: "https://ical.booking.com/v1/export?t=old" }),
+        findSource: async () => ({ id: "source-existing", roomId: "room-1", propertyId: "property-1", companyId: "company-1", provider: "BOOKING", calendarUrl: "https://ical.booking.com/v1/export?t=old" }),
         validateUrl: (_provider, value) => value,
         hasDuplicate: async () => false,
         inspect: async () => { throw new Error(failure); },
@@ -161,4 +188,54 @@ test("Booking 전용 연결 identity guard가 Airbnb와 Agoda URL 교체를 차�
     });
     assert.deepEqual(result, { valid: true }, provider);
   }
+});
+
+test("source 교체 계획은 대상 CalendarSource 예약만 제거하고 새 feed 예약만 생성한다", () => {
+  const existing = [
+    { id: "booking-a-1", calendarSourceId: "booking-a" },
+    { id: "booking-a-2", calendarSourceId: "booking-a" },
+    { id: "booking-b-1", calendarSourceId: "booking-b" },
+    { id: "agoda-1", calendarSourceId: "agoda-c" },
+  ];
+  const result = planCalendarSourceReservationReplacement("booking-a", existing, [incomingReservation]);
+  assert.deepEqual(result.removeReservationIds, ["booking-a-1", "booking-a-2"]);
+  assert.deepEqual(result.createReservations, [incomingReservation]);
+});
+
+test("빈 새 feed의 source 교체 계획은 대상 예약을 제거하고 생성 예약을 0건으로 둔다", () => {
+  const result = planCalendarSourceReservationReplacement(
+    "booking-a",
+    [{ id: "booking-a-1", calendarSourceId: "booking-a" }],
+    [],
+  );
+  assert.deepEqual(result, { removeReservationIds: ["booking-a-1"], createReservations: [] });
+});
+
+test("새 feed에 취소 이벤트만 있으면 기존 sync lifecycle처럼 신규 Reservation을 만들지 않는다", () => {
+  const result = planCalendarSourceReservationReplacement(
+    "booking-a",
+    [],
+    [{ ...incomingReservation, status: "CANCELLED" }],
+  );
+  assert.deepEqual(result.createReservations, []);
+});
+
+test("URL 교체 transaction은 source-scoped 삭제·즉시 sync·마스킹 감사를 한 원자 작업으로 수행한다", () => {
+  const repository = readFileSync("src/features/calendar-sources/calendar-source.repository.ts", "utf8");
+  const start = repository.indexOf("export async function replaceCalendarSourceUrlTransaction");
+  const replacement = repository.slice(start, repository.indexOf("export function setCalendarSourceActive", start));
+  assert.match(replacement, /reservation\.findMany\(\{\s*where: \{ calendarSourceId: source\.id \}/);
+  assert.match(replacement, /reservation\.deleteMany\(\{[\s\S]*calendarSourceId: source\.id/);
+  assert.doesNotMatch(replacement, /reservation\.deleteMany\(\{[\s\S]{0,160}roomId: source\.roomId[\s\S]{0,160}provider:/);
+  assert.match(replacement, /syncLog\.create/);
+  assert.match(replacement, /status: "SUCCESS"/);
+  assert.match(replacement, /detectRoomReservationConflicts/);
+  assert.match(replacement, /previousCalendarUrl: maskCalendarUrl/);
+  assert.match(replacement, /removedReservationCount/);
+  assert.match(replacement, /createdReservationCount/);
+  const action = readFileSync("src/features/calendar-sources/calendar-source.actions.ts", "utf8");
+  const actionStart = action.indexOf("export async function replaceCalendarSourceUrlAction");
+  const replacementAction = action.slice(actionStart, action.indexOf("async function applyCalendarSourceActiveChange", actionStart));
+  assert.doesNotMatch(replacementAction, /syncCalendarSource\(/);
+  assert.match(replacementAction, /revalidatePath\("\/reservation-conflicts"\)/);
 });

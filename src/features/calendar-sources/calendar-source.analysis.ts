@@ -5,6 +5,7 @@ import { parseIcsCalendar, IcsDocumentParseError } from "@/features/calendar-syn
 import { classifyCalendarEvents } from "@/features/calendar-sync/domain/classify-calendar-events";
 import { reservationNormalizerRegistry } from "@/features/calendar-sync/providers/normalizer-registry";
 import { createCalendarFeedFingerprint } from "@/features/calendar-sync/domain/calendar-feed-fingerprint";
+import { countFailedCalendarEvents } from "@/features/calendar-sync/domain/calendar-sync-diagnostics";
 import type { CalendarConnectionResult } from "./calendar-source.types";
 
 export type CalendarParseErrorCode = "PARSE" | "EVENT_LIMIT" | "CLASSIFICATION";
@@ -21,7 +22,7 @@ export function analyzeCalendarFeed(result: CalendarFetchResult, responseTimeMs:
     if (parsed.totalEventCount > ICS_MAX_VEVENTS) throw new CalendarParseError("EVENT_LIMIT", "캘린더 이벤트 수가 허용 한도를 초과했습니다.");
     const provider = result.provider as CalendarProviderType;
     const normalizer = reservationNormalizerRegistry.get(provider);
-    const classified = classifyCalendarEvents(parsed.events, normalizer, parsed.excludedCount);
+    const classified = classifyCalendarEvents(parsed.events, normalizer, parsed.excludedCount, countFailedCalendarEvents(parsed.issues));
     const connection: CalendarConnectionResult = {
       provider: result.provider,
       responseTimeMs,

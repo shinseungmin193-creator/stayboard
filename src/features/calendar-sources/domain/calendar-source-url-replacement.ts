@@ -1,6 +1,9 @@
 import type { CalendarProviderType } from "../../../providers/calendar";
 import type { CalendarFeedFingerprint } from "../../calendar-sync/domain/calendar-feed-fingerprint";
 import type { CalendarFeedSafetyDiagnostics } from "../../calendar-sync/domain/calendar-feed-safety";
+import type { CalendarEventClassificationCounts, UnknownCalendarEventDetail } from "../../calendar-sync/domain/classify-calendar-events";
+import type { CalendarSyncDiagnosticPayload } from "../../calendar-sync/domain/calendar-sync-diagnostics";
+import type { NormalizedReservation } from "../../calendar-sync/domain/normalized-reservation";
 
 export type CalendarSourceUrlReplacementPreparationErrorCode = "NOT_FOUND" | "SCOPE_CHANGED" | "DUPLICATE" | "UNCHANGED";
 
@@ -14,26 +17,51 @@ export class CalendarSourceUrlReplacementPreparationError extends Error {
 export interface PreparedCalendarSourceUrlReplacement {
   calendarSourceId: string;
   roomId: string;
+  propertyId: string;
   companyId: string;
   provider: CalendarProviderType;
+  previousCalendarUrl: string;
   calendarUrl: string;
   fingerprint: CalendarFeedFingerprint;
-  syncSafetyStatus: "SAFE" | "QUARANTINED";
   safetyDiagnostics: CalendarFeedSafetyDiagnostics;
+  fetchedCount: number;
+  eventCounts: CalendarEventClassificationCounts;
+  reservations: NormalizedReservation[];
+  unknownEvents: UnknownCalendarEventDetail[];
+  eventDiagnostics: CalendarSyncDiagnosticPayload;
+  warning: boolean;
   baselineAt: Date;
+}
+
+export function planCalendarSourceReservationReplacement(
+  calendarSourceId: string,
+  existingReservations: readonly { id: string; calendarSourceId: string }[],
+  incomingReservations: readonly NormalizedReservation[],
+) {
+  return {
+    removeReservationIds: existingReservations
+      .filter((reservation) => reservation.calendarSourceId === calendarSourceId)
+      .map((reservation) => reservation.id),
+    createReservations: incomingReservations.filter((reservation) => reservation.status !== "CANCELLED"),
+  };
 }
 
 export async function prepareCalendarSourceUrlReplacement(
   input: { calendarSourceId: string; expectedRoomId: string; submittedUrl: string },
   dependencies: {
-    findSource: (id: string) => Promise<{ id: string; roomId: string; companyId: string; provider: CalendarProviderType; calendarUrl: string } | null>;
+    findSource: (id: string) => Promise<{ id: string; roomId: string; propertyId: string; companyId: string; provider: CalendarProviderType; calendarUrl: string } | null>;
     validateUrl: (provider: CalendarProviderType, value: string) => string;
     hasDuplicate: (roomId: string, calendarUrl: string, excludeId: string) => Promise<boolean>;
     inspect: (provider: CalendarProviderType, calendarUrl: string, sourceId: string) => Promise<{
       normalizedUrl: string;
       fingerprint: CalendarFeedFingerprint;
-      syncSafetyStatus: "SAFE" | "QUARANTINED";
       safetyDiagnostics: CalendarFeedSafetyDiagnostics;
+      fetchedCount: number;
+      eventCounts: CalendarEventClassificationCounts;
+      reservations: NormalizedReservation[];
+      unknownEvents: UnknownCalendarEventDetail[];
+      eventDiagnostics: CalendarSyncDiagnosticPayload;
+      warning: boolean;
       fetchedAt: Date;
     }>;
   },
@@ -48,12 +76,19 @@ export async function prepareCalendarSourceUrlReplacement(
   return {
     calendarSourceId: source.id,
     roomId: source.roomId,
+    propertyId: source.propertyId,
     companyId: source.companyId,
     provider: source.provider,
+    previousCalendarUrl: source.calendarUrl,
     calendarUrl: inspected.normalizedUrl,
     fingerprint: inspected.fingerprint,
-    syncSafetyStatus: inspected.syncSafetyStatus,
     safetyDiagnostics: inspected.safetyDiagnostics,
+    fetchedCount: inspected.fetchedCount,
+    eventCounts: inspected.eventCounts,
+    reservations: inspected.reservations,
+    unknownEvents: inspected.unknownEvents,
+    eventDiagnostics: inspected.eventDiagnostics,
+    warning: inspected.warning,
     baselineAt: inspected.fetchedAt,
   };
 }

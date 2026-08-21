@@ -31,7 +31,7 @@ export function markStaleRunningSyncLogs(calendarSourceId: string, now: Date) {
   return prisma.syncLog.updateMany({ where: { calendarSourceId, status: "RUNNING", startedAt: { lt: new Date(now.getTime() - CALENDAR_SYNC_STALE_RUNNING_MS) } }, data: { status: "TIMEOUT", completedAt: now, errorMessage: CALENDAR_SYNC_STALE_MESSAGE } });
 }
 
-function persistenceData(reservation: NormalizedReservation) {
+export function reservationPersistenceData(reservation: NormalizedReservation) {
   return { providerReservationId: reservation.providerReservationId, guestName: reservation.guestName, startDate: reservation.startDate, endDate: reservation.endDate, status: reservation.status, summary: reservation.summary, description: reservation.description, providerCreatedAt: reservation.providerCreatedAt, providerUpdatedAt: reservation.providerUpdatedAt };
 }
 
@@ -66,8 +66,8 @@ export async function persistReservationSync(input: PersistReservationSyncInput)
     });
     const statusById = new Map(existing.map((reservation) => [reservation.id, reservation.status]));
     const explicitCancelledCount = classification.update.filter((item) => item.reservation.status === "CANCELLED" && statusById.get(item.id) !== "CANCELLED").length;
-    const created = classification.create.length ? await tx.reservation.createMany({ data: classification.create.map((reservation) => ({ ...persistenceData(reservation), rawUid: reservation.rawUid, calendarSourceId: input.calendarSourceId, createdBySyncLogId: input.syncLogId, propertyId: input.propertyId, roomId: input.roomId, provider: input.provider })), skipDuplicates: true }) : { count: 0 };
-    for (const item of classification.update) await tx.reservation.update({ where: { id: item.id }, data: persistenceData(item.reservation) });
+    const created = classification.create.length ? await tx.reservation.createMany({ data: classification.create.map((reservation) => ({ ...reservationPersistenceData(reservation), rawUid: reservation.rawUid, calendarSourceId: input.calendarSourceId, createdBySyncLogId: input.syncLogId, propertyId: input.propertyId, roomId: input.roomId, provider: input.provider })), skipDuplicates: true }) : { count: 0 };
+    for (const item of classification.update) await tx.reservation.update({ where: { id: item.id }, data: reservationPersistenceData(item.reservation) });
     if (classification.staleCancellationIds.length) await tx.reservation.updateMany({ where: { id: { in: classification.staleCancellationIds }, status: { in: ["CONFIRMED", "TENTATIVE"] } }, data: { status: "CANCELLED" } });
     await syncCleaningTasksForCalendarSource(tx, {
       calendarSourceId: input.calendarSourceId,

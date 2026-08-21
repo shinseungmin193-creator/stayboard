@@ -5,7 +5,6 @@ import { getTranslations } from "next-intl/server";
 import { FORBIDDEN_ACTION_RESULT, isAccessControlError, PERMISSIONS, requireCalendarSourceAccess, requireRoomAccess } from "@/features/access-control";
 import type { ActionResult } from "@/lib/action-result";
 import { actionFailureFromError, isPrismaUniqueError } from "@/lib/prisma-errors";
-import { syncCalendarSource } from "@/features/calendar-sync/application/sync-calendar-source";
 import type { CalendarConnectionResult, CalendarSourceDeleteImpact, CalendarSourceDeleteResult, CalendarSourceUrlReplacementActionData } from "./calendar-source.types";
 import { calendarSourceActiveSchema, calendarSourceDeleteImpactSchema, calendarSourceDeleteSchema, calendarSourceIdSchema, calendarSourceInputSchema, calendarSourceUpdateSchema, calendarSourceUrlReplacementSchema } from "./calendar-source.schemas";
 import { CalendarSourceServiceError, changeCalendarSourceActive, createCalendarSourceSafely, deleteCalendarSourceSafely, getCalendarSourceDeleteImpact, getCalendarSourceDeleteTarget, replaceCalendarSourceUrlSafely, testCalendarSourceConnection, updateCalendarSourceSafely } from "./calendar-source.service";
@@ -35,27 +34,31 @@ export async function replaceCalendarSourceUrlAction(_state: ActionResult<Calend
     const context = await requireCalendarSourceAccess(parsed.data.calendarSourceId, PERMISSIONS.CALENDAR_SOURCE_MANAGE);
     const replacement = await replaceCalendarSourceUrlSafely({ ...parsed.data, context });
     const t = await getTranslations("calendarFeedSafety");
-    let syncFailed = false;
-    try {
-      await syncCalendarSource(parsed.data.calendarSourceId);
-    } catch {
-      syncFailed = true;
-    }
-    const emptyFeedProtected = replacement.safetyReasonCodes.includes("EMPTY_FEED_WITH_ACTIVE_RESERVATIONS");
-    const warning = replacement.syncSafetyStatus === "QUARANTINED" || syncFailed;
-    const message = emptyFeedProtected
-      ? t("urlUpdatedEmptyFeedWarning")
-      : warning
-        ? t("urlUpdatedSafetyWarning")
-        : t("urlUpdated");
+    const message = replacement.fetchedCount === 0
+      ? t("urlReplacedEmpty", { removedCount: replacement.removedReservationCount })
+      : replacement.createdReservationCount === 0
+        ? t("urlReplacedNoActiveReservations", { removedCount: replacement.removedReservationCount })
+      : replacement.warning
+        ? t("urlReplacedWarning", { removedCount: replacement.removedReservationCount, createdCount: replacement.createdReservationCount })
+        : t("urlReplaced", { removedCount: replacement.removedReservationCount, createdCount: replacement.createdReservationCount });
     revalidatePath("/calendar-sources");
     revalidatePath("/rooms");
     revalidatePath("/reservations");
     revalidatePath("/room-overview");
     revalidatePath("/room-status");
     revalidatePath("/dashboard");
+    revalidatePath("/reservation-conflicts");
     revalidatePath(`/calendar-sources/${parsed.data.calendarSourceId}/sync-logs`);
-    return { success: true, data: { warning, safetyReasonCodes: replacement.safetyReasonCodes }, message };
+    return {
+      success: true,
+      data: {
+        warning: replacement.warning,
+        removedReservationCount: replacement.removedReservationCount,
+        createdReservationCount: replacement.createdReservationCount,
+        fetchedCount: replacement.fetchedCount,
+      },
+      message,
+    };
   } catch (error) {
     return await serviceFailure(error, "replaceCalendarSourceUrl");
   }

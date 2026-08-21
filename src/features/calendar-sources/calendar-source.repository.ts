@@ -12,6 +12,14 @@ import { CALENDAR_PROVIDER_TYPES } from "@/providers/calendar";
 import { isCalendarSourceDeleteConfirmationValid, isCalendarSourceSyncRunning } from "./domain/calendar-source-deletion";
 import type { CalendarFeedFingerprint } from "@/features/calendar-sync/domain/calendar-feed-fingerprint";
 import { readCalendarFeedQuarantineReasons, type CalendarFeedSafetyDiagnostics } from "@/features/calendar-sync/domain/calendar-feed-safety";
+import type { CalendarEventClassificationCounts, UnknownCalendarEventDetail } from "@/features/calendar-sync/domain/classify-calendar-events";
+import type { CalendarSyncDiagnosticPayload } from "@/features/calendar-sync/domain/calendar-sync-diagnostics";
+import type { NormalizedReservation } from "@/features/calendar-sync/domain/normalized-reservation";
+import { reservationPersistenceData } from "@/features/calendar-sync/infrastructure/reservation-sync.repository";
+import { syncCleaningTasksForCalendarSource } from "@/features/cleaning/server/cleaning-task-sync.service";
+import { detectRoomReservationConflicts } from "@/features/reservation-conflicts/infrastructure/reservation-conflict.repository";
+import { maskCalendarUrl } from "./calendar-source-url";
+import { planCalendarSourceReservationReplacement } from "./domain/calendar-source-url-replacement";
 
 export interface CalendarSourceSyncState {
   sourceId: string;
@@ -249,22 +257,37 @@ export class CalendarSourceUrlReplacementRepositoryError extends Error {
 export async function replaceCalendarSourceUrlTransaction(input: {
   calendarSourceId: string;
   expectedRoomId: string;
+  expectedPropertyId: string;
   expectedProvider: CalendarProviderType;
   expectedCompanyId: string;
+  expectedCalendarUrl: string;
   calendarUrl: string;
   fingerprint: CalendarFeedFingerprint;
   safetyDiagnostics: CalendarFeedSafetyDiagnostics;
+  fetchedCount: number;
+  eventCounts: CalendarEventClassificationCounts;
+  reservations: NormalizedReservation[];
+  unknownEvents: UnknownCalendarEventDetail[];
+  eventDiagnostics: CalendarSyncDiagnosticPayload;
+  warning: boolean;
   actorUserId: string;
   auditMetadata: Prisma.InputJsonObject;
+  syncStartedAt: Date;
   now: Date;
 }) {
   return prisma.$transaction(async (tx) => {
     const source = await tx.calendarSource.findUnique({
       where: { id: input.calendarSourceId },
-      select: { id: true, roomId: true, provider: true, calendarUrl: true, room: { select: { property: { select: { companyId: true } } } } },
+      select: { id: true, roomId: true, provider: true, calendarUrl: true, room: { select: { propertyId: true, property: { select: { companyId: true } } } } },
     });
     if (!source) throw new CalendarSourceUrlReplacementRepositoryError("NOT_FOUND");
-    if (source.roomId !== input.expectedRoomId || source.provider !== input.expectedProvider || source.room.property.companyId !== input.expectedCompanyId) {
+    if (
+      source.roomId !== input.expectedRoomId
+      || source.room.propertyId !== input.expectedPropertyId
+      || source.provider !== input.expectedProvider
+      || source.room.property.companyId !== input.expectedCompanyId
+      || source.calendarUrl !== input.expectedCalendarUrl
+    ) {
       throw new CalendarSourceUrlReplacementRepositoryError("SCOPE_CHANGED");
     }
     const duplicate = await tx.calendarSource.findFirst({
@@ -273,16 +296,114 @@ export async function replaceCalendarSourceUrlTransaction(input: {
     });
     if (duplicate) throw new CalendarSourceUrlReplacementRepositoryError("DUPLICATE");
 
+    const existingReservations = await tx.reservation.findMany({
+      where: { calendarSourceId: source.id },
+      select: { id: true, calendarSourceId: true },
+    });
+    const replacement = planCalendarSourceReservationReplacement(source.id, existingReservations, input.reservations);
+    const [removedConflictCount, detachedCleaningTaskCount] = replacement.removeReservationIds.length
+      ? await Promise.all([
+          tx.reservationConflict.count({
+            where: {
+              OR: [
+                { reservationAId: { in: replacement.removeReservationIds } },
+                { reservationBId: { in: replacement.removeReservationIds } },
+              ],
+            },
+          }),
+          tx.cleaningTask.count({ where: { reservationId: { in: replacement.removeReservationIds } } }),
+        ])
+      : [0, 0];
+
+    if (replacement.removeReservationIds.length) {
+      await tx.reservationConflict.deleteMany({
+        where: {
+          OR: [
+            { reservationAId: { in: replacement.removeReservationIds } },
+            { reservationBId: { in: replacement.removeReservationIds } },
+          ],
+        },
+      });
+      await tx.cleaningTask.updateMany({
+        where: { reservationId: { in: replacement.removeReservationIds } },
+        data: { reservationId: null },
+      });
+      await tx.reservation.deleteMany({
+        where: { id: { in: replacement.removeReservationIds }, calendarSourceId: source.id },
+      });
+    }
+
     const updated = await tx.calendarSource.update({
       where: { id: source.id },
+      data: { calendarUrl: input.calendarUrl },
+      select: { id: true, roomId: true, provider: true },
+    });
+
+    const syncLog = await tx.syncLog.create({
       data: {
-        calendarUrl: input.calendarUrl,
+        calendarSourceId: source.id,
+        provider: source.provider,
+        status: "RUNNING",
+        startedAt: input.syncStartedAt,
+      },
+      select: { id: true },
+    });
+    const created = replacement.createReservations.length
+      ? await tx.reservation.createMany({
+          data: replacement.createReservations.map((reservation) => ({
+            ...reservationPersistenceData(reservation),
+            rawUid: reservation.rawUid,
+            calendarSourceId: source.id,
+            createdBySyncLogId: syncLog.id,
+            propertyId: source.room.propertyId,
+            roomId: source.roomId,
+            provider: source.provider,
+          })),
+          skipDuplicates: true,
+        })
+      : { count: 0 };
+    await syncCleaningTasksForCalendarSource(tx, {
+      calendarSourceId: source.id,
+      companyId: source.room.property.companyId,
+      propertyId: source.room.propertyId,
+      roomId: source.roomId,
+    });
+    const conflicts = await detectRoomReservationConflicts(tx, source.roomId);
+    const unknownEventDetails = input.unknownEvents.map((event) => ({
+      calendarSourceId: source.id,
+      provider: source.provider,
+      ...event,
+    }));
+    await tx.syncLog.update({
+      where: { id: syncLog.id },
+      data: {
+        status: "SUCCESS",
+        completedAt: input.now,
+        durationMs: Math.max(0, input.now.getTime() - input.syncStartedAt.getTime()),
+        fetchedCount: input.fetchedCount,
+        ...input.eventCounts,
+        unknownEventDetails: unknownEventDetails as unknown as Prisma.InputJsonValue,
+        eventDiagnostics: input.eventDiagnostics as unknown as Prisma.InputJsonValue,
+        feedFingerprint: input.fingerprint as unknown as Prisma.InputJsonValue,
+        safetyDiagnostics: input.safetyDiagnostics as unknown as Prisma.InputJsonValue,
+        quarantined: false,
+        createdCount: created.count,
+        updatedCount: 0,
+        cancelledCount: 0,
+        errorCode: null,
+        errorMessage: null,
+        errorDetails: null,
+      },
+    });
+    await tx.calendarSource.update({
+      where: { id: source.id },
+      data: {
+        lastSyncedAt: input.now,
         connectionStatus: "NORMAL",
         safetyReasonCodes: Prisma.JsonNull,
-        feedFingerprint: input.fingerprint as unknown as Prisma.InputJsonObject,
+        feedFingerprint: input.fingerprint as unknown as Prisma.InputJsonValue,
         feedFingerprintUpdatedAt: input.now,
       },
-      select: { id: true, roomId: true, provider: true },
     });
     await tx.auditLog.create({
       data: {
@@ -294,13 +415,24 @@ export async function replaceCalendarSourceUrlTransaction(input: {
           calendarSourceId: source.id,
           roomId: source.roomId,
           provider: source.provider,
-          previousHostname: new URL(source.calendarUrl).hostname,
-          nextHostname: new URL(input.calendarUrl).hostname,
-          safetyReasonCodes: input.safetyDiagnostics.reasonCodes,
+          previousCalendarUrl: maskCalendarUrl(source.calendarUrl),
+          nextCalendarUrl: maskCalendarUrl(input.calendarUrl),
+          removedReservationCount: replacement.removeReservationIds.length,
+          createdReservationCount: created.count,
+          removedConflictCount,
+          detachedCleaningTaskCount,
+          syncLogId: syncLog.id,
         },
       },
     });
-    return updated;
+    return {
+      ...updated,
+      warning: input.warning,
+      removedReservationCount: replacement.removeReservationIds.length,
+      createdReservationCount: created.count,
+      fetchedCount: input.fetchedCount,
+      ...conflicts,
+    };
   });
 }
 export function setCalendarSourceActive(id: string, isActive: boolean) { return prisma.calendarSource.update({ where: { id }, data: { isActive }, select: { id: true, isActive: true } }); }

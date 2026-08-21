@@ -76,9 +76,13 @@ export function getDemoRoomStatusData(range: RoomStatusCalendarRange): RoomStatu
 export function getDemoConflicts(filters: ConflictFilters) {
   const fixture = createDemoFixtures();
   const reservations = fixture.reservations.filter((item) => item.roomId === "demo-room-201");
-  const item: ConflictListItem = { id: "demo-conflict-1", status: "ACTIVE", overlapStart: reservations[1].startDate, overlapEnd: reservations[0].endDate, detectedAt: fixture.start, roomName: "201호", propertyName: DEMO_PROPERTY.name, reservationA: reservations[0], reservationB: reservations[1] };
-  const visible = filters.status === "ACTIVE" && item.overlapStart < filters.toExclusive && item.overlapEnd > filters.from && (!filters.propertyId || filters.propertyId === DEMO_PROPERTY.id) && (!filters.roomId || filters.roomId === "demo-room-201") && (!filters.provider || item.reservationA.provider === filters.provider || item.reservationB.provider === filters.provider);
-  return { items: visible ? [item] : [], totalCount: visible ? 1 : 0, totalPages: 1, page: 1 };
+  const overlapEnd = reservations[0].endDate;
+  const item: ConflictListItem = { id: "demo-conflict-1", status: "ACTIVE", overlapStart: reservations[1].startDate, overlapEnd, detectedAt: fixture.start, isPast: overlapEnd < filters.todayStart, roomName: "201호", propertyName: DEMO_PROPERTY.name, reservationA: reservations[0], reservationB: reservations[1] };
+  const scopeMatches = item.overlapStart < filters.toExclusive && item.overlapEnd > filters.from && (!filters.propertyId || filters.propertyId === DEMO_PROPERTY.id) && (!filters.roomId || filters.roomId === "demo-room-201") && (!filters.provider || item.reservationA.provider === filters.provider || item.reservationB.provider === filters.provider);
+  const statusMatches = filters.status === "ALL" || filters.status === "ACTIVE" || (filters.status === "PAST" && item.isPast);
+  const visible = scopeMatches && statusMatches;
+  const dismissibleCount = scopeMatches && item.isPast ? 1 : 0;
+  return { items: visible ? [item] : [], totalCount: visible ? 1 : 0, totalPages: 1, page: 1, dismissibleCount };
 }
 
 export function getDemoReservations(filters: ReservationFilters) {

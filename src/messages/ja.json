@@ -16,6 +16,7 @@
     "details": "詳細",
     "sync": "同期",
     "filter": "フィルター",
+    "manage": "管理",
     "status": "ステータス",
     "calendar": "カレンダー",
     "reservation": "予約",
@@ -84,7 +85,7 @@
       "room-status": "客室状況ボード",
       "reservations": "予約",
       "cleaning": "清掃管理",
-      "reservation-conflicts": "予約競合",
+      "reservation-conflicts": "オーバーブッキング",
       "properties": "宿泊施設",
       "rooms": "客室",
       "calendar-sources": "カレンダー連携",
@@ -147,13 +148,14 @@
     "replaceAction": "URL更新",
     "replaceTitle": "iCal URLを更新",
     "replaceDescription": "OTAで新しく発行された、または現在有効なiCal URLで既存の接続を更新します。",
-    "replacePreservesData": "既存の接続ID、客室、Provider、予約リンク、同期履歴は維持されます。新しいURLのダウンロード、解析、Provider検証後にURLを更新し、予約反映の安全性は別に検証します。",
+    "replacePreservesData": "接続ID、客室、Provider、同期履歴は維持されます。新しいURLの検証後、この接続から取得した既存予約だけを新しいiCalの内容に置き換えます。",
     "latestUrl": "最新のiCal URL",
-    "replaceValidation": "URLトークンは画面やログに表示されません。正常な空のカレンダーはURL更新を許可しますが、既存の予約は安全のため維持します。",
+    "replaceValidation": "URLトークンは画面やログに表示されません。正常な空のカレンダーへ変更した場合、この接続の既存予約は整理され、新規予約は0件になります。",
     "validateAndReplace": "検証して更新",
-    "urlUpdated": "iCal URLを更新し、同期を完了しました。",
-    "urlUpdatedEmptyFeedWarning": "iCal URLを更新しました。新しいカレンダーに現在の予約イベントがないため、既存の予約データは安全のため維持しました。",
-    "urlUpdatedSafetyWarning": "iCal URLを更新しました。新しいカレンダーの結果は安全基準により予約へ反映せず、既存の予約データを維持しました。",
+    "urlReplaced": "iCal URLを更新しました。既存iCalの予約{removedCount}件を整理し、新しいiCalの予約{createdCount}件を反映しました。",
+    "urlReplacedEmpty": "iCal URLを更新しました。既存iCalの予約{removedCount}件を整理しました。新しいiCalには現在、予約イベントがありません。",
+    "urlReplacedNoActiveReservations": "iCal URLを更新しました。既存iCalの予約{removedCount}件を整理しました。新しいiCalで反映する有効な予約は0件です。",
+    "urlReplacedWarning": "iCal URLを更新しました。既存iCalの予約{removedCount}件を整理し、新しいiCalの予約{createdCount}件を反映しました。一部のイベントはProviderルールにより除外されました。",
     "createdReservations": "この同期で作成された予約 {count}件",
     "legacyMatchNote": "過去の履歴は作成時刻とcreatedCountが正確に一致した場合のみ候補として表示します。削除前に必ず別途確認してください。"
   },
@@ -208,7 +210,36 @@
   },
   "conflictStatus": {
     "ACTIVE": "有効",
-    "RESOLVED": "解決済み"
+    "RESOLVED": "解決済み",
+    "DISMISSED": "整理済み"
+  },
+  "conflictFilter": {
+    "ACTIVE": "有効",
+    "PAST": "過去のオーバーブッキング",
+    "DISMISSED": "整理済み",
+    "ALL": "すべて"
+  },
+  "conflictCleanup": {
+    "singleButton": "整理",
+    "bulkButton": "過去のオーバーブッキングを整理",
+    "singleTitle": "この過去のオーバーブッキングを一覧から整理しますか？",
+    "singleDescription": "整理後、有効なオーバーブッキング一覧に表示されなくなります。",
+    "bulkTitle": "過去のオーバーブッキング{count}件を整理しますか？",
+    "bulkDescription": "現在のフィルター範囲にある過去のオーバーブッキング{count}件を整理します。",
+    "reservationPreserved": "予約の元データは削除されません。",
+    "confirm": "整理",
+    "bulkConfirm": "{count}件を整理",
+    "success": "過去のオーバーブッキングを整理しました。予約の元データは保持されます。",
+    "bulkSuccess": "過去のオーバーブッキング{count}件を整理しました。予約の元データは保持されます。",
+    "alreadyDismissed": "すでに整理済みのオーバーブッキングです。",
+    "errors": {
+      "invalidRequest": "オーバーブッキング整理リクエストが正しくありません。",
+      "notFound": "整理するオーバーブッキングが見つかりません。",
+      "notPast": "進行中または将来のオーバーブッキングは整理できません。",
+      "changed": "オーバーブッキングの状態が変更されました。一覧を更新して再度お試しください。",
+      "forbidden": "オーバーブッキングを整理する権限がありません。",
+      "failed": "オーバーブッキングの整理に失敗しました。"
+    }
   },
   "roomStatus": {
     "vacant": "空室",

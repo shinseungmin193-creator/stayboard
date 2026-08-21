@@ -5,6 +5,8 @@ import { canAccessCompany, canAccessRoom, PermissionDeniedError, withAccessAudit
 import { CalendarSyncAlreadyRunningError, withCalendarSourceAdvisoryLock } from "@/features/calendar-sync/infrastructure/calendar-sync-lock";
 import { readCalendarFeedFingerprint } from "@/features/calendar-sync/domain/calendar-feed-fingerprint";
 import { validateCalendarFeedTransition } from "@/features/calendar-sync/domain/calendar-feed-safety";
+import { createCalendarSyncDiagnosticPayload } from "@/features/calendar-sync/domain/calendar-sync-diagnostics";
+import { isCalendarSyncWarning } from "@/features/calendar-sync/domain/sync-health";
 import { findCalendarFeedSafetyContext } from "@/features/calendar-sync/infrastructure/calendar-feed-safety.repository";
 import { calendarProviderRegistry, CalendarFetchError, type CalendarFetchErrorCode, type CalendarProviderType } from "@/providers/calendar";
 import { analyzeCalendarFeed, CalendarParseError, type CalendarParseErrorCode } from "./calendar-source.analysis";
@@ -28,6 +30,7 @@ async function inspectCalendarFeed(provider: CalendarProviderType, submittedUrl:
   safetyContext?: FeedSafetyContext;
   baselineReset?: boolean;
   syncSafetyPolicy?: "ENFORCE" | "REPORT";
+  sourceReplacement?: boolean;
 }) {
   const normalizedUrl = validateProviderUrl(provider, submittedUrl);
   const handler = calendarProviderRegistry.get(provider);
@@ -49,6 +52,10 @@ async function inspectCalendarFeed(provider: CalendarProviderType, submittedUrl:
     }
     const context = options?.safetyContext;
     const previous = context?.syncLogs[0] ?? null;
+    const sourceReservations = options?.sourceReplacement ? [] : context?.reservations ?? [];
+    const roomReservations = options?.sourceReplacement && context
+      ? context.room.reservations.filter((reservation) => reservation.calendarSourceId !== context.id)
+      : context?.room.reservations ?? [];
     const safety = validateCalendarFeedTransition({
       provider,
       sourceId: context?.id ?? "calendar-source-draft",
@@ -58,8 +65,8 @@ async function inspectCalendarFeed(provider: CalendarProviderType, submittedUrl:
       fingerprint: analysis.fingerprint,
       baselineFingerprint: readCalendarFeedFingerprint(context?.feedFingerprint),
       previousSuccessfulCounts: previous ? { fetchedCount: previous.fetchedCount, reservationCount: previous.reservationEventCount, unknownCount: previous.unknownEventCount } : null,
-      sourceReservations: context?.reservations ?? [],
-      roomReservations: context?.room.reservations ?? [],
+      sourceReservations,
+      roomReservations,
       incomingReservations: analysis.classified.reservations,
       baselineReset: options?.baselineReset,
     });
@@ -126,35 +133,73 @@ export async function replaceCalendarSourceUrlSafely(input: {
             const source = await findCalendarSource(id);
             if (!source) return null;
             if (!canAccessCompany(input.context, source.room.property.companyId) || !canAccessRoom(input.context, { id: source.roomId, propertyId: source.room.propertyId })) throw new PermissionDeniedError();
-            return { id: source.id, roomId: source.roomId, companyId: source.room.property.companyId, provider: source.provider as CalendarProviderType, calendarUrl: source.calendarUrl };
+            return { id: source.id, roomId: source.roomId, propertyId: source.room.propertyId, companyId: source.room.property.companyId, provider: source.provider as CalendarProviderType, calendarUrl: source.calendarUrl };
           },
           validateUrl: validateProviderUrl,
           hasDuplicate: async (roomId, calendarUrl, excludeId) => Boolean(await findDuplicateCalendarUrl(roomId, calendarUrl, excludeId)),
           inspect: async (provider, calendarUrl, sourceId) => {
             const safetyContext = await findCalendarFeedSafetyContext(sourceId);
             if (!safetyContext) throw new CalendarSourceServiceError("NOT_FOUND", "캘린더 연결을 찾을 수 없습니다.");
-            const inspected = await inspectCalendarFeed(provider, calendarUrl, { safetyContext, baselineReset: true, syncSafetyPolicy: "REPORT" });
-            return { normalizedUrl: inspected.normalizedUrl, fingerprint: inspected.fingerprint, syncSafetyStatus: inspected.safety.status, safetyDiagnostics: inspected.safety.diagnostics, fetchedAt: new Date(inspected.connection.fetchedAt) };
+            const inspected = await inspectCalendarFeed(provider, calendarUrl, { safetyContext, baselineReset: true, syncSafetyPolicy: "REPORT", sourceReplacement: true });
+            const eventDiagnostics = createCalendarSyncDiagnosticPayload({
+              events: inspected.classified.eventDiagnostics,
+              eventDiagnosticTruncatedCount: inspected.classified.eventDiagnosticTruncatedCount,
+              issues: inspected.parsed.issues,
+              counts: inspected.classified,
+            });
+            return {
+              normalizedUrl: inspected.normalizedUrl,
+              fingerprint: inspected.fingerprint,
+              safetyDiagnostics: { ...inspected.safety.diagnostics, reasonCodes: [] },
+              fetchedCount: inspected.parsed.totalEventCount,
+              eventCounts: {
+                parsedEventCount: inspected.classified.parsedEventCount,
+                reservationEventCount: inspected.classified.reservationEventCount,
+                blockedEventCount: inspected.classified.blockedEventCount,
+                cancelledEventCount: inspected.classified.cancelledEventCount,
+                unknownEventCount: inspected.classified.unknownEventCount,
+                failedEventCount: inspected.classified.failedEventCount,
+                skippedEventCount: inspected.classified.skippedEventCount,
+              },
+              reservations: inspected.classified.reservations,
+              unknownEvents: inspected.classified.unknownEvents,
+              eventDiagnostics,
+              warning: isCalendarSyncWarning({
+                status: "SUCCESS",
+                fetchedEventCount: inspected.parsed.totalEventCount,
+                reservationEventCount: inspected.classified.reservationEventCount,
+                blockedEventCount: inspected.classified.blockedEventCount,
+                cancelledEventCount: inspected.classified.cancelledEventCount,
+                unknownEventCount: inspected.classified.unknownEventCount,
+                failedEventCount: inspected.classified.failedEventCount,
+              }),
+              fetchedAt: new Date(inspected.connection.fetchedAt),
+            };
           },
         },
       );
       const updated = await replaceCalendarSourceUrlTransaction({
         calendarSourceId: prepared.calendarSourceId,
         expectedRoomId: prepared.roomId,
+        expectedPropertyId: prepared.propertyId,
         expectedProvider: prepared.provider as DbProviderType,
         expectedCompanyId: prepared.companyId,
+        expectedCalendarUrl: prepared.previousCalendarUrl,
         calendarUrl: prepared.calendarUrl,
         fingerprint: prepared.fingerprint,
         safetyDiagnostics: prepared.safetyDiagnostics,
+        fetchedCount: prepared.fetchedCount,
+        eventCounts: prepared.eventCounts,
+        reservations: prepared.reservations,
+        unknownEvents: prepared.unknownEvents,
+        eventDiagnostics: prepared.eventDiagnostics,
+        warning: prepared.warning,
         actorUserId: input.context.userId,
         auditMetadata: withAccessAuditMetadata(input.context, {}) as Prisma.InputJsonObject,
-        now: prepared.baselineAt,
+        syncStartedAt: prepared.baselineAt,
+        now: new Date(),
       });
-      return {
-        ...updated,
-        syncSafetyStatus: prepared.syncSafetyStatus,
-        safetyReasonCodes: prepared.safetyDiagnostics.reasonCodes,
-      };
+      return updated;
     });
   } catch (error) {
     if (error instanceof CalendarSyncAlreadyRunningError) throw new CalendarSourceServiceError("SYNC_IN_PROGRESS", "현재 동기화 중인 캘린더입니다. 완료 후 다시 시도해 주세요.");
