@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Link2, TriangleAlert } from "lucide-react";
 import { INITIAL_ACTION_RESULT } from "@/lib/action-result";
@@ -20,16 +21,35 @@ export function CalendarSourceUrlReplaceDialog({
   calendarSourceId,
   provider,
   reconnectRequired = false,
+  onUpdated,
 }: {
   calendarSourceId: string;
   provider: CalendarProviderType;
   reconnectRequired?: boolean;
+  onUpdated?: (message: string) => void;
 }) {
   const t = useTranslations();
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const submitted = useRef(false);
   const [result, action] = useActionState(replaceCalendarSourceUrlAction, INITIAL_ACTION_RESULT);
+
+  useEffect(() => {
+    if (!submitted.current || !result.success) return;
+    submitted.current = false;
+    setOpen(false);
+    onUpdated?.(result.message ?? t("calendarSourceEditing.urlSaved"));
+    router.refresh();
+  }, [onUpdated, result, router, t]);
+
+  const submit = (formData: FormData) => {
+    submitted.current = true;
+    action(formData);
+  };
+
   return (
-    <Dialog>
-      <DialogTrigger render={<Button size="sm" variant={reconnectRequired ? "default" : "outline"} />}>
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger render={<Button size="sm" className="min-h-9" variant={reconnectRequired ? "default" : "outline"} />}>
         <Link2 />{t("calendarFeedSafety.replaceAction")}
       </DialogTrigger>
       <DialogContent className="sm:max-w-lg">
@@ -41,7 +61,7 @@ export function CalendarSourceUrlReplaceDialog({
           <TriangleAlert className="mt-0.5 size-4 shrink-0" />
           <p>{t("calendarFeedSafety.replacePreservesData")}</p>
         </div>
-        <form action={action} className="space-y-4">
+        <form action={submit} className="space-y-4">
           <input type="hidden" name="calendarSourceId" value={calendarSourceId} />
           <div className="flex items-center gap-2 text-sm"><span>{t("technical.provider")}</span><Badge variant="secondary">{getProviderLabel(provider, t)}</Badge></div>
           <div className="space-y-1.5">

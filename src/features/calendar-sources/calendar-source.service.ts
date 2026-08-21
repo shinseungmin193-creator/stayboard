@@ -79,6 +79,7 @@ export async function createCalendarSourceSafely(input: Input) {
 export async function updateCalendarSourceSafely(id: string, input: Omit<Input, "calendarUrl">) {
   const existing = await findCalendarSource(id);
   if (!existing) throw new CalendarSourceServiceError("NOT_FOUND", "캘린더 연결을 찾을 수 없습니다.");
+  if (existing.provider !== input.provider) throw new CalendarSourceServiceError("PROVIDER_MISMATCH", "기존 CalendarSource의 Provider는 변경할 수 없습니다. 다른 OTA 연결은 새로 등록해 주세요.");
   const calendarUrl = validateProviderUrl(input.provider, existing.calendarUrl);
   const room = await findCalendarRoom(input.roomId);
   if (!room?.property) throw new CalendarSourceServiceError("ROOM_NOT_FOUND", "선택한 객실 또는 숙소가 존재하지 않습니다.");

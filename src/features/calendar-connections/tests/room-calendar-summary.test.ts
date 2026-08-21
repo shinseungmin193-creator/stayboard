@@ -128,6 +128,60 @@ test("삭제 UI는 권한 prop, 영향 count, 확인 입력과 한일 메시지�
   assert.equal(ja.title, "カレンダー連携を削除しますか？");
 });
 
+test("상세 패널의 현재 상태와 연결 탭 모두 카드 헤더에서 수정·URL 변경·삭제를 제공한다", () => {
+  const detail = readFileSync("src/features/calendar-connections/components/room-calendar-detail-sheet.tsx", "utf8");
+  const card = readFileSync("src/features/calendar-connections/components/calendar-source-card.tsx", "utf8");
+  const list = readFileSync("src/features/calendar-connections/components/room-calendar-list.tsx", "utf8");
+  assert.doesNotMatch(detail, /showActions=\{false\}/);
+  assert.match(detail, /onSourceUpdated=\{onSourceUpdated\}/);
+  assert.match(card, /data-calendar-source-management/);
+  assert.match(card, /<CalendarSourceForm[^>]+onSaved=\{onSourceUpdated\}/);
+  assert.match(card, /<CalendarSourceUrlReplaceDialog[^>]+onUpdated=\{onSourceUpdated\}/);
+  assert.match(card, /<CalendarSourceDeleteDialog[^>]+showButtonLabelOnMobile/);
+  assert.match(card, /flex w-full flex-wrap items-center gap-2/);
+  assert.match(list, /handleSourceUpdated/);
+  assert.match(list, /router\.refresh|onSourceUpdated/);
+});
+
+test("수정 성공 후 패널 데이터를 갱신하고 Provider 변경은 UI와 서버에서 모두 차단한다", () => {
+  const form = readFileSync("src/features/calendar-sources/components/calendar-source-form.tsx", "utf8");
+  const urlDialog = readFileSync("src/features/calendar-sources/components/calendar-source-url-replace-dialog.tsx", "utf8");
+  const service = readFileSync("src/features/calendar-sources/calendar-source.service.ts", "utf8");
+  assert.match(form, /disabled=\{Boolean\(source\)\}/);
+  assert.match(form, /type="hidden" name="provider" value=\{source\.provider\}/);
+  assert.match(form, /onSaved\?\.\(result\.message/);
+  assert.match(form, /router\.refresh\(\)/);
+  assert.match(urlDialog, /onUpdated\?\.\(result\.message/);
+  assert.match(urlDialog, /router\.refresh\(\)/);
+  assert.match(service, /existing\.provider !== input\.provider/);
+  assert.match(service, /Provider는 변경할 수 없습니다/);
+});
+
+test("수정·삭제 Server Action은 CalendarSource와 대상 Room 권한을 각각 다시 검증한다", () => {
+  const actions = readFileSync("src/features/calendar-sources/calendar-source.actions.ts", "utf8");
+  const updateStart = actions.indexOf("export async function updateCalendarSourceAction");
+  const updateEnd = actions.indexOf("export async function replaceCalendarSourceUrlAction", updateStart);
+  const update = actions.slice(updateStart, updateEnd);
+  const deleteStart = actions.indexOf("export async function deleteCalendarSourceAction");
+  const deletion = actions.slice(deleteStart);
+  assert.match(update, /requireCalendarSourceAccess\(id, PERMISSIONS\.CALENDAR_SOURCE_MANAGE\)/);
+  assert.match(update, /requireRoomAccess\(data\.roomId, PERMISSIONS\.CALENDAR_SOURCE_MANAGE\)/);
+  assert.match(deletion, /requireCalendarSourceAccess\(parsed\.data\.calendarSourceId, PERMISSIONS\.CALENDAR_SOURCE_MANAGE\)/);
+  assert.match(deletion, /requireRoomAccess\(target\.roomId, PERMISSIONS\.CALENDAR_SOURCE_MANAGE\)/);
+});
+
+test("삭제 성공 전에는 로컬 목록을 변경하지 않고 성공 시 해당 source ID만 숨긴다", () => {
+  const list = readFileSync("src/features/calendar-connections/components/room-calendar-list.tsx", "utf8");
+  const dialog = readFileSync("src/features/calendar-sources/components/calendar-source-delete-dialog.tsx", "utf8");
+  const repository = readFileSync("src/features/calendar-sources/calendar-source.repository.ts", "utf8");
+  assert.match(dialog, /if \(!result\.success\)/);
+  assert.match(dialog, /onDeleted\(source\.id/);
+  assert.match(list, /new Set\(current\)\.add\(calendarSourceId\)/);
+  assert.match(list, /sources\.filter\(\(source\) => !deletedSourceIds\.has\(source\.id\)\)/);
+  assert.match(repository, /tx\.calendarSource\.delete\(\{ where: \{ id: source\.id \} \}\)/);
+  assert.doesNotMatch(repository, /tx\.calendarSource\.deleteMany/);
+});
+
 test("객실 수정 OTA 연결 행에 연결 해제와 실제 삭제가 함께 렌더링된다", () => {
   const editor = readFileSync("src/features/rooms/components/room-calendar-source-editor.tsx", "utf8");
   const roomDialog = readFileSync("src/features/rooms/components/room-form-dialog.tsx", "utf8");

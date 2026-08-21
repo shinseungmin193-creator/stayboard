@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { MAX_CLEANING_PHOTO_SIZE, validateCleaningPhoto } from "../domain/cleaning-photo-validation";
+import {
+  isSupportedCleaningPhotoSelection,
+  MAX_CLEANING_PHOTO_SIZE,
+  validateCleaningPhoto,
+} from "../domain/cleaning-photo-validation";
 
 function isoBaseMediaFile(brand: string) {
   return Uint8Array.from([
@@ -27,14 +31,14 @@ test("rejects a spoofed image MIME type", () => {
 
 test("accepts HEIC and HEIF photos selected by mobile browsers", () => {
   const heic = isoBaseMediaFile("heic");
-  assert.deepEqual(validateCleaningPhoto({ declaredMimeType: "image/heic", size: heic.length, bytes: heic }), {
+  assert.deepEqual(validateCleaningPhoto({ declaredMimeType: "image/heic-sequence", size: heic.length, bytes: heic }), {
     valid: true,
     mimeType: "image/heic",
     extension: "heic",
   });
 
   const heif = isoBaseMediaFile("mif1");
-  assert.deepEqual(validateCleaningPhoto({ declaredMimeType: "image/heic", size: heif.length, bytes: heif }), {
+  assert.deepEqual(validateCleaningPhoto({ declaredMimeType: "image/heif-sequence", size: heif.length, bytes: heif }), {
     valid: true,
     mimeType: "image/heif",
     extension: "heif",
@@ -44,6 +48,10 @@ test("accepts HEIC and HEIF photos selected by mobile browsers", () => {
 test("accepts a missing browser MIME declaration when the image signature is valid", () => {
   const bytes = Uint8Array.from([0xff, 0xd8, 0xff, 0x00]);
   assert.equal(validateCleaningPhoto({ declaredMimeType: "", size: bytes.length, bytes }).valid, true);
+  assert.equal(validateCleaningPhoto({ declaredMimeType: "application/octet-stream", size: bytes.length, bytes }).valid, true);
+  assert.equal(isSupportedCleaningPhotoSelection({ declaredMimeType: "", fileName: "CAMERA_001.JPEG" }), true);
+  assert.equal(isSupportedCleaningPhotoSelection({ declaredMimeType: "application/octet-stream", fileName: "IMG_001.HEIC" }), true);
+  assert.equal(isSupportedCleaningPhotoSelection({ declaredMimeType: "", fileName: "payload.exe" }), false);
 });
 
 test("rejects photos larger than the configured ten MiB limit", () => {

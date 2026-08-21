@@ -86,6 +86,7 @@ export function CalendarSourceDeleteDialog({
             type="button"
             size={compact ? "xs" : "sm"}
             variant="destructive"
+            className={compact ? undefined : "min-h-9"}
             aria-label={t("ariaLabel", { name: source.name })}
           />
         }

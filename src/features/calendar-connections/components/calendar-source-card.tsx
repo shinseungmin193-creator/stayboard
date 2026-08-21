@@ -25,15 +25,22 @@ function SyncStatus({ source }: {source: CalendarSourceSummary;}) {const i18n = 
   return <Badge variant="outline" className="gap-1"><Clock3 />{i18n("auto.m0209")}</Badge>;
 }
 
-export function CalendarSourceCard({ source, rooms, showActions = true, canManage = false, onSourceDeleted }: {source: CalendarSourceSummary;rooms: CalendarRoomOption[];showActions?: boolean;canManage?: boolean;onSourceDeleted?: (calendarSourceId: string, message: string) => void;}) {const locale = useLocale(),localeTag = locale === "ja" ? "ja-JP" : "ko-KR";const formatter = new Intl.DateTimeFormat(localeTag, { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Tokyo" });const i18n = useTranslations();const formatDate = (value: Date | null) => value ? formatter.format(value) : i18n("auto.m0465");
+export function CalendarSourceCard({ source, rooms, showActions = true, canManage = false, onSourceDeleted, onSourceUpdated }: {source: CalendarSourceSummary;rooms: CalendarRoomOption[];showActions?: boolean;canManage?: boolean;onSourceDeleted?: (calendarSourceId: string, message: string) => void;onSourceUpdated?: (message: string) => void;}) {const locale = useLocale(),localeTag = locale === "ja" ? "ja-JP" : "ko-KR";const formatter = new Intl.DateTimeFormat(localeTag, { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Tokyo" });const i18n = useTranslations();const formatDate = (value: Date | null) => value ? formatter.format(value) : i18n("auto.m0465");
   return (
     <Card size="sm" className="overflow-visible">
-      <CardHeader className="grid-cols-[1fr_auto] items-start border-b pb-3">
+      <CardHeader className="flex flex-col gap-3 border-b pb-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0 space-y-1">
           <div className="flex flex-wrap items-center gap-2"><Badge variant="secondary">{getProviderLabel(source.provider, i18n)}</Badge><Badge variant={source.isActive ? "outline" : "secondary"}>{source.isActive ? i18n("auto.m0210") : i18n("auto.m0115")}</Badge></div>
           <CardTitle className="truncate pt-1">{source.name}</CardTitle>
         </div>
-        <SyncStatus source={source} />
+        <div className="flex w-full flex-col items-start gap-2 sm:w-auto sm:items-end">
+          <SyncStatus source={source} />
+          {showActions && canManage && onSourceDeleted && <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:justify-end" data-calendar-source-management>
+            <CalendarSourceForm rooms={rooms} source={source} onSaved={onSourceUpdated} />
+            <CalendarSourceUrlReplaceDialog calendarSourceId={source.id} provider={source.provider} reconnectRequired={source.connectionStatus === "RECONNECT_REQUIRED"} onUpdated={onSourceUpdated} />
+            <CalendarSourceDeleteDialog source={source} onDeleted={onSourceDeleted} showButtonLabelOnMobile />
+          </div>}
+        </div>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="grid gap-3 text-xs sm:grid-cols-2">
@@ -59,13 +66,10 @@ export function CalendarSourceCard({ source, rooms, showActions = true, canManag
         {source.isWarning && source.connectionStatus !== "RECONNECT_REQUIRED" && <div className="flex gap-2 rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-xs leading-5 text-amber-800 dark:text-amber-300"><AlertTriangle className="mt-0.5 size-4 shrink-0" /><p>{i18n("auto.m0224")}</p></div>}
         {source.latestErrorMessage && <div className="space-y-2 rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-xs text-destructive"><div className="flex gap-2"><AlertTriangle className="mt-0.5 size-4 shrink-0" /><p className="break-words leading-5"><strong>{source.latestErrorCode}</strong>{source.latestErrorCode ? " · " : ""}{source.latestErrorMessage}</p></div>{source.latestErrorDetails && <details className="rounded border border-destructive/20 p-2"><summary className="cursor-pointer font-medium">{i18n("auto.m0225")}</summary><pre className="mt-2 whitespace-pre-wrap break-all font-mono">{source.latestErrorDetails}</pre></details>}</div>}
         {showActions && <div className="flex flex-wrap items-start gap-2 border-t pt-3">
-          <CalendarSourceForm rooms={rooms} source={source} />
-          <CalendarSourceUrlReplaceDialog calendarSourceId={source.id} provider={source.provider} reconnectRequired={source.connectionStatus === "RECONNECT_REQUIRED"} />
-          <CalendarConnectionTest id={source.id} />
+          {canManage && <CalendarConnectionTest id={source.id} />}
           <CalendarManualSync id={source.id} disabled={!source.isActive || source.isSyncing || source.connectionStatus === "RECONNECT_REQUIRED"} />
           <Button nativeButton={false} render={<Link href={`/calendar-sources/${source.id}/sync-logs`} />} size="sm" variant="outline"><Clock3 />{i18n("auto.m0019")}</Button>
-          <div className="ml-auto flex items-center gap-1.5 text-xs text-muted-foreground"><Power className="size-3.5" /><CalendarSourceActiveForm id={source.id} isActive={source.isActive} /></div>
-          {canManage && onSourceDeleted && <CalendarSourceDeleteDialog source={source} onDeleted={onSourceDeleted} />}
+          {canManage && <div className="ml-auto flex items-center gap-1.5 text-xs text-muted-foreground"><Power className="size-3.5" /><CalendarSourceActiveForm id={source.id} isActive={source.isActive} /></div>}
         </div>}
       </CardContent>
     </Card>);

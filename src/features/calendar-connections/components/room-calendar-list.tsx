@@ -24,6 +24,7 @@ export function RoomCalendarList({ summaries, rooms, canManage }: {summaries: Ro
     setDeletedSourceIds((current) => new Set(current).add(calendarSourceId));
     setNotification(message);
   };
+  const handleSourceUpdated = (message: string) => setNotification(message);
   useEffect(() => {
     if (!notification) return;
     const timeout = window.setTimeout(() => setNotification(null), 4000);
@@ -40,7 +41,7 @@ export function RoomCalendarList({ summaries, rooms, canManage }: {summaries: Ro
         <TableBody>{summaries.map((room) => <RoomCalendarRow key={room.roomId} room={room} onOpen={handleOpen} />)}</TableBody>
       </Table>
     </Card>
-    <RoomCalendarDetailSheet room={selectedRoom} rooms={rooms} open={Boolean(selectedRoom)} onOpenChange={handleOpenChange} canManage={canManage} onSourceDeleted={handleSourceDeleted} />
+    <RoomCalendarDetailSheet room={selectedRoom} rooms={rooms} open={Boolean(selectedRoom)} onOpenChange={handleOpenChange} canManage={canManage} onSourceDeleted={handleSourceDeleted} onSourceUpdated={handleSourceUpdated} />
     {notification && <div role="status" aria-live="polite" className="fixed right-4 bottom-[calc(1rem+env(safe-area-inset-bottom))] z-[70] max-w-sm rounded-lg border border-emerald-500/30 bg-popover px-4 py-3 text-sm text-popover-foreground shadow-lg">{notification}</div>}
   </>;
 }

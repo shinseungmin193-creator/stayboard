@@ -24,7 +24,7 @@ export async function updateCalendarSourceAction(_state: ActionResult, formData:
   const parsed = calendarSourceUpdateSchema.safeParse({ id: formData.get("id"), ...fields(formData) });
   if (!parsed.success) return { success: false, message: "입력 내용을 확인해 주세요.", fieldErrors: parsed.error.flatten().fieldErrors };
   const { id, ...data } = parsed.data;
-  try { await requireCalendarSourceAccess(id, PERMISSIONS.CALENDAR_SOURCE_MANAGE); await requireRoomAccess(data.roomId, PERMISSIONS.CALENDAR_SOURCE_MANAGE); await updateCalendarSourceSafely(id, data); revalidatePath("/calendar-sources"); return { success: true, message: "캘린더 연결을 수정했습니다." }; }
+  try { await requireCalendarSourceAccess(id, PERMISSIONS.CALENDAR_SOURCE_MANAGE); await requireRoomAccess(data.roomId, PERMISSIONS.CALENDAR_SOURCE_MANAGE); await updateCalendarSourceSafely(id, data); revalidatePath("/calendar-sources"); revalidatePath("/rooms"); return { success: true, message: "캘린더 연결을 수정했습니다." }; }
   catch (error) { return await serviceFailure(error, "updateCalendarSource"); }
 }
 

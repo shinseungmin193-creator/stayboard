@@ -1,8 +1,22 @@
 import "server-only";
 
 import sharp from "sharp";
+import type { CleaningPhotoMimeType } from "../domain/cleaning-photo-validation";
 
-export async function normalizeCleaningPhoto(bytes: Uint8Array) {
+export async function normalizeCleaningPhoto(bytes: Uint8Array, source: {
+  mimeType: CleaningPhotoMimeType;
+  extension: "jpg" | "png" | "webp" | "heic" | "heif";
+}) {
+  if (source.mimeType === "image/heic" || source.mimeType === "image/heif") {
+    return {
+      data: bytes,
+      mimeType: source.mimeType,
+      extension: source.extension,
+      width: null,
+      height: null,
+    };
+  }
+
   const image = sharp(bytes, { failOn: "warning" }).rotate();
   const metadata = await image.metadata();
   if (!metadata.width || !metadata.height) throw new Error("The uploaded file is not a decodable image.");

@@ -129,7 +129,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ tas
 
     let normalized;
     try {
-      normalized = await normalizeCleaningPhoto(bytes);
+      normalized = await normalizeCleaningPhoto(bytes, validation);
     } catch {
       return Response.json({ success: false, message: t("photoInvalidType") }, { status: 415 });
     }

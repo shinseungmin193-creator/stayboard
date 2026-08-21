@@ -1,18 +1,19 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { type ChangeEvent, useEffect, useId, useMemo, useRef, useState } from "react";
 import { Camera, CircleCheck, ImagePlus, LoaderCircle, RotateCcw, Trash2, Upload } from "lucide-react";
 import { useTranslations } from "next-intl";
 
-import { Button, buttonVariants } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { withBasePath } from "@/lib/base-path";
 import { cn } from "@/lib/utils";
 import {
   CLEANING_PHOTO_ACCEPT,
-  CLEANING_PHOTO_MIME_TYPES,
+  isSupportedCleaningPhotoSelection,
   MAX_CLEANING_PHOTO_SIZE,
 } from "../domain/cleaning-photo-validation";
+import { snapshotCleaningPhotoFiles } from "../domain/cleaning-photo-selection";
 import type { CleaningActionResult } from "../cleaning.actions";
 import type { CleaningPhotoViewModel } from "../cleaning.types";
 
@@ -110,10 +111,12 @@ export function CleaningPhotoUploader({
   const captureInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
   const activeRequestRef = useRef<XMLHttpRequest | null>(null);
+  const uploadInFlightRef = useRef(false);
   const previewUrlsRef = useRef(new Set<string>());
   const [uploadedPhotos, setUploadedPhotos] = useState<CleaningPhotoViewModel[]>([]);
   const [deletedPhotoIds, setDeletedPhotoIds] = useState<Set<string>>(new Set());
   const [items, setItems] = useState<UploadItem[]>([]);
+  const itemsRef = useRef<UploadItem[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const inputInstanceId = useId().replace(/:/g, "");
   const safeTaskId = taskId.replace(/[^A-Za-z0-9_-]/g, "-");
@@ -148,49 +151,18 @@ export function CleaningPhotoUploader({
     });
   }, [activePhotos.length, hasFailedFiles, hasUnuploadedFiles, isUploading, onStateChange, readyForCompletion]);
 
-  const addFiles = (files: FileList | null) => {
-    if (!files?.length) return;
-    setItems((current) => {
-      const known = new Set(current.map((item) => item.fingerprint));
-      const additions: UploadItem[] = [];
-      for (const file of Array.from(files)) {
-        const fingerprint = fileFingerprint(file);
-        if (known.has(fingerprint)) continue;
-        known.add(fingerprint);
-        const normalizedType = file.type.trim().toLowerCase() === "image/jpg" ? "image/jpeg" : file.type.trim().toLowerCase();
-        const typeAllowed = !normalizedType || CLEANING_PHOTO_MIME_TYPES.includes(normalizedType as (typeof CLEANING_PHOTO_MIME_TYPES)[number]);
-        const previewUrl = URL.createObjectURL(file);
-        previewUrlsRef.current.add(previewUrl);
-        const uploadable = file.size > 0 && file.size <= MAX_CLEANING_PHOTO_SIZE && typeAllowed;
-        additions.push({
-          uploadId: createUploadId(),
-          fingerprint,
-          file,
-          previewUrl,
-          status: uploadable ? "selected" : "failed",
-          progress: 0,
-          message: file.size > MAX_CLEANING_PHOTO_SIZE
-            ? t("messages.photoTooLarge")
-            : file.size <= 0
-              ? t("messages.photoEmpty")
-              : !typeAllowed
-                ? t("messages.photoInvalidType")
-                : null,
-          uploadable,
-        });
-      }
-      return [...current, ...additions];
-    });
-    if (captureInputRef.current) captureInputRef.current.value = "";
-    if (galleryInputRef.current) galleryInputRef.current.value = "";
+  const commitItems = (update: (current: UploadItem[]) => UploadItem[]) => {
+    const next = update(itemsRef.current);
+    itemsRef.current = next;
+    setItems(next);
   };
 
   const updateItem = (uploadId: string, patch: Partial<UploadItem>) => {
-    setItems((current) => current.map((item) => item.uploadId === uploadId ? { ...item, ...patch } : item));
+    commitItems((current) => current.map((item) => item.uploadId === uploadId ? { ...item, ...patch } : item));
   };
 
   const removeItem = (uploadId: string) => {
-    setItems((current) => {
+    commitItems((current) => {
       const item = current.find((candidate) => candidate.uploadId === uploadId);
       if (item) {
         URL.revokeObjectURL(item.previewUrl);
@@ -200,42 +172,91 @@ export function CleaningPhotoUploader({
     });
   };
 
-  const uploadSelected = async () => {
-    const targets = items.filter((item) => item.uploadable && (item.status === "selected" || item.status === "failed"));
-    if (!targets.length || disabled || isUploading) return;
+  const uploadQueuedItems = async () => {
+    if (disabled || uploadInFlightRef.current) return;
+    const attempted = new Set<string>();
+    uploadInFlightRef.current = true;
     setIsUploading(true);
-    for (const item of targets) {
-      if (item.file.size <= 0 || item.file.size > MAX_CLEANING_PHOTO_SIZE) continue;
-      updateItem(item.uploadId, { status: "uploading", progress: 0, message: null });
-      try {
-        const result = await uploadPhotoRequest({
-          taskId,
-          item,
-          onProgress: (progress) => updateItem(item.uploadId, { progress }),
-          register: (xhr) => { activeRequestRef.current = xhr; },
-          fallbackMessage: t("messages.uploadFailed"),
-          statusMessages: {
-            400: t("messages.invalidRequest"),
-            401: t("messages.forbidden"),
-            403: t("messages.forbidden"),
-            404: t("messages.notFound"),
-            409: t("messages.notActionable"),
-            413: t("messages.photoTooLarge"),
-            415: t("messages.photoInvalidType"),
-          },
-        });
-        const photo = result.photo!;
-        setUploadedPhotos((current) => current.some((candidate) => candidate.id === photo.id) ? current : [...current, photo]);
-        removeItem(item.uploadId);
-        onResult({ success: true, message: result.message });
-        onUploaded?.(photo);
-      } catch (error) {
-        const message = error instanceof Error && error.message ? error.message : t("messages.uploadFailed");
-        updateItem(item.uploadId, { status: "failed", message });
-        onResult({ success: false, message });
+    try {
+      while (true) {
+        const item = itemsRef.current.find((candidate) => candidate.uploadable
+          && (candidate.status === "selected" || candidate.status === "failed")
+          && !attempted.has(candidate.uploadId));
+        if (!item) break;
+        attempted.add(item.uploadId);
+        updateItem(item.uploadId, { status: "uploading", progress: 0, message: null });
+        try {
+          const result = await uploadPhotoRequest({
+            taskId,
+            item,
+            onProgress: (progress) => updateItem(item.uploadId, { progress }),
+            register: (xhr) => { activeRequestRef.current = xhr; },
+            fallbackMessage: t("messages.uploadFailed"),
+            statusMessages: {
+              400: t("messages.invalidRequest"),
+              401: t("messages.forbidden"),
+              403: t("messages.forbidden"),
+              404: t("messages.notFound"),
+              409: t("messages.notActionable"),
+              413: t("messages.photoTooLarge"),
+              415: t("messages.photoInvalidType"),
+            },
+          });
+          const photo = result.photo!;
+          setUploadedPhotos((current) => current.some((candidate) => candidate.id === photo.id) ? current : [...current, photo]);
+          removeItem(item.uploadId);
+          onResult({ success: true, message: result.message });
+          onUploaded?.(photo);
+        } catch (error) {
+          const message = error instanceof Error && error.message ? error.message : t("messages.uploadFailed");
+          updateItem(item.uploadId, { status: "failed", message });
+          onResult({ success: false, message });
+        }
       }
+    } finally {
+      uploadInFlightRef.current = false;
+      setIsUploading(false);
     }
-    setIsUploading(false);
+  };
+
+  const addFiles = (files: readonly File[]) => {
+    if (!files.length || disabled) return;
+    const known = new Set(itemsRef.current.map((item) => item.fingerprint));
+    const additions: UploadItem[] = [];
+    for (const file of files) {
+      const fingerprint = fileFingerprint(file);
+      if (known.has(fingerprint)) continue;
+      known.add(fingerprint);
+      const typeAllowed = isSupportedCleaningPhotoSelection({ declaredMimeType: file.type, fileName: file.name });
+      const previewUrl = URL.createObjectURL(file);
+      previewUrlsRef.current.add(previewUrl);
+      const uploadable = file.size > 0 && file.size <= MAX_CLEANING_PHOTO_SIZE && typeAllowed;
+      additions.push({
+        uploadId: createUploadId(),
+        fingerprint,
+        file,
+        previewUrl,
+        status: uploadable ? "selected" : "failed",
+        progress: 0,
+        message: file.size > MAX_CLEANING_PHOTO_SIZE
+          ? t("messages.photoTooLarge")
+          : file.size <= 0
+            ? t("messages.photoEmpty")
+            : !typeAllowed
+              ? t("messages.photoInvalidType")
+              : null,
+        uploadable,
+      });
+    }
+    if (!additions.length) return;
+    commitItems((current) => [...current, ...additions]);
+    if (additions.some((item) => item.uploadable)) void uploadQueuedItems();
+  };
+
+  const handleFileInputChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const files = snapshotCleaningPhotoFiles(event.currentTarget.files);
+    event.currentTarget.value = "";
+    addFiles(files);
   };
 
   const deleteStoredPhoto = async (photo: CleaningPhotoViewModel) => {
@@ -278,13 +299,14 @@ export function CleaningPhotoUploader({
     {!activePhotos.length && !items.length && <p className="rounded-xl bg-muted/50 px-3 py-5 text-center text-sm text-muted-foreground">{t("photos.required")}</p>}
 
     {!readOnly && <>
-      <input id={captureInputId} data-cleaning-photo-input={`${taskId}:camera`} ref={captureInputRef} type="file" accept={CLEANING_PHOTO_ACCEPT} capture="environment" className="sr-only" disabled={pickerDisabled} onChange={(event) => addFiles(event.target.files)} />
-      <input id={galleryInputId} data-cleaning-photo-input={`${taskId}:gallery`} ref={galleryInputRef} type="file" accept={CLEANING_PHOTO_ACCEPT} multiple className="sr-only" disabled={pickerDisabled} onChange={(event) => addFiles(event.target.files)} />
+      <input id={captureInputId} data-cleaning-photo-input={`${taskId}:camera`} ref={captureInputRef} type="file" accept={CLEANING_PHOTO_ACCEPT} capture="environment" className="sr-only" disabled={pickerDisabled} onChange={handleFileInputChange} />
+      <input id={galleryInputId} data-cleaning-photo-input={`${taskId}:gallery`} ref={galleryInputRef} type="file" accept={CLEANING_PHOTO_ACCEPT} multiple className="sr-only" disabled={pickerDisabled} onChange={handleFileInputChange} />
       <div className="grid grid-cols-2 gap-2">
-        <label htmlFor={captureInputId} data-cleaning-photo-trigger={`${taskId}:camera`} aria-disabled={pickerDisabled} className={cn(buttonVariants({ variant: "outline" }), pickerDisabled ? "pointer-events-none opacity-50" : "cursor-pointer")}><Camera />{t("photos.capture")}</label>
-        <label htmlFor={galleryInputId} data-cleaning-photo-trigger={`${taskId}:gallery`} aria-disabled={pickerDisabled} className={cn(buttonVariants({ variant: "outline" }), pickerDisabled ? "pointer-events-none opacity-50" : "cursor-pointer")}><ImagePlus />{t("photos.select")}</label>
+        <Button type="button" variant="outline" data-cleaning-photo-trigger={`${taskId}:camera`} aria-controls={captureInputId} disabled={pickerDisabled} onClick={() => captureInputRef.current?.click()}><Camera />{t("photos.capture")}</Button>
+        <Button type="button" variant="outline" data-cleaning-photo-trigger={`${taskId}:gallery`} aria-controls={galleryInputId} disabled={pickerDisabled} onClick={() => galleryInputRef.current?.click()}><ImagePlus />{t("photos.select")}</Button>
       </div>
-      {items.some((item) => item.uploadable && (item.status === "selected" || item.status === "failed")) && <Button type="button" className="w-full" disabled={disabled || isUploading} onClick={uploadSelected}>
+      {isUploading && <p role="status" aria-live="polite" className="flex items-center justify-center gap-2 text-sm font-medium"><LoaderCircle className="size-4 animate-spin" />{t("photos.uploadingFiles")}</p>}
+      {items.some((item) => item.uploadable && (item.status === "selected" || item.status === "failed")) && <Button type="button" className="w-full" disabled={disabled || isUploading} onClick={uploadQueuedItems}>
         {isUploading ? <><LoaderCircle className="animate-spin" />{t("photos.uploadingFiles")}</> : hasFailedFiles ? <><RotateCcw />{t("photos.retryUpload")}</> : <><Upload />{t("photos.uploadSelected")}</>}
       </Button>}
       <p className="text-xs text-muted-foreground">{t("photos.fileGuide")}</p>

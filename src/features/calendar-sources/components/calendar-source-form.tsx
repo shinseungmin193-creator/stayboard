@@ -1,5 +1,8 @@
-"use client";import { useTranslations } from "next-intl";
-import { useActionState } from "react";
+"use client";
+
+import { useActionState, useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { Plus, Settings2 } from "lucide-react";
 import type { CalendarProviderType } from "@/lib/generated/prisma/enums";
 import type { CalendarRoomOption } from "../calendar-source.types";
@@ -14,8 +17,101 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 const providers = [{ value: "BOOKING", label: "Booking.com" }, { value: "AIRBNB", label: "Airbnb" }, { value: "AGODA", label: "Agoda" }] as const;
-export interface EditableCalendarSource {id: string;roomId: string;provider: CalendarProviderType;name: string;isActive: boolean;}
-export function CalendarSourceForm({ rooms, source }: {rooms: CalendarRoomOption[];source?: EditableCalendarSource;}) {const i18n = useTranslations();
+
+export interface EditableCalendarSource {
+  id: string;
+  roomId: string;
+  provider: CalendarProviderType;
+  name: string;
+  isActive: boolean;
+}
+
+export function CalendarSourceForm({
+  rooms,
+  source,
+  onSaved,
+}: {
+  rooms: CalendarRoomOption[];
+  source?: EditableCalendarSource;
+  onSaved?: (message: string) => void;
+}) {
+  const i18n = useTranslations();
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const submitted = useRef(false);
   const [result, formAction] = useActionState(source ? updateCalendarSourceAction : createCalendarSourceAction, INITIAL_ACTION_RESULT);
-  return <Dialog><DialogTrigger render={<Button variant={source ? "outline" : "default"} size={source ? "sm" : "default"} disabled={!source && rooms.length === 0} />}>{source ? <><Settings2 />{i18n("common.edit")}</> : <><Plus />{i18n("auto.m0282")}</>}</DialogTrigger><DialogContent className="sm:max-w-lg"><DialogHeader><DialogTitle>{source ? i18n("auto.m0283") : i18n("auto.m0284")}</DialogTitle><DialogDescription>{i18n("auto.m0285")}</DialogDescription></DialogHeader><form action={formAction} className="space-y-4">{source && <input type="hidden" name="id" value={source.id} />}<div className="space-y-1.5"><Label htmlFor={`source-room-${source?.id ?? "new"}`}>{i18n("common.room")}</Label><select id={`source-room-${source?.id ?? "new"}`} name="roomId" defaultValue={source?.roomId ?? ""} className="h-8 w-full rounded-lg border border-input bg-background px-2.5 text-sm" required><option value="" disabled>{i18n("auto.m0286")}</option>{rooms.map((room) => <option key={room.id} value={room.id}>{room.propertyName} · {room.name}{room.isActive && room.propertyIsActive ? "" : i18n("auto.m0287")}</option>)}</select><FieldError errors={!result.success ? result.fieldErrors?.roomId : undefined} /></div><div className="space-y-1.5"><Label htmlFor={`source-provider-${source?.id ?? "new"}`}>{i18n("technical.ota")}</Label><select id={`source-provider-${source?.id ?? "new"}`} name="provider" defaultValue={source?.provider ?? ""} className="h-8 w-full rounded-lg border border-input bg-background px-2.5 text-sm" required><option value="" disabled>{i18n("auto.m0288")}</option>{providers.map((provider) => <option key={provider.value} value={provider.value}>{provider.label}</option>)}</select><FieldError errors={!result.success ? result.fieldErrors?.provider : undefined} /></div><div className="space-y-1.5"><Label htmlFor={`source-name-${source?.id ?? "new"}`}>{i18n("auto.m0289")}</Label><Input id={`source-name-${source?.id ?? "new"}`} name="name" defaultValue={source?.name} maxLength={100} placeholder={i18n("auto.m0290")} required /><FieldError errors={!result.success ? result.fieldErrors?.name : undefined} /></div>{!source && <div className="space-y-1.5"><Label htmlFor="source-url-new">{i18n("technical.icsUrl")}</Label><Input id="source-url-new" name="calendarUrl" type="url" autoComplete="off" maxLength={2000} placeholder="https://…" required /><p className="text-xs text-muted-foreground">{i18n("auto.m0293")}</p><FieldError errors={!result.success ? result.fieldErrors?.calendarUrl : undefined} /></div>}<label className="flex items-center gap-2 text-sm"><input type="checkbox" name="isActive" value="true" defaultChecked={source?.isActive ?? true} className="size-4" />{i18n("auto.m0294")}</label><input type="hidden" name="isActive" value="false" /><ActionMessage result={result} /><div className="flex justify-end"><SubmitButton>{source ? i18n("auto.m0184") : i18n("auto.m0282")}</SubmitButton></div></form></DialogContent></Dialog>;
+
+  useEffect(() => {
+    if (!submitted.current || !result.success) return;
+    submitted.current = false;
+    setOpen(false);
+    onSaved?.(result.message ?? i18n("calendarSourceEditing.saved"));
+    router.refresh();
+  }, [i18n, onSaved, result, router]);
+
+  const submit = (formData: FormData) => {
+    submitted.current = true;
+    formAction(formData);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger
+        render={
+          <Button
+            variant={source ? "outline" : "default"}
+            size={source ? "sm" : "default"}
+            className={source ? "min-h-9" : undefined}
+            disabled={!source && rooms.length === 0}
+          />
+        }
+      >
+        {source ? <><Settings2 />{i18n("common.edit")}</> : <><Plus />{i18n("auto.m0282")}</>}
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>{source ? i18n("auto.m0283") : i18n("auto.m0284")}</DialogTitle>
+          <DialogDescription>{i18n("auto.m0285")}</DialogDescription>
+        </DialogHeader>
+        <form action={submit} className="space-y-4">
+          {source && <input type="hidden" name="id" value={source.id} />}
+          <div className="space-y-1.5">
+            <Label htmlFor={`source-room-${source?.id ?? "new"}`}>{i18n("common.room")}</Label>
+            <select id={`source-room-${source?.id ?? "new"}`} name="roomId" defaultValue={source?.roomId ?? ""} className="h-8 w-full rounded-lg border border-input bg-background px-2.5 text-sm" required>
+              <option value="" disabled>{i18n("auto.m0286")}</option>
+              {rooms.map((room) => <option key={room.id} value={room.id}>{room.propertyName} · {room.name}{room.isActive && room.propertyIsActive ? "" : i18n("auto.m0287")}</option>)}
+            </select>
+            <FieldError errors={!result.success ? result.fieldErrors?.roomId : undefined} />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor={`source-provider-${source?.id ?? "new"}`}>{i18n("technical.ota")}</Label>
+            <select
+              id={`source-provider-${source?.id ?? "new"}`}
+              name={source ? undefined : "provider"}
+              defaultValue={source?.provider ?? ""}
+              disabled={Boolean(source)}
+              className="h-8 w-full rounded-lg border border-input bg-background px-2.5 text-sm disabled:cursor-not-allowed disabled:opacity-70"
+              required
+            >
+              <option value="" disabled>{i18n("auto.m0288")}</option>
+              {providers.map((provider) => <option key={provider.value} value={provider.value}>{provider.label}</option>)}
+            </select>
+            {source && <input type="hidden" name="provider" value={source.provider} />}
+            {source && <p className="text-xs text-muted-foreground">{i18n("calendarSourceEditing.providerLocked")}</p>}
+            <FieldError errors={!result.success ? result.fieldErrors?.provider : undefined} />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor={`source-name-${source?.id ?? "new"}`}>{i18n("auto.m0289")}</Label>
+            <Input id={`source-name-${source?.id ?? "new"}`} name="name" defaultValue={source?.name} maxLength={100} placeholder={i18n("auto.m0290")} required />
+            <FieldError errors={!result.success ? result.fieldErrors?.name : undefined} />
+          </div>
+          {!source && <div className="space-y-1.5"><Label htmlFor="source-url-new">{i18n("technical.icsUrl")}</Label><Input id="source-url-new" name="calendarUrl" type="url" autoComplete="off" maxLength={2000} placeholder="https://…" required /><p className="text-xs text-muted-foreground">{i18n("auto.m0293")}</p><FieldError errors={!result.success ? result.fieldErrors?.calendarUrl : undefined} /></div>}
+          <label className="flex items-center gap-2 text-sm"><input type="checkbox" name="isActive" value="true" defaultChecked={source?.isActive ?? true} className="size-4" />{i18n("auto.m0294")}</label>
+          <input type="hidden" name="isActive" value="false" />
+          <ActionMessage result={result} />
+          <div className="flex justify-end"><SubmitButton>{source ? i18n("auto.m0184") : i18n("auto.m0282")}</SubmitButton></div>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
 }

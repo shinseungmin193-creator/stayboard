@@ -154,6 +154,11 @@
     "createdReservations": "이 동기화에서 생성된 예약 {count}건",
     "legacyMatchNote": "이전 이력은 생성 시각과 createdCount가 정확히 일치한 경우에만 후보로 표시합니다. 삭제 전 반드시 별도로 확인해 주세요."
   },
+  "calendarSourceEditing": {
+    "providerLocked": "Provider는 변경할 수 없습니다. 다른 OTA로 연결하려면 현재 연결을 삭제한 뒤 새로 등록해 주세요.",
+    "saved": "캘린더 연결을 수정했습니다.",
+    "urlSaved": "iCal URL을 변경했습니다."
+  },
   "calendarSourceDeletion": {
     "button": "삭제",
     "ariaLabel": "{name} 캘린더 연결 삭제",

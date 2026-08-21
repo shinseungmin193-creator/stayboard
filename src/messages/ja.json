@@ -154,6 +154,11 @@
     "createdReservations": "この同期で作成された予約 {count}件",
     "legacyMatchNote": "過去の履歴は作成時刻とcreatedCountが正確に一致した場合のみ候補として表示します。削除前に必ず別途確認してください。"
   },
+  "calendarSourceEditing": {
+    "providerLocked": "Providerは変更できません。別のOTAに接続する場合は、現在の接続を削除してから新しく登録してください。",
+    "saved": "カレンダー連携を更新しました。",
+    "urlSaved": "iCal URLを変更しました。"
+  },
   "calendarSourceDeletion": {
     "button": "削除",
     "ariaLabel": "{name}のカレンダー連携を削除",

@@ -4,6 +4,12 @@ export const MAX_CLEANING_PHOTO_SIZE = getCleaningPhotoConfig().maxBytes;
 
 export const CLEANING_PHOTO_MIME_TYPES = ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"] as const;
 export type CleaningPhotoMimeType = (typeof CLEANING_PHOTO_MIME_TYPES)[number];
+export const CLEANING_PHOTO_BROWSER_MIME_TYPES = [
+  ...CLEANING_PHOTO_MIME_TYPES,
+  "image/jpg",
+  "image/heic-sequence",
+  "image/heif-sequence",
+] as const;
 
 export const CLEANING_PHOTO_EXTENSIONS: Record<CleaningPhotoMimeType, "jpg" | "png" | "webp" | "heic" | "heif"> = {
   "image/jpeg": "jpg",
@@ -15,6 +21,27 @@ export const CLEANING_PHOTO_EXTENSIONS: Record<CleaningPhotoMimeType, "jpg" | "p
 
 export const CLEANING_PHOTO_ACCEPT = "image/*";
 export const MAX_CLEANING_PHOTO_REQUEST_SIZE = MAX_CLEANING_PHOTO_SIZE + 512 * 1024;
+
+export function normalizeCleaningPhotoDeclaredMimeType(mimeType: string) {
+  const normalized = mimeType.trim().toLowerCase();
+  if (normalized === "image/jpg") return "image/jpeg";
+  if (normalized === "image/heic-sequence") return "image/heic";
+  if (normalized === "image/heif-sequence") return "image/heif";
+  return normalized;
+}
+
+export function hasSupportedCleaningPhotoExtension(fileName: string) {
+  return /\.(?:jpe?g|png|webp|heic|heif)$/i.test(fileName.trim());
+}
+
+export function isSupportedCleaningPhotoSelection(input: { declaredMimeType: string; fileName: string }) {
+  const declaredMimeType = input.declaredMimeType.trim().toLowerCase();
+  if (CLEANING_PHOTO_BROWSER_MIME_TYPES.includes(declaredMimeType as (typeof CLEANING_PHOTO_BROWSER_MIME_TYPES)[number])) {
+    return true;
+  }
+  return (!declaredMimeType || declaredMimeType === "application/octet-stream")
+    && hasSupportedCleaningPhotoExtension(input.fileName);
+}
 
 function startsWith(bytes: Uint8Array, signature: readonly number[]) {
   return signature.every((value, index) => bytes[index] === value);
@@ -42,12 +69,12 @@ export function validateCleaningPhoto(input: { declaredMimeType: string; size: n
     return { valid: false as const, reason: "tooLarge" as const };
   }
   const detectedMimeType = detectCleaningPhotoMimeType(input.bytes);
-  const normalizedDeclaredMimeType = input.declaredMimeType.trim().toLowerCase() === "image/jpg"
-    ? "image/jpeg"
-    : input.declaredMimeType.trim().toLowerCase();
+  const rawDeclaredMimeType = input.declaredMimeType.trim().toLowerCase();
+  const normalizedDeclaredMimeType = normalizeCleaningPhotoDeclaredMimeType(rawDeclaredMimeType);
+  const genericDeclaredMimeType = !normalizedDeclaredMimeType || normalizedDeclaredMimeType === "application/octet-stream";
   const heifFamilyMatch = (detectedMimeType === "image/heic" || detectedMimeType === "image/heif")
     && (normalizedDeclaredMimeType === "image/heic" || normalizedDeclaredMimeType === "image/heif");
-  if (!detectedMimeType || (normalizedDeclaredMimeType && detectedMimeType !== normalizedDeclaredMimeType && !heifFamilyMatch)) {
+  if (!detectedMimeType || (!genericDeclaredMimeType && detectedMimeType !== normalizedDeclaredMimeType && !heifFamilyMatch)) {
     return { valid: false as const, reason: "invalidType" as const };
   }
   return {

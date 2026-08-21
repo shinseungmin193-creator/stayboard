@@ -41,8 +41,8 @@ export function CleaningWorkspace({
   const localeTag = locale === "ja" ? "ja-JP" : "ko-KR";
   const router = useRouter();
   const pathname = usePathname();
-  const [detail, setDetail] = useState<{ task: CleaningTaskViewModel; focus: "photos" | "note" | "logs" | null } | null>(null);
-  const [workflow, setWorkflow] = useState<{ task: CleaningTaskViewModel; mode: CleaningWorkflowMode } | null>(null);
+  const [detail, setDetail] = useState<{ taskId: string; focus: "photos" | "note" | "logs" | null } | null>(null);
+  const [workflow, setWorkflow] = useState<{ taskId: string; mode: CleaningWorkflowMode } | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [isNavigating, startNavigationTransition] = useTransition();
   const [isActionPending, startActionTransition] = useTransition();
@@ -50,6 +50,9 @@ export function CleaningWorkspace({
   const noticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const today = getCleaningDateInput(new Date(), data.timeZone);
   const selectedDateLabel = formatCleaningSelectedDate({ date: filters.date, locale, timeZone: data.timeZone });
+  const tasksById = new Map(CLEANING_SECTIONS.flatMap((section) => data.sections[section].items).map((task) => [task.id, task]));
+  const detailTask = detail ? tasksById.get(detail.taskId) ?? null : null;
+  const workflowTask = workflow ? tasksById.get(workflow.taskId) ?? null : null;
 
   const showNotice = (message: string) => {
     if (noticeTimer.current) clearTimeout(noticeTimer.current);
@@ -120,7 +123,7 @@ export function CleaningWorkspace({
       {(isNavigating || isActionPending) && <div className="flex items-center justify-end gap-1.5 text-xs text-muted-foreground"><LoaderCircle className="size-3.5 animate-spin" />{t("loading")}</div>}
 
       <div className="space-y-5">
-        {sections.map((section) => <CleaningSection key={section} section={section} data={data.sections[section]} selected={filters.section === section} role={role} currentUserId={currentUserId} referenceAt={data.referenceAt} timeZone={data.timeZone} locale={localeTag} pendingTaskId={pendingTaskId} onViewAll={(nextSection) => navigate({ section: nextSection, page: 1 })} onOpenDetails={(task, focus) => setDetail({ task, focus: focus ?? null })} onWorkflow={(task, mode) => setWorkflow({ task, mode })} />)}
+        {sections.map((section) => <CleaningSection key={section} section={section} data={data.sections[section]} selected={filters.section === section} role={role} currentUserId={currentUserId} referenceAt={data.referenceAt} timeZone={data.timeZone} locale={localeTag} pendingTaskId={pendingTaskId} onViewAll={(nextSection) => navigate({ section: nextSection, page: 1 })} onOpenDetails={(task, focus) => setDetail({ taskId: task.id, focus: focus ?? null })} onWorkflow={(task, mode) => setWorkflow({ taskId: task.id, mode })} />)}
       </div>
 
       {selectedData && selectedData.totalPages > 1 && <nav className="flex items-center justify-center gap-2" aria-label={t("pagination.label")}>
@@ -129,8 +132,8 @@ export function CleaningWorkspace({
         <Button type="button" variant="outline" size="sm" disabled={selectedData.page >= selectedData.totalPages || isNavigating} onClick={() => navigate({ page: selectedData.page + 1 })}>{t("pagination.next")}</Button>
       </nav>}
 
-      {workflow && <CleaningWorkflowDialog key={`${workflow.task.id}-${workflow.mode}`} task={workflow.task} mode={workflow.mode} role={role} currentUserId={currentUserId} currentUserName={currentUserName} pending={pendingTaskId === workflow.task.id || isActionPending} onClose={() => setWorkflow(null)} onSubmit={runWorkflow} onUploadResult={handleResult} onPhotoUploaded={() => router.refresh()} />}
-      {detail && <CleaningTaskDetailDialog key={`${detail.task.id}-${detail.focus ?? "details"}`} task={detail.task} focus={detail.focus} role={role} currentUserId={currentUserId} locale={localeTag} timeZone={data.timeZone} pending={pendingTaskId === detail.task.id} onClose={() => setDetail(null)} onResult={handleResult} onRefresh={() => router.refresh()} />}
+      {workflow && workflowTask && <CleaningWorkflowDialog key={`${workflow.taskId}-${workflow.mode}`} task={workflowTask} mode={workflow.mode} role={role} currentUserId={currentUserId} currentUserName={currentUserName} pending={pendingTaskId === workflow.taskId || isActionPending} onClose={() => setWorkflow(null)} onSubmit={runWorkflow} onUploadResult={handleResult} onPhotoUploaded={() => router.refresh()} />}
+      {detail && detailTask && <CleaningTaskDetailDialog key={`${detail.taskId}-${detail.focus ?? "details"}`} task={detailTask} focus={detail.focus} role={role} currentUserId={currentUserId} locale={localeTag} timeZone={data.timeZone} pending={pendingTaskId === detail.taskId} onClose={() => setDetail(null)} onResult={handleResult} onRefresh={() => router.refresh()} />}
       {notice && <div className="fixed inset-x-4 bottom-[calc(5.25rem+env(safe-area-inset-bottom))] z-[70] mx-auto max-w-sm rounded-xl bg-foreground px-4 py-3 text-center text-sm font-medium text-background shadow-lg lg:bottom-6" role="status" aria-live="polite">{notice}</div>}
     </div>
   );
