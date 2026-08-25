@@ -19,6 +19,7 @@
     "test:auth": "tsc -p tsconfig.sync-tests.json && node --test .sync-tests/features/access-control/tests/access-control.test.js .sync-tests/features/developer-role-switch/tests/developer-role-switch.test.js .sync-tests/features/auth/tests/auth.test.js .sync-tests/features/user-management/tests/account-policy.test.js .sync-tests/features/member-management/tests/member-policy.test.js .sync-tests/features/invitation-codes/tests/invitation-code.test.js .sync-tests/features/developer-management/tests/developer-management-policy.test.js",
     "diagnose:invitation-account": "tsx --env-file-if-exists=.env --env-file-if-exists=.env.local scripts/diagnose-invitation-account.ts",
     "repair:calendar-events": "tsx --env-file-if-exists=.env --env-file-if-exists=.env.local scripts/repair-false-overbookings.ts",
+    "repair:dashboard-data": "tsx --env-file-if-exists=.env --env-file-if-exists=.env.local scripts/repair-dashboard-data-consistency.ts",
     "cleanup:calendar-events": "npm run repair:calendar-events",
     "cleanup:cleaning-photos": "tsx --env-file-if-exists=.env --env-file-if-exists=.env.local scripts/cleanup-cleaning-photos.ts",
     "cleaning:purge-photos": "npm run cleanup:cleaning-photos",

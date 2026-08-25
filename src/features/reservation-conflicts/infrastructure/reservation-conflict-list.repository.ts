@@ -1,14 +1,12 @@
 import "server-only";
 
-import { roomScopeWhere } from "@/features/access-control";
-import { ACTIVE_OTA_RESERVATION_STATUSES } from "@/features/reservations/reservation.constants";
 import { formatRoomDisplayName } from "@/features/rooms/room-display";
 import type { Prisma } from "@/lib/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
-import { CALENDAR_PROVIDER_TYPES } from "@/providers/calendar";
 import { RESERVATION_CONFLICT_PAGE_SIZE } from "../reservation-conflict.constants";
 import type { ConflictFilters, ConflictListResult, ConflictScopeFilters } from "../reservation-conflict.types";
 import { isPastReservationConflict } from "../domain/reservation-conflict-dismissal";
+import { buildActiveReservationConflictWhere, buildReservationConflictValidityWhere } from "./active-reservation-conflict.repository";
 
 const reservationSelect = {
   id: true,
@@ -23,27 +21,7 @@ const reservationSelect = {
 export function buildReservationConflictScopeWhere(
   filters: ConflictScopeFilters,
 ): Prisma.ReservationConflictWhereInput {
-  return {
-    roomId: filters.roomId,
-    reservationA: {
-      status: { in: [...ACTIVE_OTA_RESERVATION_STATUSES] },
-      provider: { in: [...CALENDAR_PROVIDER_TYPES] },
-    },
-    reservationB: {
-      status: { in: [...ACTIVE_OTA_RESERVATION_STATUSES] },
-      provider: { in: [...CALENDAR_PROVIDER_TYPES] },
-    },
-    room: {
-      ...(roomScopeWhere(filters.accessScope) ?? {}),
-      propertyId: filters.propertyId,
-      property: filters.companyIds ? { companyId: { in: [...filters.companyIds] } } : undefined,
-    },
-    overlapStart: { lt: filters.toExclusive },
-    overlapEnd: { gt: filters.from },
-    OR: filters.provider
-      ? [{ reservationA: { provider: filters.provider } }, { reservationB: { provider: filters.provider } }]
-      : undefined,
-  };
+  return buildReservationConflictValidityWhere(filters);
 }
 
 export function buildDismissibleReservationConflictWhere(
@@ -61,14 +39,15 @@ export function buildDismissibleReservationConflictWhere(
 function buildListStatusWhere(filters: ConflictFilters): Prisma.ReservationConflictWhereInput {
   if (filters.status === "ALL") return {};
   if (filters.status === "PAST") return { status: "ACTIVE", overlapEnd: { lt: filters.todayStart } };
+  if (filters.status === "ACTIVE") return { status: "ACTIVE", overlapEnd: { gte: filters.todayStart } };
   return { status: filters.status };
 }
 
 export async function listReservationConflicts(filters: ConflictFilters): Promise<ConflictListResult> {
   const scopeWhere = buildReservationConflictScopeWhere(filters);
-  const where: Prisma.ReservationConflictWhereInput = {
-    AND: [scopeWhere, buildListStatusWhere(filters)],
-  };
+  const where: Prisma.ReservationConflictWhereInput = filters.status === "ACTIVE"
+    ? buildActiveReservationConflictWhere(filters)
+    : { AND: [scopeWhere, buildListStatusWhere(filters)] };
   const dismissibleWhere = buildDismissibleReservationConflictWhere(filters, filters.todayStart);
   const [totalCount, dismissibleCount] = await Promise.all([
     prisma.reservationConflict.count({ where }),

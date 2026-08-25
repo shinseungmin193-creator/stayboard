@@ -5,12 +5,11 @@ import { listCalendarRoomOptions } from "@/features/calendar-sources";
 import { DEMO_PROPERTY_OPTIONS, DEMO_ROOM_OPTIONS, getDemoConflicts } from "@/features/demo";
 import { listPropertyOptions } from "@/features/properties";
 import { ReservationConflictList } from "@/features/reservation-conflicts/components/reservation-conflict-list";
-import { RESERVATION_CONFLICT_DEFAULT_FUTURE_DAYS, RESERVATION_CONFLICT_DEFAULT_PAST_DAYS } from "@/features/reservation-conflicts/reservation-conflict.constants";
 import {
-  getReservationConflictTodayStart,
   RESERVATION_CONFLICT_VIEW_STATUSES,
   type ReservationConflictViewStatus,
 } from "@/features/reservation-conflicts/domain/reservation-conflict-dismissal";
+import { getDefaultReservationConflictRange } from "@/features/reservation-conflicts/domain/reservation-conflict-range";
 import { listReservationConflicts } from "@/features/reservation-conflicts/infrastructure/reservation-conflict-list.repository";
 import type { ConflictBulkDismissalInput } from "@/features/reservation-conflicts/reservation-conflict.types";
 import { getProviderLabel } from "@/features/reservations/provider-visuals";
@@ -18,7 +17,7 @@ import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
 import { DEFAULT_TIMEZONE } from "@/lib/constants";
 import type { CalendarProviderType } from "@/lib/generated/prisma/enums";
-import { getZonedDateInput, getZonedMidnight, isValidDateInput, shiftDateInput } from "@/lib/zoned-date";
+import { getZonedMidnight, isValidDateInput, shiftDateInput } from "@/lib/zoned-date";
 
 export const dynamic = "force-dynamic";
 
@@ -45,13 +44,13 @@ export default async function ReservationConflictsPage({
   const companyIds = context ? companyScopeIds(context) : undefined;
   const params = await searchParams;
   const value = (key: string) => typeof params[key] === "string" ? params[key] : undefined;
-  const todayInput = getZonedDateInput(new Date(), DEFAULT_TIMEZONE);
-  const fromInput = validDateOrFallback(value("from"), shiftDateInput(todayInput, -RESERVATION_CONFLICT_DEFAULT_PAST_DAYS));
-  const requestedToInput = validDateOrFallback(value("to"), shiftDateInput(todayInput, RESERVATION_CONFLICT_DEFAULT_FUTURE_DAYS));
+  const defaultRange = getDefaultReservationConflictRange(new Date(), DEFAULT_TIMEZONE);
+  const fromInput = validDateOrFallback(value("from"), defaultRange.fromInput);
+  const requestedToInput = validDateOrFallback(value("to"), defaultRange.toInput);
   const toInput = requestedToInput < fromInput ? fromInput : requestedToInput;
   const from = getZonedMidnight(fromInput, DEFAULT_TIMEZONE);
   const toExclusive = getZonedMidnight(shiftDateInput(toInput, 1), DEFAULT_TIMEZONE);
-  const todayStart = getReservationConflictTodayStart();
+  const todayStart = defaultRange.todayStart;
   const pageNumber = Number(value("page"));
   const requestedPage = Number.isInteger(pageNumber) && pageNumber > 0 ? pageNumber : 1;
   const providerValue = value("provider");

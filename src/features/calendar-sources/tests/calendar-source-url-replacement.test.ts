@@ -222,11 +222,13 @@ test("새 feed에 취소 이벤트만 있으면 기존 sync lifecycle처럼 신�
 
 test("URL 교체 transaction은 source-scoped 삭제·즉시 sync·마스킹 감사를 한 원자 작업으로 수행한다", () => {
   const repository = readFileSync("src/features/calendar-sources/calendar-source.repository.ts", "utf8");
+  const removal = readFileSync("src/features/calendar-sync/infrastructure/calendar-source-reservation-removal.ts", "utf8");
   const start = repository.indexOf("export async function replaceCalendarSourceUrlTransaction");
   const replacement = repository.slice(start, repository.indexOf("export function setCalendarSourceActive", start));
   assert.match(replacement, /reservation\.findMany\(\{\s*where: \{ calendarSourceId: source\.id \}/);
-  assert.match(replacement, /reservation\.deleteMany\(\{[\s\S]*calendarSourceId: source\.id/);
-  assert.doesNotMatch(replacement, /reservation\.deleteMany\(\{[\s\S]{0,160}roomId: source\.roomId[\s\S]{0,160}provider:/);
+  assert.match(replacement, /removeCalendarSourceReservations\(tx, \{[\s\S]*calendarSourceId: source\.id/);
+  assert.match(removal, /reservation\.deleteMany\(\{[\s\S]*calendarSourceId: input\.calendarSourceId/);
+  assert.doesNotMatch(removal, /roomId: input\.roomId[\s\S]{0,160}provider:/);
   assert.match(replacement, /syncLog\.create/);
   assert.match(replacement, /status: "SUCCESS"/);
   assert.match(replacement, /detectRoomReservationConflicts/);

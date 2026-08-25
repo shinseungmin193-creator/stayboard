@@ -119,6 +119,7 @@ export async function syncCalendarSource(calendarSourceId: string, signal?: Abor
         provider: source.provider,
         reservations,
         observedUids,
+        fullyParsed: parsed.issues.length === 0,
         unknownEventDetails,
         eventDiagnostics: eventDiagnostics as unknown as Prisma.InputJsonValue,
         eventCounts,

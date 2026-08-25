@@ -85,23 +85,26 @@ test("최근 RUNNING 로그만 실제 동기화 중으로 판정한다", () => {
   assert.equal(isCalendarSourceSyncRunning(null, now, 30 * 60 * 1000), false);
 });
 
-test("삭제 트랜잭션은 충돌과 예약·로그를 순서대로 정리하고 청소 작업은 연결만 해제한다", () => {
+test("삭제 트랜잭션은 공통 source-scoped 제거 정책으로 파생 데이터를 정리한다", () => {
   const repository = readFileSync("src/features/calendar-sources/calendar-source.repository.ts", "utf8");
+  const removal = readFileSync("src/features/calendar-sync/infrastructure/calendar-source-reservation-removal.ts", "utf8");
   const start = repository.indexOf("export async function deleteCalendarSourceTransaction");
   const end = repository.indexOf("export function findCalendarRoom", start);
   const deletion = repository.slice(start, end);
   const steps = [
     "tx.calendarSource.update",
-    "tx.reservationConflict.deleteMany",
-    "tx.cleaningTask.updateMany",
-    "tx.reservation.deleteMany",
+    "removeCalendarSourceReservations",
     "tx.syncLog.deleteMany",
     "tx.calendarSource.delete",
     "tx.auditLog.create",
   ].map((step) => deletion.indexOf(step));
   assert.ok(steps.every((position) => position >= 0));
   assert.deepEqual([...steps].sort((a, b) => a - b), steps);
-  assert.match(deletion, /data: \{ reservationId: null \}/);
+  assert.match(deletion, /removeCalendarSourceReservations\(tx, \{ calendarSourceId: source\.id \}\)/);
+  assert.match(removal, /reservationConflict\.deleteMany/);
+  assert.match(removal, /cleaningTask\.deleteMany/);
+  assert.match(removal, /status: "CANCELLED", reservationId: null/);
+  assert.match(removal, /calendarSourceId: input\.calendarSourceId/);
   assert.match(deletion, /action: "CALENDAR_SOURCE_DELETED"/);
   assert.doesNotMatch(deletion, /calendarUrl/);
 });

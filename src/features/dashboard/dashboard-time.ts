@@ -1,4 +1,11 @@
 import { DASHBOARD_TIMEZONE } from "./dashboard.constants";
-function getDashboardDateParts(now: Date) { const parts = new Intl.DateTimeFormat("en", { timeZone: DASHBOARD_TIMEZONE, year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(now); const part = (type: Intl.DateTimeFormatPartTypes) => parts.find((item) => item.type === type)?.value; const year = part("year"); const month = part("month"); const day = part("day"); if (!year || !month || !day) throw new Error("대시보드 날짜 경계를 계산할 수 없습니다."); return { year, month, day }; }
-export function getDashboardDateInput(now: Date): string { const { year, month, day } = getDashboardDateParts(now); return `${year}-${month}-${day}`; }
-export function getDashboardTodayRange(now: Date): { start: Date; end: Date } { const start = new Date(`${getDashboardDateInput(now)}T00:00:00+09:00`); return { start, end: new Date(start.getTime() + 24 * 60 * 60 * 1000) }; }
+import { getZonedDayRange } from "../../lib/zoned-date";
+
+export function getDashboardDateInput(now: Date): string {
+  return getZonedDayRange(now, DASHBOARD_TIMEZONE).dateInput;
+}
+
+export function getDashboardTodayRange(now: Date): { start: Date; end: Date } {
+  const { start, end } = getZonedDayRange(now, DASHBOARD_TIMEZONE);
+  return { start, end };
+}

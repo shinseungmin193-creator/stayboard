@@ -15,10 +15,11 @@ import { parseCleaningDate } from "../domain/cleaning-date";
 import { CLEANING_LIST_STATUSES, CLEANING_SECTIONS, type CleaningSection } from "../domain/cleaning-meta";
 import { classifyCleaningPriority } from "../domain/cleaning-priority";
 import { getCleaningPhotoStorage } from "../storage/local-file-storage-provider";
+import { buildOperationalReservationWhere } from "@/features/reservations/operational-reservation-where";
+import { buildOperationalCleaningTaskWhere, isCleaningTaskAlignedWithReservation } from "./cleaning-task-query";
 
 const SECTION_PAGE_SIZE = 20;
 const SECTION_PREVIEW_SIZE = 8;
-const ACTIVE_RESERVATION_STATUSES = ["CONFIRMED", "TENTATIVE"] as const;
 
 async function resolveCleaningTimeZone(context: AccessContext, filters: CleaningFilters) {
   const roomWhere = roomScopeWhere(context.scope);
@@ -67,12 +68,12 @@ export async function listCleaningPage(context: AccessContext, filters: Cleaning
   const timeZone = await resolveCleaningTimeZone(context, filters);
   const { dateInput, start, end } = parseCleaningDate(filters.date, new Date(), timeZone);
   const sameDayCheckIn: Prisma.ReservationWhereInput = {
-    status: { in: [...ACTIVE_RESERVATION_STATUSES] },
+    ...buildOperationalReservationWhere(),
     startDate: { gte: start, lt: end },
   };
   const sharedAnd: Prisma.CleaningTaskWhereInput[] = [
     scopeRoomWhere ? { room: { is: scopeRoomWhere } } : {},
-    { scheduledDate: { gte: start, lt: end } },
+    { scheduledDate: { gt: start, lte: end } },
     filters.companyId ? { companyId: filters.companyId } : {},
     filters.propertyId ? { propertyId: filters.propertyId } : {},
     filters.roomId ? { roomId: filters.roomId } : {},
@@ -87,18 +88,25 @@ export async function listCleaningPage(context: AccessContext, filters: Cleaning
     room: { is: { reservations: priority === "urgent" ? { some: sameDayCheckIn } : { none: sameDayCheckIn } } },
   });
   const visibleStatus = statusWhere(filters.status);
+  const operationalOrCompleted: Prisma.CleaningTaskWhereInput = {
+    OR: [
+      { status: "COMPLETED" },
+      buildOperationalCleaningTaskWhere({ start, end, roomWhere: scopeRoomWhere }),
+    ],
+  };
   const sectionWhere = (section: CleaningSection): Prisma.CleaningTaskWhereInput => ({
     AND: [
       ...sharedAnd,
       visibleStatus,
       { status: { in: [...CLEANING_LIST_STATUSES] } },
+      operationalOrCompleted,
       priorityWhere(section),
       filters.priority && filters.priority !== section ? { id: "__hidden_section__" } : {},
     ],
   });
   const summaryBase = { AND: sharedAnd } satisfies Prisma.CleaningTaskWhereInput;
 
-  const [companies, rooms, memberships, urgentCount, flexibleCount, completedCount, unassignedCount] = await Promise.all([
+  const [companies, rooms, memberships, summaryTasks, completedCount] = await Promise.all([
     prisma.company.findMany({
       where: { isActive: true, ...(companyIds ? { id: { in: [...companyIds] } } : {}) },
       select: { id: true, name: true },
@@ -123,11 +131,34 @@ export async function listCleaningPage(context: AccessContext, filters: Cleaning
       },
       orderBy: { user: { name: "asc" } },
     }),
-    prisma.cleaningTask.count({ where: { AND: [summaryBase, { status: { in: ["PENDING", "IN_PROGRESS"] } }, priorityWhere("urgent")] } }),
-    prisma.cleaningTask.count({ where: { AND: [summaryBase, { status: { in: ["PENDING", "IN_PROGRESS"] } }, priorityWhere("flexible")] } }),
+    prisma.cleaningTask.findMany({
+      where: { AND: [summaryBase, buildOperationalCleaningTaskWhere({ start, end, roomWhere: scopeRoomWhere })] },
+      select: {
+        scheduledDate: true,
+        status: true,
+        assignedToId: true,
+        assigneeName: true,
+        reservation: { select: { endDate: true } },
+        room: { select: { reservations: { where: sameDayCheckIn, select: { startDate: true } } } },
+      },
+    }),
     prisma.cleaningTask.count({ where: { AND: [summaryBase, { status: "COMPLETED" }] } }),
-    prisma.cleaningTask.count({ where: { AND: [summaryBase, { status: "PENDING", assignedToId: null, assigneeName: null }] } }),
   ]);
+
+  let urgentCount = 0;
+  let flexibleCount = 0;
+  let unassignedCount = 0;
+  for (const task of summaryTasks.filter(isCleaningTaskAlignedWithReservation)) {
+    const priority = classifyCleaningPriority(
+      task.scheduledDate,
+      task.room.reservations.map((reservation) => reservation.startDate),
+      start,
+      end,
+    );
+    if (priority === "urgent") urgentCount += 1;
+    else if (priority === "flexible") flexibleCount += 1;
+    if (task.status === "PENDING" && !task.assignedToId && !task.assigneeName) unassignedCount += 1;
+  }
 
   const taskSelect = {
     id: true,

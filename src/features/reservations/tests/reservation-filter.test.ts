@@ -106,7 +106,7 @@ test("체크아웃 전용 Prisma 조회는 일반 목록의 과거 제외 정책
   const activeWhere = readFileSync("src/features/reservations/active-reservation-where.ts", "utf8");
   const dashboard = readFileSync("src/app/page.tsx", "utf8");
   assert.match(activeWhere, /filters\.dateMode === "checkout"/);
-  assert.match(activeWhere, /\{ gte: filters\.from, lt: filters\.toExclusive \}/);
+  assert.match(activeWhere, /\{ gt: filters\.from, lte: filters\.toExclusive \}/);
   assert.match(activeWhere, /const endDateStart = laterDate\(businessDateStart, requestedEndDateStart\)/);
   assert.match(dashboard, /\/reservations\?mode=checkout&date=\$\{today\}/);
 });
@@ -208,18 +208,20 @@ test("예약 상태와 빠른 필터 UI에는 운영 중인 예약 조건만 노
 test("목록과 결과 개수는 동일한 활성 예약 서버 조건을 사용한다", () => {
   const repository = readFileSync("src/features/reservations/reservation.repository.ts", "utf8");
   const activeWhere = readFileSync("src/features/reservations/active-reservation-where.ts", "utf8");
+  const operationalWhere = readFileSync("src/features/reservations/operational-reservation-where.ts", "utf8");
   assert.match(repository, /const where = buildActiveReservationWhere\(filters\)/);
   assert.match(repository, /prisma\.reservation\.count\(\{ where \}\)/);
-  assert.match(activeWhere, /status: \{ in: \[\.\.\.ACTIVE_OTA_RESERVATION_STATUSES\] \}/);
-  assert.match(activeWhere, /endDate: \{ gte: start \}/);
-  assert.match(activeWhere, /calendarSource: \{ is: \{ isActive: true \} \}/);
+  assert.match(activeWhere, /buildOperationalReservationWhere/);
+  assert.match(operationalWhere, /status: \{ in: \[\.\.\.ACTIVE_OTA_RESERVATION_STATUSES\] \}/);
+  assert.match(activeWhere, /endDate: \{ gt: start \}/);
+  assert.match(operationalWhere, /calendarSource: \{ is: \{ isActive: true \} \}/);
   assert.match(activeWhere, /\.\.\.\(filters\.propertyId \? \{ propertyId: filters\.propertyId \} : \{\}\)/);
   assert.match(activeWhere, /\.\.\.\(filters\.roomId \? \{ roomId: filters\.roomId \} : \{\}\)/);
   assert.match(activeWhere, /const endDateStart = laterDate\(businessDateStart, requestedEndDateStart\)/);
   assert.doesNotMatch(activeWhere, /property: filters\.companyIds/);
 });
 
-test("존재하지 않는 현재성 필드 대신 완전 파싱·관찰 UID·실제 겹침으로만 stale 취소한다", () => {
+test("존재하지 않는 현재성 필드 대신 완전 파싱·관찰 UID로 source 예약을 reconciliation 한다", () => {
   const paths = [
     "prisma/schema.prisma",
     "src/features/reservations/active-reservation-where.ts",
@@ -231,8 +233,8 @@ test("존재하지 않는 현재성 필드 대신 완전 파싱·관찰 UID·실
   const conflictRepository = readFileSync(paths[2], "utf8");
   const classificationSource = readFileSync("src/features/calendar-sync/domain/classify-reservations.ts", "utf8");
   assert.match(conflictRepository, /calendarSource: \{ is: \{ isActive: true \} \}/);
-  assert.match(syncSource, /classification\.staleCancellationIds/);
-  assert.match(syncSource, /fullyParsed: input\.eventCounts\.parsedEventCount > 0 && input\.eventCounts\.failedEventCount === 0/);
+  assert.match(syncSource, /classification\.missingDeletionIds/);
+  assert.match(syncSource, /fullyParsed: input\.fullyParsed/);
   assert.match(classificationSource, /reconciliation\.observedUids\.has\(reservation\.rawUid\)/);
-  assert.match(classificationSource, /activeIncoming\.some\(\(candidate\) => overlaps\(reservation, candidate\)\)/);
+  assert.match(classificationSource, /result\.missingDeletionIds\.push\(reservation\.id\)/);
 });

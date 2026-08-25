@@ -80,6 +80,18 @@ test("대시보드 역할과 동기화 조회는 effectiveRole 권한을 기준�
   assert.match(repository, /includeSyncFailures\s*\? prisma\.syncLog\.findFirst/);
 });
 
+test("체크인·체크아웃과 청소 합계는 동일한 운영 예약·영업일 경계를 사용한다", () => {
+  const dashboard = readFileSync("src/features/dashboard/dashboard.repository.ts", "utf8");
+  const cleaning = readFileSync("src/features/cleaning/server/cleaning-dashboard.repository.ts", "utf8");
+  const cleaningWhere = readFileSync("src/features/cleaning/server/cleaning-task-query.ts", "utf8");
+  assert.match(dashboard, /roomOverview\.operationalSchedule\.todayCheckIns\.length/);
+  assert.match(dashboard, /roomOverview\.operationalSchedule\.todayCheckOuts\.length/);
+  assert.match(cleaning, /buildOperationalCleaningTaskWhere/);
+  assert.match(cleaning, /isCleaningTaskAlignedWithReservation/);
+  assert.match(cleaningWhere, /scheduledDate: \{ gt: input\.start, lte: input\.end \}/);
+  assert.match(cleaningWhere, /reservation: \{[\s\S]*buildOperationalReservationWhere/);
+});
+
 test("청소 관리 카드는 기존 청소 합계와 경로를 재사용하고 모바일은 2열을 유지한다", () => {
   const page = readFileSync("src/app/page.tsx", "utf8");
   assert.match(page, /"cleaning-management": \{[\s\S]*count: summary\.priorityCleaning \+ summary\.flexibleCleaning/);

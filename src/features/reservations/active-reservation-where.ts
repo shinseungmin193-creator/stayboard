@@ -4,27 +4,24 @@ import { roomScopeWhere } from "@/features/access-control";
 import { getDashboardTodayRange } from "@/features/dashboard/dashboard-time";
 import type { Prisma } from "@/lib/generated/prisma/client";
 import { CALENDAR_PROVIDER_TYPES } from "@/providers/calendar";
-import { ACTIVE_OTA_RESERVATION_STATUSES } from "./reservation.constants";
+import { buildOperationalReservationWhere } from "./operational-reservation-where";
 import { isActiveReservationDisplayStatus, type ActiveReservationDisplayStatus } from "./reservation-display-status";
 import type { ReservationFilters } from "./reservation.types";
 
 function buildActiveReservationStateWhere(): Prisma.ReservationWhereInput {
-  return {
-    status: { in: [...ACTIVE_OTA_RESERVATION_STATUSES] },
-    calendarSource: { is: { isActive: true } },
-  };
+  return buildOperationalReservationWhere();
 }
 
 export function buildActiveReservationBaseWhere(businessDate: Date): Prisma.ReservationWhereInput {
   const { start } = getDashboardTodayRange(businessDate);
-  return { ...buildActiveReservationStateWhere(), endDate: { gte: start } };
+  return { ...buildActiveReservationStateWhere(), endDate: { gt: start } };
 }
 
 function displayStatusWhere(status: ActiveReservationDisplayStatus, businessDate: Date): Prisma.ReservationWhereInput {
   const { start, end } = getDashboardTodayRange(businessDate);
   if (status === "CHECK_IN_TODAY") return { startDate: { gte: start, lt: end } };
-  if (status === "CHECK_OUT_TODAY") return { startDate: { lt: start }, endDate: { gte: start, lt: end } };
-  if (status === "STAYING") return { startDate: { lt: start }, endDate: { gte: end } };
+  if (status === "CHECK_OUT_TODAY") return { startDate: { lt: start }, endDate: { gt: start, lte: end } };
+  if (status === "STAYING") return { startDate: { lt: start }, endDate: { gt: end } };
   return { startDate: { gte: end } };
 }
 
@@ -48,12 +45,12 @@ export function buildActiveReservationWhere(filters: ReservationFilters): Prisma
     : businessDateStart;
   const endDateStart = laterDate(businessDateStart, requestedEndDateStart);
   const endDate: Prisma.DateTimeFilter | undefined = filters.dateMode === "checkout"
-    ? { gte: filters.from, lt: filters.toExclusive }
+    ? { gt: filters.from, lte: filters.toExclusive }
     : filters.dateMode === "checkin"
       ? undefined
       : filters.dateField === "checkOut"
-        ? { gte: endDateStart, lt: filters.toExclusive }
-        : { gte: endDateStart };
+        ? { gt: endDateStart, lte: filters.toExclusive }
+        : { gt: endDateStart };
   const dateWhere: Prisma.ReservationWhereInput = filters.dateMode === "checkin"
     ? { startDate: { gte: filters.from, lt: filters.toExclusive } }
     : filters.dateMode === "checkout"

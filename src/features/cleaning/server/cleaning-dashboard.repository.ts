@@ -4,6 +4,8 @@ import type { AccessScope } from "@/features/access-control";
 import { roomScopeWhere } from "@/features/access-control";
 import { prisma } from "@/lib/prisma";
 import { classifyCleaningPriority } from "../domain/cleaning-priority";
+import { buildOperationalCleaningTaskWhere, isCleaningTaskAlignedWithReservation } from "./cleaning-task-query";
+import { buildOperationalReservationWhere } from "@/features/reservations/operational-reservation-where";
 
 export async function getCleaningDashboardSummary(input: {
   start: Date;
@@ -15,14 +17,11 @@ export async function getCleaningDashboardSummary(input: {
     ? { property: { companyId: { in: [...input.companyIds] } } }
     : {});
   const tasks = await prisma.cleaningTask.findMany({
-    where: {
-      status: { in: ["PENDING", "IN_PROGRESS"] },
-      scheduledDate: { gte: input.start, lt: input.end },
-      room: { is: scopedRoom },
-    },
+    where: buildOperationalCleaningTaskWhere({ start: input.start, end: input.end, roomWhere: scopedRoom }),
     select: {
       id: true,
       scheduledDate: true,
+      reservation: { select: { endDate: true } },
       room: {
         select: {
           id: true,
@@ -30,7 +29,7 @@ export async function getCleaningDashboardSummary(input: {
           property: { select: { name: true } },
           reservations: {
             where: {
-              status: { in: ["CONFIRMED", "TENTATIVE"] },
+              ...buildOperationalReservationWhere(),
               startDate: { gte: input.start, lt: input.end },
             },
             select: { startDate: true },
@@ -43,7 +42,7 @@ export async function getCleaningDashboardSummary(input: {
 
   const priorityRooms: Array<{ id: string; name: string; propertyName: string }> = [];
   const flexibleRooms: Array<{ id: string; name: string; propertyName: string }> = [];
-  for (const task of tasks) {
+  for (const task of tasks.filter(isCleaningTaskAlignedWithReservation)) {
     const item = { id: task.room.id, name: task.room.name, propertyName: task.room.property.name };
     const priority = classifyCleaningPriority(
       task.scheduledDate,

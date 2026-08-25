@@ -20,6 +20,7 @@ import { syncCleaningTasksForCalendarSource } from "@/features/cleaning/server/c
 import { detectRoomReservationConflicts } from "@/features/reservation-conflicts/infrastructure/reservation-conflict.repository";
 import { maskCalendarUrl } from "./calendar-source-url";
 import { planCalendarSourceReservationReplacement } from "./domain/calendar-source-url-replacement";
+import { removeCalendarSourceReservations } from "@/features/calendar-sync/infrastructure/calendar-source-reservation-removal";
 
 export interface CalendarSourceSyncState {
   sourceId: string;
@@ -188,23 +189,8 @@ export async function deleteCalendarSourceTransaction(input: {
     }
 
     await tx.calendarSource.update({ where: { id: source.id }, data: { isActive: false } });
-    const reservations = await tx.reservation.findMany({ where: { calendarSourceId: source.id }, select: { id: true } });
-    const reservationIds = reservations.map((reservation) => reservation.id);
-    const [conflictCount, syncLogCount, cleaningTaskCount] = await Promise.all([
-      reservationIds.length
-        ? tx.reservationConflict.count({ where: { OR: [{ reservationAId: { in: reservationIds } }, { reservationBId: { in: reservationIds } }] } })
-        : Promise.resolve(0),
-      tx.syncLog.count({ where: { calendarSourceId: source.id } }),
-      reservationIds.length
-        ? tx.cleaningTask.count({ where: { reservationId: { in: reservationIds } } })
-        : Promise.resolve(0),
-    ]);
-
-    if (reservationIds.length) {
-      await tx.reservationConflict.deleteMany({ where: { OR: [{ reservationAId: { in: reservationIds } }, { reservationBId: { in: reservationIds } }] } });
-      await tx.cleaningTask.updateMany({ where: { reservationId: { in: reservationIds } }, data: { reservationId: null } });
-      await tx.reservation.deleteMany({ where: { calendarSourceId: source.id } });
-    }
+    const syncLogCount = await tx.syncLog.count({ where: { calendarSourceId: source.id } });
+    const removed = await removeCalendarSourceReservations(tx, { calendarSourceId: source.id });
     await tx.syncLog.deleteMany({ where: { calendarSourceId: source.id } });
     await tx.calendarSource.delete({ where: { id: source.id } });
     await tx.auditLog.create({
@@ -221,10 +207,13 @@ export async function deleteCalendarSourceTransaction(input: {
           propertyName: source.room.property.name,
           provider: source.provider,
           sourceName: source.name,
-          reservationCount: reservations.length,
-          conflictCount,
+          reservationCount: removed.reservationCount,
+          conflictCount: removed.conflictCount,
           syncLogCount,
-          detachedCleaningTaskCount: cleaningTaskCount,
+          cleaningTaskCount: removed.cleaningTaskCount,
+          deletedCleaningTaskCount: removed.deletedCleaningTaskCount,
+          cancelledCleaningTaskCount: removed.cancelledCleaningTaskCount,
+          detachedCleaningTaskCount: removed.detachedCleaningTaskCount,
         },
       },
     });
@@ -233,11 +222,11 @@ export async function deleteCalendarSourceTransaction(input: {
       calendarSourceId: source.id,
       sourceName: source.name,
       provider: source.provider,
-      reservationCount: reservations.length,
-      conflictCount,
+      reservationCount: removed.reservationCount,
+      conflictCount: removed.conflictCount,
       syncLogCount,
-      cleaningTaskCount,
-      detachedCleaningTaskCount: cleaningTaskCount,
+      cleaningTaskCount: removed.cleaningTaskCount,
+      detachedCleaningTaskCount: removed.detachedCleaningTaskCount,
     };
   });
 }
@@ -301,37 +290,10 @@ export async function replaceCalendarSourceUrlTransaction(input: {
       select: { id: true, calendarSourceId: true },
     });
     const replacement = planCalendarSourceReservationReplacement(source.id, existingReservations, input.reservations);
-    const [removedConflictCount, detachedCleaningTaskCount] = replacement.removeReservationIds.length
-      ? await Promise.all([
-          tx.reservationConflict.count({
-            where: {
-              OR: [
-                { reservationAId: { in: replacement.removeReservationIds } },
-                { reservationBId: { in: replacement.removeReservationIds } },
-              ],
-            },
-          }),
-          tx.cleaningTask.count({ where: { reservationId: { in: replacement.removeReservationIds } } }),
-        ])
-      : [0, 0];
-
-    if (replacement.removeReservationIds.length) {
-      await tx.reservationConflict.deleteMany({
-        where: {
-          OR: [
-            { reservationAId: { in: replacement.removeReservationIds } },
-            { reservationBId: { in: replacement.removeReservationIds } },
-          ],
-        },
-      });
-      await tx.cleaningTask.updateMany({
-        where: { reservationId: { in: replacement.removeReservationIds } },
-        data: { reservationId: null },
-      });
-      await tx.reservation.deleteMany({
-        where: { id: { in: replacement.removeReservationIds }, calendarSourceId: source.id },
-      });
-    }
+    const removed = await removeCalendarSourceReservations(tx, {
+      calendarSourceId: source.id,
+      reservationIds: replacement.removeReservationIds,
+    });
 
     const updated = await tx.calendarSource.update({
       where: { id: source.id },
@@ -417,10 +379,12 @@ export async function replaceCalendarSourceUrlTransaction(input: {
           provider: source.provider,
           previousCalendarUrl: maskCalendarUrl(source.calendarUrl),
           nextCalendarUrl: maskCalendarUrl(input.calendarUrl),
-          removedReservationCount: replacement.removeReservationIds.length,
+          removedReservationCount: removed.reservationCount,
           createdReservationCount: created.count,
-          removedConflictCount,
-          detachedCleaningTaskCount,
+          removedConflictCount: removed.conflictCount,
+          deletedCleaningTaskCount: removed.deletedCleaningTaskCount,
+          cancelledCleaningTaskCount: removed.cancelledCleaningTaskCount,
+          detachedCleaningTaskCount: removed.detachedCleaningTaskCount,
           syncLogId: syncLog.id,
         },
       },
@@ -428,7 +392,7 @@ export async function replaceCalendarSourceUrlTransaction(input: {
     return {
       ...updated,
       warning: input.warning,
-      removedReservationCount: replacement.removeReservationIds.length,
+      removedReservationCount: removed.reservationCount,
       createdReservationCount: created.count,
       fetchedCount: input.fetchedCount,
       ...conflicts,

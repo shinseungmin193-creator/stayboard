@@ -211,7 +211,7 @@ test("BLOCKED·UNKNOWN·누락 UID는 명시적 STATUS:CANCELLED 없이 기존 �
   const unknown = existing({ id: "unknown", rawUid: "unknown", providerReservationId: "unknown" });
   const missing = existing({ id: "missing", rawUid: "missing", providerReservationId: "missing" });
   const result = classifyReservations([blocked, unknown, missing], []);
-  assert.deepEqual(result, { create: [], update: [], unchanged: [], staleCancellationIds: [] });
+  assert.deepEqual(result, { create: [], update: [], unchanged: [], missingDeletionIds: [] });
 });
 
 test("캘린더 전체 파싱 실패 시 동기화가 중단되어 기존 예약을 보존한다", () => {

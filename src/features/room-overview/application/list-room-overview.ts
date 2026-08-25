@@ -16,8 +16,8 @@ export async function listRoomOverview(filters: RoomOverviewFilters, now = new D
   const calendarEnd = addDays(calendarStart, calendarRangeDays);
   const queryEnd = calendarEnd > rangeEnd ? calendarEnd : rangeEnd;
   const [rows, conflicts] = await Promise.all([
-    findRoomOverviewData({ propertyId: filters.propertyId, operationalStatus: filters.operationalStatus, companyIds: filters.companyIds, accessScope: filters.accessScope, from: calendarStart, toExclusive: queryEnd }),
-    findUpcomingRoomOverviewConflicts({ propertyId: filters.propertyId, companyIds: filters.companyIds, accessScope: filters.accessScope, from: calendarStart, toExclusive: queryEnd }),
+    findRoomOverviewData({ propertyId: filters.propertyId, operationalStatus: filters.operationalStatus, companyIds: filters.companyIds, accessScope: filters.accessScope, from: calendarStart, todayStart, toExclusive: queryEnd }),
+    findUpcomingRoomOverviewConflicts({ propertyId: filters.propertyId, companyIds: filters.companyIds, accessScope: filters.accessScope, from: calendarStart, todayStart, toExclusive: queryEnd }),
   ]);
 
   const cards = sortRoomOverviewCards(rows.map((row): RoomOverviewCard => {

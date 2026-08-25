@@ -167,11 +167,13 @@ test("격리 검증은 일반 sync persistence보다 먼저 실행되고 URL 교
   const syncSource = readFileSync("src/features/calendar-sync/application/sync-calendar-source.ts", "utf8");
   assert.ok(syncSource.indexOf("validateCalendarFeedTransition") < syncSource.indexOf("persistReservationSync({"));
   const repository = readFileSync("src/features/calendar-sources/calendar-source.repository.ts", "utf8");
+  const removal = readFileSync("src/features/calendar-sync/infrastructure/calendar-source-reservation-removal.ts", "utf8");
   const start = repository.indexOf("export async function replaceCalendarSourceUrlTransaction");
   const replacement = repository.slice(start, repository.indexOf("export function setCalendarSourceActive", start));
   assert.match(replacement, /calendarSource\.update/);
   assert.doesNotMatch(replacement, /calendarSource\.(delete|create)/);
-  assert.match(replacement, /reservation\.deleteMany/);
+  assert.match(replacement, /removeCalendarSourceReservations/);
+  assert.match(removal, /reservation\.deleteMany/);
   assert.match(replacement, /calendarSourceId: source\.id/);
   assert.match(replacement, /reservation\.createMany/);
   assert.match(replacement, /syncLog\.create/);

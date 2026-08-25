@@ -57,3 +57,13 @@ export function shiftDateInput(dateInput: string, days: number) {
   current.setUTCDate(current.getUTCDate() + days);
   return current.toISOString().slice(0, 10);
 }
+
+export function getZonedDayRange(now = new Date(), timeZone = DEFAULT_TIMEZONE) {
+  const dateInput = getZonedDateInput(now, timeZone);
+  return {
+    dateInput,
+    start: getZonedMidnight(dateInput, timeZone),
+    end: getZonedMidnight(shiftDateInput(dateInput, 1), timeZone),
+    timeZone: resolveTimeZone(timeZone),
+  };
+}
