@@ -32,10 +32,17 @@ test("선택 월은 현재 월과 무관하게 Asia/Tokyo 월 경계를 만든�
 });
 
 test("Prisma 조회 조건은 현재 날짜가 아닌 선택 월 overlap 범위를 사용한다", () => {
-  assert.deepEqual(buildRoomStatusReservationWhere(july), {
-    status: { in: ["CONFIRMED", "TENTATIVE"] },
-    startDate: { lt: july.rangeEnd },
-    endDate: { gt: july.rangeStart },
+  const where = buildRoomStatusReservationWhere(july);
+  assert.deepEqual(where.status, { in: ["CONFIRMED", "TENTATIVE"] });
+  assert.deepEqual(where.provider, { in: ["AIRBNB", "BOOKING", "AGODA"] });
+  assert.deepEqual(where.calendarSource, { is: { isActive: true } });
+  assert.deepEqual(where.startDate, { lt: july.rangeEnd });
+  assert.deepEqual(where.endDate, { gt: july.rangeStart });
+  assert.deepEqual(where.room, {
+    is: {
+      isActive: true,
+      property: { isActive: true, company: { isActive: true } },
+    },
   });
 });
 
@@ -62,6 +69,8 @@ test("취소 예약은 제외하고 OTA Provider 모두 동일한 overlap 규칙
     assert.equal(isReservationVisibleInRoomStatusRange(reservation("2026-07-10T00:00:00+09:00", "2026-07-12T00:00:00+09:00", provider), july), true);
   }
   assert.equal(isReservationVisibleInRoomStatusRange(reservation("2026-07-10T00:00:00+09:00", "2026-07-12T00:00:00+09:00", "AIRBNB", "CANCELLED"), july), false);
+  assert.equal(isReservationVisibleInRoomStatusRange(reservation("2026-07-10T00:00:00+09:00", "2026-07-12T00:00:00+09:00", "EXPEDIA"), july), false);
+  assert.equal(isReservationVisibleInRoomStatusRange(reservation("2026-07-10T00:00:00+09:00", "2026-07-12T00:00:00+09:00", "VRBO"), july), false);
 });
 
 test("월 URL과 서버 repository가 같은 명시적 범위를 사용한다", () => {

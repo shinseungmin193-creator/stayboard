@@ -16,7 +16,11 @@ import { CLEANING_LIST_STATUSES, CLEANING_SECTIONS, type CleaningSection } from 
 import { classifyCleaningPriority } from "../domain/cleaning-priority";
 import { getCleaningPhotoStorage } from "../storage/local-file-storage-provider";
 import { buildOperationalReservationWhere } from "@/features/reservations/operational-reservation-where";
-import { buildOperationalCleaningTaskWhere, isCleaningTaskAlignedWithReservation } from "./cleaning-task-query";
+import {
+  buildCheckoutCleaningTaskWhere,
+  DASHBOARD_CLEANING_TASK_STATUSES,
+  isCleaningTaskAlignedWithReservation,
+} from "./cleaning-task-query";
 
 const SECTION_PAGE_SIZE = 20;
 const SECTION_PREVIEW_SIZE = 8;
@@ -88,25 +92,25 @@ export async function listCleaningPage(context: AccessContext, filters: Cleaning
     room: { is: { reservations: priority === "urgent" ? { some: sameDayCheckIn } : { none: sameDayCheckIn } } },
   });
   const visibleStatus = statusWhere(filters.status);
-  const operationalOrCompleted: Prisma.CleaningTaskWhereInput = {
-    OR: [
-      { status: "COMPLETED" },
-      buildOperationalCleaningTaskWhere({ start, end, roomWhere: scopeRoomWhere }),
-    ],
-  };
+  const checkoutCleaningTasks = buildCheckoutCleaningTaskWhere({
+    start,
+    end,
+    roomWhere: scopeRoomWhere,
+    statuses: DASHBOARD_CLEANING_TASK_STATUSES,
+  });
   const sectionWhere = (section: CleaningSection): Prisma.CleaningTaskWhereInput => ({
     AND: [
       ...sharedAnd,
       visibleStatus,
       { status: { in: [...CLEANING_LIST_STATUSES] } },
-      operationalOrCompleted,
+      checkoutCleaningTasks,
       priorityWhere(section),
       filters.priority && filters.priority !== section ? { id: "__hidden_section__" } : {},
     ],
   });
   const summaryBase = { AND: sharedAnd } satisfies Prisma.CleaningTaskWhereInput;
 
-  const [companies, rooms, memberships, summaryTasks, completedCount] = await Promise.all([
+  const [companies, rooms, memberships, summaryTasks] = await Promise.all([
     prisma.company.findMany({
       where: { isActive: true, ...(companyIds ? { id: { in: [...companyIds] } } : {}) },
       select: { id: true, name: true },
@@ -132,7 +136,7 @@ export async function listCleaningPage(context: AccessContext, filters: Cleaning
       orderBy: { user: { name: "asc" } },
     }),
     prisma.cleaningTask.findMany({
-      where: { AND: [summaryBase, buildOperationalCleaningTaskWhere({ start, end, roomWhere: scopeRoomWhere })] },
+      where: { AND: [summaryBase, checkoutCleaningTasks] },
       select: {
         scheduledDate: true,
         status: true,
@@ -142,13 +146,17 @@ export async function listCleaningPage(context: AccessContext, filters: Cleaning
         room: { select: { reservations: { where: sameDayCheckIn, select: { startDate: true } } } },
       },
     }),
-    prisma.cleaningTask.count({ where: { AND: [summaryBase, { status: "COMPLETED" }] } }),
   ]);
 
   let urgentCount = 0;
   let flexibleCount = 0;
   let unassignedCount = 0;
+  let completedCount = 0;
   for (const task of summaryTasks.filter(isCleaningTaskAlignedWithReservation)) {
+    if (task.status === "COMPLETED") {
+      completedCount += 1;
+      continue;
+    }
     const priority = classifyCleaningPriority(
       task.scheduledDate,
       task.room.reservations.map((reservation) => reservation.startDate),

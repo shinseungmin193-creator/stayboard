@@ -504,7 +504,7 @@ model CleaningTask {
   company         Company            @relation(fields: [companyId], references: [id], onDelete: Restrict)
   property        Property           @relation(fields: [propertyId], references: [id], onDelete: Restrict)
   room            Room               @relation(fields: [roomId], references: [id], onDelete: Restrict)
-  reservation     Reservation?       @relation(fields: [reservationId], references: [id], onDelete: SetNull)
+  reservation     Reservation?       @relation(fields: [reservationId], references: [id], onDelete: Restrict)
   assignedTo      User?              @relation("CleaningTaskAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
   assignedBy      User?              @relation("CleaningTaskAssignedBy", fields: [assignedById], references: [id], onDelete: SetNull)
   startedBy       User?              @relation("CleaningTaskStartedBy", fields: [startedById], references: [id], onDelete: SetNull)

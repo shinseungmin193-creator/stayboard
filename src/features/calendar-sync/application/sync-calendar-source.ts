@@ -27,12 +27,14 @@ export async function syncCalendarSource(calendarSourceId: string, signal?: Abor
   const lockTarget = await findCalendarSourceForSync(calendarSourceId);
   if (!lockTarget) throw new CalendarSyncError("캘린더 연결을 찾을 수 없습니다.");
   if (!lockTarget.isActive) throw new CalendarSyncError("비활성 캘린더 연결은 동기화할 수 없습니다.");
+  if (!lockTarget.room.isActive || !lockTarget.room.property.isActive || !lockTarget.room.property.company.isActive) throw new CalendarSyncError("비활성 회사·숙소·객실의 캘린더 연결은 동기화할 수 없습니다.");
   if (lockTarget.connectionStatus === "RECONNECT_REQUIRED") throw new CalendarSyncError("Booking.com 캘린더 연결 갱신이 필요합니다. 최신 iCal URL로 변경한 후 다시 동기화해 주세요.");
 
   return withCalendarSourceAdvisoryLock(lockTarget.id, lockTarget.roomId, async () => {
     const source = await findCalendarSourceForSync(calendarSourceId);
     if (!source) throw new CalendarSyncError("캘린더 연결을 찾을 수 없습니다.");
     if (!source.isActive) throw new CalendarSyncError("비활성 캘린더 연결은 동기화할 수 없습니다.");
+    if (!source.room.isActive || !source.room.property.isActive || !source.room.property.company.isActive) throw new CalendarSyncError("비활성 회사·숙소·객실의 캘린더 연결은 동기화할 수 없습니다.");
     if (source.connectionStatus === "RECONNECT_REQUIRED") throw new CalendarSyncError("Booking.com 캘린더 연결 갱신이 필요합니다. 최신 iCal URL로 변경한 후 다시 동기화해 주세요.");
     if (source.roomId !== lockTarget.roomId) throw new CalendarSyncError("캘린더 연결 객실이 변경되었습니다. 다시 시도해 주세요.");
     if (!(new Set<string>(["AIRBNB", "BOOKING", "AGODA"])).has(source.provider)) throw new CalendarSyncError("이 Provider는 아직 예약 동기화를 지원하지 않습니다.");

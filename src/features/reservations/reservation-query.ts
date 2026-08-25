@@ -1,5 +1,4 @@
-import { addDays } from "date-fns";
-import { getDashboardDateInput } from "../dashboard/dashboard-time";
+import { shiftDateInput } from "../../lib/zoned-date";
 
 export const RESERVATION_PRESERVED_QUERY_KEYS = ["propertyId", "roomId", "provider", "status", "dateField"] as const;
 const KOREAN_WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"] as const;
@@ -18,7 +17,7 @@ export function reservationDateRangeLabel(from: string, to: string): string {
 }
 
 export function shiftReservationDateInput(value: string, days: number): string {
-  return getDashboardDateInput(addDays(new Date(`${value}T00:00:00+09:00`), days));
+  return shiftDateInput(value, days);
 }
 
 export function reservationDateHref(query: URLSearchParams, from: string, to: string): string {

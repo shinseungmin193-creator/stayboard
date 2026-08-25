@@ -22,6 +22,7 @@ export function buildReservationConflictValidityWhere(
           propertyId: filters.propertyId,
           property: {
             isActive: true,
+            company: { isActive: true },
             ...(filters.companyIds ? { companyId: { in: [...filters.companyIds] } } : {}),
           },
         },
@@ -53,4 +54,3 @@ export function countActiveReservationConflicts(
     where: buildActiveReservationConflictWhere(filters),
   });
 }
-

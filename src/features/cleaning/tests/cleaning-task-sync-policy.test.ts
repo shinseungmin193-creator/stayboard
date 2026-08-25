@@ -18,6 +18,9 @@ test("예약별 청소 작업은 unique key로 멱등 생성하고 예약 제거
   const removal = readFileSync("src/features/calendar-sync/infrastructure/calendar-source-reservation-removal.ts", "utf8");
   assert.match(schema, /@@unique\(\[reservationId, roomId\]\)/);
   assert.match(sync, /createMany\([\s\S]*skipDuplicates: true/);
+  assert.match(sync, /\$executeRaw`/);
+  assert.doesNotMatch(sync, /for \(const reservation of activeReservations\)/);
+  assert.doesNotMatch(sync, /'COMPLETED'::"CleaningTaskStatus"/);
   assert.match(removal, /cleaningTask\.deleteMany/);
   assert.match(removal, /status: "CANCELLED", reservationId: null/);
   assert.doesNotMatch(removal, /reservationId: null[\s\S]{0,120}status: "PENDING"/);

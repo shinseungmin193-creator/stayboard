@@ -57,7 +57,11 @@ export async function getDashboardSummary(
     recentFailureHours: DASHBOARD_RECENT_SYNC_FAILURE_HOURS,
     priorityCleaning: cleaning.priority,
     flexibleCleaning: cleaning.flexible,
+    completedCleaning: cleaning.completed,
+    activeCleaning: cleaning.active,
+    totalCleaning: cleaning.total,
     priorityCleaningRooms: cleaning.priorityRooms,
     flexibleCleaningRooms: cleaning.flexibleRooms,
+    completedCleaningRooms: cleaning.completedRooms,
   };
 }

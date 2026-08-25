@@ -133,13 +133,15 @@ test("현재 조회 날짜는 단일 날짜와 범위를 구분해 표시한다"
 });
 
 test("Booking provider는 예약 목록·객실 현황·월간 캘린더 조회 대상에 포함된다", () => {
+  const policy = readFileSync("src/features/reservations/operational-reservation-where.ts", "utf8");
+  assert.match(policy, /CALENDAR_PROVIDER_TYPES/);
   for (const path of [
     "src/features/reservations/reservation.repository.ts",
     "src/features/room-overview/infrastructure/room-overview.repository.ts",
     "src/features/room-status/room-status.repository.ts",
   ]) {
     const source = readFileSync(path, "utf8");
-    assert.match(source, /CALENDAR_PROVIDER_TYPES/);
+    assert.match(source, /buildOperationalReservationWhere/);
   }
   assert.match(readFileSync("src/providers/calendar/types.ts", "utf8"), /"BOOKING"/);
 });
@@ -189,6 +191,7 @@ test("빠른 날짜 필터는 일본 표준시 기준의 순수 함수로 계산
   const filtered = applyQuickReservationFilter(EMPTY_RESERVATION_FILTERS, "today-check-out", now);
   assert.equal(filtered.dateField, "checkOut");
   assert.equal(filtered.from, "2026-07-27");
+  assert.deepEqual(getReservationDatePresetRange("this-month", new Date("2026-08-31T23:30:00+09:00")), { from: "2026-08-01", to: "2026-08-31" });
 });
 
 test("예약 상태와 빠른 필터 UI에는 운영 중인 예약 조건만 노출한다", () => {
@@ -215,6 +218,8 @@ test("목록과 결과 개수는 동일한 활성 예약 서버 조건을 사용
   assert.match(operationalWhere, /status: \{ in: \[\.\.\.ACTIVE_OTA_RESERVATION_STATUSES\] \}/);
   assert.match(activeWhere, /endDate: \{ gt: start \}/);
   assert.match(operationalWhere, /calendarSource: \{ is: \{ isActive: true \} \}/);
+  assert.match(operationalWhere, /provider: \{ in: \[\.\.\.CALENDAR_PROVIDER_TYPES\] \}/);
+  assert.match(operationalWhere, /room:[\s\S]*isActive: true,[\s\S]*property: \{ isActive: true, company: \{ isActive: true \} \}/);
   assert.match(activeWhere, /\.\.\.\(filters\.propertyId \? \{ propertyId: filters\.propertyId \} : \{\}\)/);
   assert.match(activeWhere, /\.\.\.\(filters\.roomId \? \{ roomId: filters\.roomId \} : \{\}\)/);
   assert.match(activeWhere, /const endDateStart = laterDate\(businessDateStart, requestedEndDateStart\)/);
@@ -232,8 +237,10 @@ test("존재하지 않는 현재성 필드 대신 완전 파싱·관찰 UID로 s
   const syncSource = readFileSync(paths[3], "utf8");
   const conflictRepository = readFileSync(paths[2], "utf8");
   const classificationSource = readFileSync("src/features/calendar-sync/domain/classify-reservations.ts", "utf8");
-  assert.match(conflictRepository, /calendarSource: \{ is: \{ isActive: true \} \}/);
+  assert.match(conflictRepository, /buildOperationalReservationWhere\(\)/);
   assert.match(syncSource, /classification\.missingDeletionIds/);
+  assert.match(syncSource, /UPDATE "Reservation" AS reservation/);
+  assert.doesNotMatch(syncSource, /for \(const item of classification\.update\)/);
   assert.match(syncSource, /fullyParsed: input\.fullyParsed/);
   assert.match(classificationSource, /reconciliation\.observedUids\.has\(reservation\.rawUid\)/);
   assert.match(classificationSource, /result\.missingDeletionIds\.push\(reservation\.id\)/);

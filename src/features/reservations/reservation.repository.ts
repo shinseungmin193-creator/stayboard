@@ -1,11 +1,11 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
-import { ACTIVE_OTA_RESERVATION_STATUSES, RESERVATION_CONFLICT_DETAILS_PAGE_LIMIT, RESERVATION_PAGE_SIZE } from "./reservation.constants";
+import { RESERVATION_CONFLICT_DETAILS_PAGE_LIMIT, RESERVATION_PAGE_SIZE } from "./reservation.constants";
 import type { ReservationFilters, ReservationListItem } from "./reservation.types";
 import { formatRoomDisplayName } from "@/features/rooms/room-display";
 import type { Prisma } from "@/lib/generated/prisma/client";
-import { CALENDAR_PROVIDER_TYPES } from "@/providers/calendar";
 import { buildActiveReservationWhere, buildScopedActiveReservationWhere } from "./active-reservation-where";
+import { buildOperationalReservationWhere } from "./operational-reservation-where";
 
 export async function listReservations(filters: ReservationFilters): Promise<{ items: ReservationListItem[]; totalCount: number; totalPages: number; page: number }> {
   const where = buildActiveReservationWhere(filters);
@@ -48,7 +48,7 @@ export async function listReservations(filters: ReservationFilters): Promise<{ i
     prisma.reservation.count({ where }),
   ]);
   const ids = rows.map((row) => row.id);
-  const conflictWhere: Prisma.ReservationConflictWhereInput = { status: "ACTIVE", OR: [{ reservationAId: { in: ids } }, { reservationBId: { in: ids } }], reservationA: { status: { in: [...ACTIVE_OTA_RESERVATION_STATUSES] }, provider: { in: [...CALENDAR_PROVIDER_TYPES] } }, reservationB: { status: { in: [...ACTIVE_OTA_RESERVATION_STATUSES] }, provider: { in: [...CALENDAR_PROVIDER_TYPES] } } };
+  const conflictWhere: Prisma.ReservationConflictWhereInput = { status: "ACTIVE", OR: [{ reservationAId: { in: ids } }, { reservationBId: { in: ids } }], reservationA: buildOperationalReservationWhere(), reservationB: buildOperationalReservationWhere() };
   const [conflictCounts, conflicts] = ids.length ? await Promise.all([
     prisma.reservationConflict.findMany({ where: conflictWhere, select: { reservationAId: true, reservationBId: true } }),
     prisma.reservationConflict.findMany({ where: conflictWhere, select: { reservationAId: true, reservationBId: true, reservationA: { select: { id: true, guestName: true, startDate: true, endDate: true, provider: true, status: true, calendarSource: { select: { name: true } } } }, reservationB: { select: { id: true, guestName: true, startDate: true, endDate: true, provider: true, status: true, calendarSource: { select: { name: true } } } } }, orderBy: { overlapStart: "asc" }, take: RESERVATION_CONFLICT_DETAILS_PAGE_LIMIT }),

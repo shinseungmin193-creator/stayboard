@@ -76,9 +76,17 @@ export default async function DashboardPage() {
       href: context ? `/cleaning?date=${today}&priority=flexible` : undefined,
       rooms: summary.flexibleCleaningRooms,
     },
+    "completed-cleaning": {
+      label: i18n("cleaning.status.completed"),
+      count: summary.completedCleaning,
+      iconName: "completed-cleaning",
+      iconClassName: "text-emerald-600 dark:text-emerald-400",
+      href: context ? `/cleaning?date=${today}&status=COMPLETED` : undefined,
+      rooms: summary.completedCleaningRooms,
+    },
     "cleaning-management": {
       label: i18n("cleaning.title"),
-      count: summary.priorityCleaning + summary.flexibleCleaning,
+      count: summary.totalCleaning,
       description: i18n("cleaning.description"),
       iconName: "cleaning-management",
       href: context ? `/cleaning?date=${today}` : undefined,
@@ -105,7 +113,7 @@ export default async function DashboardPage() {
     <PageHeader eyebrow="OVERVIEW" title={i18n("common.dashboard")} description={i18n("auto.m0071")} action={propertyAction} />
     <section aria-label={i18n("auto.m0072")} className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-3">
       {dashboardCards.map((cardId) => (
-        cardId === "priority-cleaning" || cardId === "flexible-cleaning"
+        cardId === "priority-cleaning" || cardId === "flexible-cleaning" || cardId === "completed-cleaning"
           ? <DashboardCleaningCard key={cardId} data={cards[cardId]} />
           : <StatCard key={cardId} data={cards[cardId]} />
       ))}

@@ -86,13 +86,15 @@ export function buildActiveReservationWhere(filters: ReservationFilters): Prisma
 
   const room = scopedRoomWhere(filters.companyIds, filters.accessScope);
   return {
-    ...buildActiveReservationStateWhere(),
     ...(endDate ? { endDate } : {}),
     ...(filters.propertyId ? { propertyId: filters.propertyId } : {}),
     ...(filters.roomId ? { roomId: filters.roomId } : {}),
     provider: { in: [...(filters.providers?.length ? filters.providers : CALENDAR_PROVIDER_TYPES)] },
-    ...(room ? { room } : {}),
-    ...(conditions.length ? { AND: conditions } : {}),
+    AND: [
+      buildActiveReservationStateWhere(),
+      ...(room ? [{ room: { is: room } }] : []),
+      ...conditions,
+    ],
     ...dateWhere,
   };
 }
@@ -104,8 +106,10 @@ export function buildScopedActiveReservationWhere(input: {
 }): Prisma.ReservationWhereInput {
   const room = scopedRoomWhere(input.companyIds, input.accessScope);
   return {
-    ...buildActiveReservationBaseWhere(input.businessDate),
     provider: { in: [...CALENDAR_PROVIDER_TYPES] },
-    ...(room ? { room } : {}),
+    AND: [
+      buildActiveReservationBaseWhere(input.businessDate),
+      ...(room ? [{ room: { is: room } }] : []),
+    ],
   };
 }

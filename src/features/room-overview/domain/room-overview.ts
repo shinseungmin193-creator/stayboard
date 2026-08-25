@@ -1,5 +1,6 @@
 import type { CalendarProviderType, ReservationStatus, RoomOperationalStatus, SyncStatus } from "@/lib/generated/prisma/enums";
 import { getReservationDisplayName } from "../../reservations/reservation-display";
+import { ACTIVE_OTA_RESERVATION_STATUSES } from "../../reservations/reservation.constants";
 
 export type RoomReservationState = "VACANT" | "CHECK_IN_TODAY" | "OCCUPIED" | "CHECK_OUT_TODAY" | "CONFLICT";
 export type RoomOverviewStatus = RoomReservationState;
@@ -76,8 +77,15 @@ export function isValidReservation(reservation: RoomOverviewReservation) {
   return Number.isFinite(reservation.startDate.getTime()) && Number.isFinite(reservation.endDate.getTime()) && reservation.startDate < reservation.endDate;
 }
 
+function isOperationalReservation(reservation: RoomOverviewReservation) {
+  return isValidReservation(reservation)
+    && ACTIVE_OTA_RESERVATION_STATUSES.includes(
+      reservation.status as (typeof ACTIVE_OTA_RESERVATION_STATUSES)[number],
+    );
+}
+
 export function getReservationOperationalDay(reservation: RoomOverviewReservation, todayStart: Date, todayEnd: Date): ReservationOperationalDay {
-  if (!isValidReservation(reservation) || reservation.status === "CANCELLED" || reservation.status === "BLOCKED") {
+  if (!isOperationalReservation(reservation)) {
     return { isTodayCheckIn: false, isTodayCheckOut: false, isOccupied: false };
   }
   return {
@@ -104,7 +112,7 @@ export function selectCurrentReservation(reservations: RoomOverviewReservation[]
 }
 
 export function selectNextReservation(reservations: RoomOverviewReservation[], todayEnd: Date) {
-  return reservations.filter(isValidReservation).filter((item) => item.status !== "CANCELLED" && item.status !== "BLOCKED" && item.startDate >= todayEnd).sort((a, b) => a.startDate.getTime() - b.startDate.getTime())[0] ?? null;
+  return reservations.filter(isOperationalReservation).filter((item) => item.startDate >= todayEnd).sort((a, b) => a.startDate.getTime() - b.startDate.getTime())[0] ?? null;
 }
 
 export function getRoomOverviewGuestName(reservation: RoomOverviewReservation | null) {
@@ -113,7 +121,7 @@ export function getRoomOverviewGuestName(reservation: RoomOverviewReservation | 
 
 export function buildRoomOperationalSchedule<T extends RoomOverviewReservation>(reservations: T[], todayStart: Date, todayEnd: Date, rangeEnd: Date): RoomOperationalSchedule<T> {
   const entries = reservations
-    .filter((reservation) => isValidReservation(reservation) && reservation.status !== "CANCELLED" && reservation.status !== "BLOCKED")
+    .filter(isOperationalReservation)
     .map((reservation) => ({ reservation, day: getReservationOperationalDay(reservation, todayStart, todayEnd) }));
   return {
     todayCheckIns: entries.filter((entry) => entry.day.isTodayCheckIn).map((entry) => entry.reservation),

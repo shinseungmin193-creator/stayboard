@@ -2,9 +2,9 @@ import "server-only";
 
 import type { AccessScope } from "@/features/access-control";
 import { roomScopeWhere } from "@/features/access-control";
+import { summarizeDashboardCleaningTasks } from "@/features/dashboard/dashboard-cleaning";
 import { prisma } from "@/lib/prisma";
-import { classifyCleaningPriority } from "../domain/cleaning-priority";
-import { buildOperationalCleaningTaskWhere, isCleaningTaskAlignedWithReservation } from "./cleaning-task-query";
+import { buildCheckoutCleaningTaskWhere, DASHBOARD_CLEANING_TASK_STATUSES } from "./cleaning-task-query";
 import { buildOperationalReservationWhere } from "@/features/reservations/operational-reservation-where";
 
 export async function getCleaningDashboardSummary(input: {
@@ -17,10 +17,16 @@ export async function getCleaningDashboardSummary(input: {
     ? { property: { companyId: { in: [...input.companyIds] } } }
     : {});
   const tasks = await prisma.cleaningTask.findMany({
-    where: buildOperationalCleaningTaskWhere({ start: input.start, end: input.end, roomWhere: scopedRoom }),
+    where: buildCheckoutCleaningTaskWhere({
+      start: input.start,
+      end: input.end,
+      roomWhere: scopedRoom,
+      statuses: DASHBOARD_CLEANING_TASK_STATUSES,
+    }),
     select: {
       id: true,
       scheduledDate: true,
+      status: true,
       reservation: { select: { endDate: true } },
       room: {
         select: {
@@ -40,23 +46,5 @@ export async function getCleaningDashboardSummary(input: {
     orderBy: [{ scheduledDate: "asc" }, { id: "asc" }],
   });
 
-  const priorityRooms: Array<{ id: string; name: string; propertyName: string }> = [];
-  const flexibleRooms: Array<{ id: string; name: string; propertyName: string }> = [];
-  for (const task of tasks.filter(isCleaningTaskAlignedWithReservation)) {
-    const item = { id: task.room.id, name: task.room.name, propertyName: task.room.property.name };
-    const priority = classifyCleaningPriority(
-      task.scheduledDate,
-      task.room.reservations.map((reservation) => reservation.startDate),
-      input.start,
-      input.end,
-    );
-    if (priority === "urgent") priorityRooms.push(item);
-    else flexibleRooms.push(item);
-  }
-  return {
-    priority: priorityRooms.length,
-    flexible: flexibleRooms.length,
-    priorityRooms,
-    flexibleRooms,
-  };
+  return summarizeDashboardCleaningTasks(tasks, input.start, input.end);
 }

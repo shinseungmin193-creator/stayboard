@@ -1,8 +1,8 @@
 import "server-only";
 
-import { addDays } from "date-fns";
 import type { AccessScope } from "@/features/access-control";
-import { getDashboardDateInput, getDashboardTodayRange } from "@/features/dashboard/dashboard-time";
+import { getDashboardTodayRange } from "@/features/dashboard/dashboard-time";
+import { getZonedDateInput, getZonedMidnight, isValidDateInput, shiftDateInput } from "@/lib/zoned-date";
 import { RESERVATION_DEFAULT_FUTURE_DAYS } from "./reservation.constants";
 import type { ReservationFilterState } from "./reservation-filter-query";
 import type { ReservationFilters } from "./reservation.types";
@@ -11,17 +11,18 @@ import type { ReservationDateNavigation } from "./reservation-date-navigation";
 export function getReservationEffectiveDateRange(filters: ReservationFilterState, now = new Date()) {
   const { start } = getDashboardTodayRange(now);
   const fallbackFrom = start;
-  const fallbackTo = addDays(start, RESERVATION_DEFAULT_FUTURE_DAYS);
-  const parsedFrom = filters.from ? new Date(`${filters.from}T00:00:00+09:00`) : fallbackFrom;
-  const parsedTo = filters.to ? new Date(`${filters.to}T00:00:00+09:00`) : fallbackTo;
-  const from = Number.isFinite(parsedFrom.getTime()) ? parsedFrom : fallbackFrom;
-  const validTo = Number.isFinite(parsedTo.getTime()) ? parsedTo : fallbackTo;
+  const fallbackFromInput = getZonedDateInput(start);
+  const fallbackToInput = shiftDateInput(fallbackFromInput, RESERVATION_DEFAULT_FUTURE_DAYS);
+  const fromInput = isValidDateInput(filters.from) ? filters.from : fallbackFromInput;
+  const requestedToInput = isValidDateInput(filters.to) ? filters.to : fallbackToInput;
+  const from = fromInput === fallbackFromInput ? fallbackFrom : getZonedMidnight(fromInput);
+  const validTo = getZonedMidnight(requestedToInput);
   const to = validTo < from ? from : validTo;
   return {
     from,
     to,
-    fromInput: getDashboardDateInput(from),
-    toInput: getDashboardDateInput(to),
+    fromInput,
+    toInput: validTo < from ? fromInput : requestedToInput,
   };
 }
 
@@ -59,7 +60,8 @@ export function buildReservationRepositoryFilters(input: {
       dateField: input.filters.dateField,
       dateMode: input.dateNavigation?.mode,
       from: effectiveDateRange.from,
-      toExclusive: input.dateNavigation?.rangeEnd ?? addDays(effectiveDateRange.to, 1),
+      toExclusive: input.dateNavigation?.rangeEnd
+        ?? getZonedMidnight(shiftDateInput(effectiveDateRange.toInput, 1)),
       hasConflict: input.filters.hasConflict ?? undefined,
       page: input.page,
       companyIds: input.companyIds,

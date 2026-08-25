@@ -3,6 +3,8 @@ import type { CalendarProviderType, ReservationStatus } from "../../lib/generate
 import { DEFAULT_TIMEZONE } from "../../lib/constants";
 import { getZonedDateInput, getZonedMidnight } from "../../lib/zoned-date";
 import { ACTIVE_OTA_RESERVATION_STATUSES } from "../reservations/reservation.constants";
+import { buildOperationalReservationWhere } from "../reservations/operational-reservation-where";
+import { isCalendarProviderType } from "../../providers/calendar/types";
 
 export const ROOM_STATUS_TIME_ZONE = DEFAULT_TIMEZONE;
 
@@ -37,7 +39,7 @@ export function getRoomStatusCalendarRange(value: string | null | undefined, now
 
 export function buildRoomStatusReservationWhere(range: Pick<RoomStatusCalendarRange, "rangeStart" | "rangeEnd">): Prisma.ReservationWhereInput {
   return {
-    status: { in: [...ACTIVE_OTA_RESERVATION_STATUSES] },
+    ...buildOperationalReservationWhere(),
     startDate: { lt: range.rangeEnd },
     endDate: { gt: range.rangeStart },
   };
@@ -48,6 +50,7 @@ export function isReservationVisibleInRoomStatusRange(
   range: Pick<RoomStatusCalendarRange, "rangeStart" | "rangeEnd">,
 ) {
   return ACTIVE_OTA_RESERVATION_STATUSES.includes(reservation.status as (typeof ACTIVE_OTA_RESERVATION_STATUSES)[number])
+    && isCalendarProviderType(reservation.provider)
     && reservation.startDate < range.rangeEnd
     && reservation.endDate > range.rangeStart;
 }

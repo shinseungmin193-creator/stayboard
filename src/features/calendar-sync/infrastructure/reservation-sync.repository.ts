@@ -13,7 +13,7 @@ import type { CalendarFeedSafetyDiagnostics, CalendarFeedQuarantineReason } from
 import { removeCalendarSourceReservations } from "./calendar-source-reservation-removal";
 
 export function findCalendarSourceForSync(id: string) {
-  return prisma.calendarSource.findUnique({ where: { id }, select: { id: true, provider: true, calendarUrl: true, isActive: true, connectionStatus: true, roomId: true, room: { select: { propertyId: true, property: { select: { companyId: true } } } } } });
+  return prisma.calendarSource.findUnique({ where: { id }, select: { id: true, provider: true, calendarUrl: true, isActive: true, connectionStatus: true, roomId: true, room: { select: { propertyId: true, isActive: true, property: { select: { companyId: true, isActive: true, company: { select: { isActive: true } } } } } } } });
 }
 
 export function createRunningSyncLog(calendarSourceId: string, provider: CalendarProviderType, startedAt: Date, syncRunId?: string) {
@@ -68,7 +68,49 @@ export async function persistReservationSync(input: PersistReservationSyncInput)
     const statusById = new Map(existing.map((reservation) => [reservation.id, reservation.status]));
     const explicitCancelledCount = classification.update.filter((item) => item.reservation.status === "CANCELLED" && statusById.get(item.id) !== "CANCELLED").length;
     const created = classification.create.length ? await tx.reservation.createMany({ data: classification.create.map((reservation) => ({ ...reservationPersistenceData(reservation), rawUid: reservation.rawUid, calendarSourceId: input.calendarSourceId, createdBySyncLogId: input.syncLogId, propertyId: input.propertyId, roomId: input.roomId, provider: input.provider })), skipDuplicates: true }) : { count: 0 };
-    for (const item of classification.update) await tx.reservation.update({ where: { id: item.id }, data: reservationPersistenceData(item.reservation) });
+    const updatedCount = classification.update.length
+      ? await tx.$executeRaw(Prisma.sql`
+          UPDATE "Reservation" AS reservation
+          SET
+            "providerReservationId" = incoming."providerReservationId",
+            "guestName" = incoming."guestName",
+            "startDate" = incoming."startDate",
+            "endDate" = incoming."endDate",
+            status = incoming.status,
+            summary = incoming.summary,
+            description = incoming.description,
+            "providerCreatedAt" = incoming."providerCreatedAt",
+            "providerUpdatedAt" = incoming."providerUpdatedAt",
+            "updatedAt" = NOW()
+          FROM (
+            VALUES ${Prisma.join(classification.update.map((item) => Prisma.sql`(
+              ${item.id}::text,
+              ${item.reservation.providerReservationId}::text,
+              ${item.reservation.guestName}::text,
+              ${item.reservation.startDate}::timestamp(3),
+              ${item.reservation.endDate}::timestamp(3),
+              ${item.reservation.status}::"ReservationStatus",
+              ${item.reservation.summary}::text,
+              ${item.reservation.description}::text,
+              ${item.reservation.providerCreatedAt}::timestamp(3),
+              ${item.reservation.providerUpdatedAt}::timestamp(3)
+            )`))}
+          ) AS incoming(
+            id,
+            "providerReservationId",
+            "guestName",
+            "startDate",
+            "endDate",
+            status,
+            summary,
+            description,
+            "providerCreatedAt",
+            "providerUpdatedAt"
+          )
+          WHERE reservation.id = incoming.id
+            AND reservation."calendarSourceId" = ${input.calendarSourceId}
+        `)
+      : 0;
     const removed = await removeCalendarSourceReservations(tx, {
       calendarSourceId: input.calendarSourceId,
       reservationIds: classification.missingDeletionIds,
@@ -81,8 +123,8 @@ export async function persistReservationSync(input: PersistReservationSyncInput)
     });
     const conflicts = await detectRoomReservationConflicts(tx, input.roomId);
     const cancelledCount = explicitCancelledCount + removed.reservationCount;
-    await tx.syncLog.update({ where: { id: input.syncLogId }, data: { status: "SUCCESS", completedAt: input.completedAt, durationMs: input.completedAt.getTime() - input.syncStartedAt.getTime(), fetchedCount: input.fetchedCount, ...input.eventCounts, unknownEventDetails: input.unknownEventDetails, eventDiagnostics: input.eventDiagnostics, feedFingerprint: input.feedFingerprint as unknown as Prisma.InputJsonValue, safetyDiagnostics: input.safetyDiagnostics as unknown as Prisma.InputJsonValue, quarantined: false, createdCount: created.count, updatedCount: classification.update.length, cancelledCount, errorCode: null, errorMessage: null, errorDetails: null } });
+    await tx.syncLog.update({ where: { id: input.syncLogId }, data: { status: "SUCCESS", completedAt: input.completedAt, durationMs: input.completedAt.getTime() - input.syncStartedAt.getTime(), fetchedCount: input.fetchedCount, ...input.eventCounts, unknownEventDetails: input.unknownEventDetails, eventDiagnostics: input.eventDiagnostics, feedFingerprint: input.feedFingerprint as unknown as Prisma.InputJsonValue, safetyDiagnostics: input.safetyDiagnostics as unknown as Prisma.InputJsonValue, quarantined: false, createdCount: created.count, updatedCount, cancelledCount, errorCode: null, errorMessage: null, errorDetails: null } });
     await tx.calendarSource.update({ where: { id: input.calendarSourceId }, data: { lastSyncedAt: input.completedAt, connectionStatus: "NORMAL", safetyReasonCodes: Prisma.JsonNull, feedFingerprint: input.feedFingerprint as unknown as Prisma.InputJsonValue, feedFingerprintUpdatedAt: input.completedAt } });
-    return { createdCount: created.count, updatedCount: classification.update.length, unchangedCount: classification.unchanged.length, cancelledCount, ...conflicts };
+    return { createdCount: created.count, updatedCount, unchangedCount: classification.unchanged.length, cancelledCount, ...conflicts };
   });
 }

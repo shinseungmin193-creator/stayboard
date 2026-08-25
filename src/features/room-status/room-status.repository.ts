@@ -6,7 +6,7 @@ import { formatRoomDisplayName } from "@/features/rooms/room-display";
 import type { AccessScope } from "@/features/access-control";
 import { roomScopeWhere } from "@/features/access-control";
 import { CALENDAR_PROVIDER_TYPES } from "@/providers/calendar";
-import { ACTIVE_OTA_RESERVATION_STATUSES } from "@/features/reservations/reservation.constants";
+import { buildOperationalReservationWhere } from "@/features/reservations/operational-reservation-where";
 import { buildRoomStatusReservationWhere } from "./room-status-calendar";
 
 export async function listRoomStatusCalendar(input: {
@@ -20,7 +20,7 @@ export async function listRoomStatusCalendar(input: {
     where: {
       ...(roomScopeWhere(input.accessScope) ?? {}),
       isActive: true,
-      property: { isActive: true, companyId: input.companyIds ? { in: [...input.companyIds] } : undefined },
+      property: { isActive: true, company: { isActive: true }, companyId: input.companyIds ? { in: [...input.companyIds] } : undefined },
       propertyId: input.propertyId,
     },
     select: {
@@ -45,8 +45,8 @@ export async function listRoomStatusCalendar(input: {
           provider: true,
           status: true,
           calendarSource: { select: { name: true } },
-          conflictsAsA: { where: { status: "ACTIVE", reservationB: { status: { in: [...ACTIVE_OTA_RESERVATION_STATUSES] } } }, select: { id: true }, take: 1 },
-          conflictsAsB: { where: { status: "ACTIVE", reservationA: { status: { in: [...ACTIVE_OTA_RESERVATION_STATUSES] } } }, select: { id: true }, take: 1 },
+          conflictsAsA: { where: { status: "ACTIVE", reservationB: buildOperationalReservationWhere() }, select: { id: true }, take: 1 },
+          conflictsAsB: { where: { status: "ACTIVE", reservationA: buildOperationalReservationWhere() }, select: { id: true }, take: 1 },
         },
         orderBy: [{ startDate: "asc" }, { endDate: "asc" }],
       },

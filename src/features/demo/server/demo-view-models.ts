@@ -65,7 +65,8 @@ export function getDemoRoomOverview(filters: RoomOverviewFilters, now = new Date
 export function getDemoDashboardData(now = new Date()) {
   const overview = getDemoRoomOverview({}, now);
   const cleaning = summarizeDashboardCleaning(overview.allCards, overview.todayStart, overview.todayEnd);
-  return { todayCheckIns: overview.summary.statuses.CHECK_IN_TODAY, todayCheckOuts: overview.summary.statuses.CHECK_OUT_TODAY, registeredRooms: overview.summary.total, activeConflicts: overview.summary.statuses.CONFLICT, conflictedCheckIns: 0, recentSyncFailures: 0, latestSync: { status: "SUCCESS" as const, completedAt: new Date(now.getTime() - 4 * 60 * 1000) }, recentFailureHours: 24, priorityCleaning: cleaning.priority, flexibleCleaning: cleaning.flexible, priorityCleaningRooms: cleaning.priorityRooms, flexibleCleaningRooms: cleaning.flexibleRooms };
+  const activeCleaning = cleaning.priority + cleaning.flexible;
+  return { todayCheckIns: overview.summary.statuses.CHECK_IN_TODAY, todayCheckOuts: overview.summary.statuses.CHECK_OUT_TODAY, registeredRooms: overview.summary.total, activeConflicts: overview.summary.statuses.CONFLICT, conflictedCheckIns: 0, recentSyncFailures: 0, latestSync: { status: "SUCCESS" as const, completedAt: new Date(now.getTime() - 4 * 60 * 1000) }, recentFailureHours: 24, priorityCleaning: cleaning.priority, flexibleCleaning: cleaning.flexible, completedCleaning: 0, activeCleaning, totalCleaning: activeCleaning, priorityCleaningRooms: cleaning.priorityRooms, flexibleCleaningRooms: cleaning.flexibleRooms, completedCleaningRooms: [] };
 }
 
 export function getDemoRoomStatusData(range: RoomStatusCalendarRange): RoomStatusRoom[] {

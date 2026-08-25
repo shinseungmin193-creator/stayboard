@@ -12,6 +12,7 @@ import { RoomOverviewGuestInfo } from "./room-overview-guest-info";
 import { getReservationDisplayName } from "@/features/reservations/reservation-display";
 import { RoomOverviewProviderBadges } from "./room-overview-provider-badges";
 import { getProviderLabel } from "@/features/reservations/provider-visuals";
+import { getZonedDateInput } from "@/lib/zoned-date";
 
 
 const footerButtonClassName = "min-h-10 rounded-none px-1 text-xs xl:h-9 xl:min-h-9 xl:text-sm xl:[&_svg:not([class*='size-'])]:size-3.5";
@@ -24,7 +25,7 @@ export function RoomOverviewCard({ card, canUpdateOperationalStatus = true }: {c
   const currentProvider = card.currentReservation?.provider ?? null;
   const syncAlert = card.syncStates.filter((sync) => sync.status === "FAILED" || sync.status === "TIMEOUT").sort((a, b) => b.startedAt.getTime() - a.startedAt.getTime())[0];
   const reservationsHref = `/reservations?roomId=${card.id}`;
-  const currentHref = reservation ? `${reservationsHref}&from=${reservation.startDate.toISOString().slice(0, 10)}&to=${reservation.endDate.toISOString().slice(0, 10)}` : reservationsHref;
+  const currentHref = reservation ? `${reservationsHref}&from=${getZonedDateInput(reservation.startDate)}&to=${getZonedDateInput(reservation.endDate)}` : reservationsHref;
   return (
     <Card
       size="sm"

@@ -2,9 +2,9 @@ import "server-only";
 
 import { prisma } from "@/lib/prisma";
 import type { RoomCalendarFilters } from "../types/room-calendar-summary";
-import { ACTIVE_OTA_RESERVATION_STATUSES } from "@/features/reservations/reservation.constants";
 import { CALENDAR_PROVIDER_TYPES } from "@/providers/calendar";
 import { roomScopeWhere } from "@/features/access-control/infrastructure/prisma-scope";
+import { buildOperationalReservationWhere } from "@/features/reservations/operational-reservation-where";
 
 export function findRoomCalendarRows(filters: RoomCalendarFilters) {
   return prisma.room.findMany({
@@ -34,8 +34,8 @@ export function findRoomCalendarRows(filters: RoomCalendarFilters) {
         },
         orderBy: [{ isActive: "desc" }, { provider: "asc" }, { name: "asc" }],
       },
-      _count: { select: { reservations: { where: { status: { in: [...ACTIVE_OTA_RESERVATION_STATUSES] }, provider: { in: [...CALENDAR_PROVIDER_TYPES] } } } } },
-      conflicts: { where: { status: "ACTIVE", reservationA: { status: { in: [...ACTIVE_OTA_RESERVATION_STATUSES] }, provider: { in: [...CALENDAR_PROVIDER_TYPES] } }, reservationB: { status: { in: [...ACTIVE_OTA_RESERVATION_STATUSES] }, provider: { in: [...CALENDAR_PROVIDER_TYPES] } } }, select: { id: true } },
+      _count: { select: { reservations: { where: buildOperationalReservationWhere() } } },
+      conflicts: { where: { status: "ACTIVE", reservationA: buildOperationalReservationWhere(), reservationB: buildOperationalReservationWhere() }, select: { id: true } },
       syncRuns: {
         select: {
           id: true, status: true, executionMode: true, startedAt: true, finishedAt: true, targetCount: true, successCount: true, failedCount: true, errorSummary: true,

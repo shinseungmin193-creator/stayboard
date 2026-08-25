@@ -1,5 +1,5 @@
 import { DEFAULT_TIMEZONE } from "../../../lib/constants";
-import { getZonedDateInput, getZonedMidnight, getZonedDayRange, resolveTimeZone, shiftDateInput } from "../../../lib/zoned-date";
+import { getZonedDateInput, getZonedMidnight, getZonedDayRange, isValidDateInput, resolveTimeZone, shiftDateInput } from "../../../lib/zoned-date";
 
 export const DEFAULT_CLEANING_TIME_ZONE = DEFAULT_TIMEZONE;
 
@@ -9,11 +9,7 @@ export function getCleaningDateInput(now = new Date(), timeZone = DEFAULT_CLEANI
 
 export function parseCleaningDate(value: string | null | undefined, fallback = new Date(), timeZone = DEFAULT_CLEANING_TIME_ZONE) {
   const fallbackInput = getCleaningDateInput(fallback, timeZone);
-  const requestedInput = value && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : fallbackInput;
-  const parsed = new Date(`${requestedInput}T00:00:00Z`);
-  const dateInput = Number.isFinite(parsed.getTime()) && parsed.toISOString().slice(0, 10) === requestedInput
-    ? requestedInput
-    : fallbackInput;
+  const dateInput = isValidDateInput(value) ? value : fallbackInput;
   const { start, end } = dateInput === fallbackInput
     ? getZonedDayRange(fallback, timeZone)
     : { start: getZonedMidnight(dateInput, timeZone), end: getZonedMidnight(shiftDateInput(dateInput, 1), timeZone) };

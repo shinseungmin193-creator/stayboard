@@ -7,8 +7,8 @@ import type { CalendarRoomOption, CalendarSourceDeleteImpact, CalendarSourceDele
 import { formatRoomDisplayName } from "@/features/rooms/room-display";
 import type { AccessScope } from "@/features/access-control";
 import { roomScopeWhere } from "@/features/access-control";
-import { ACTIVE_OTA_RESERVATION_STATUSES } from "@/features/reservations/reservation.constants";
 import { CALENDAR_PROVIDER_TYPES } from "@/providers/calendar";
+import { buildOperationalReservationWhere } from "@/features/reservations/operational-reservation-where";
 import { isCalendarSourceDeleteConfirmationValid, isCalendarSourceSyncRunning } from "./domain/calendar-source-deletion";
 import type { CalendarFeedFingerprint } from "@/features/calendar-sync/domain/calendar-feed-fingerprint";
 import { readCalendarFeedQuarantineReasons, type CalendarFeedSafetyDiagnostics } from "@/features/calendar-sync/domain/calendar-feed-safety";
@@ -89,7 +89,7 @@ export async function listCalendarSources(filters: CalendarSourceFilters) {
   const ids = sources.map((source) => source.id);
   const [states, conflictCounts] = await Promise.all([
     findCalendarSourceSyncStates(ids),
-    prisma.reservationConflict.findMany({ where: { status: "ACTIVE", OR: [{ reservationA: { calendarSourceId: { in: ids } } }, { reservationB: { calendarSourceId: { in: ids } } }], reservationA: { status: { in: [...ACTIVE_OTA_RESERVATION_STATUSES] }, provider: { in: [...CALENDAR_PROVIDER_TYPES] } }, reservationB: { status: { in: [...ACTIVE_OTA_RESERVATION_STATUSES] }, provider: { in: [...CALENDAR_PROVIDER_TYPES] } } }, select: { reservationA: { select: { calendarSourceId: true } }, reservationB: { select: { calendarSourceId: true } } } }),
+    prisma.reservationConflict.findMany({ where: { status: "ACTIVE", OR: [{ reservationA: { calendarSourceId: { in: ids } } }, { reservationB: { calendarSourceId: { in: ids } } }], reservationA: buildOperationalReservationWhere(), reservationB: buildOperationalReservationWhere() }, select: { reservationA: { select: { calendarSourceId: true } }, reservationB: { select: { calendarSourceId: true } } } }),
   ]);
   const stateById = new Map(states.map((state) => [state.sourceId, state])); const conflictBySource = new Map<string, number>(); for (const conflict of conflictCounts) { const affected = new Set([conflict.reservationA.calendarSourceId, conflict.reservationB.calendarSourceId]); for (const sourceId of affected) conflictBySource.set(sourceId, (conflictBySource.get(sourceId) ?? 0) + 1); } const staleCutoff = Date.now() - CALENDAR_SYNC_STALE_RUNNING_MS;
   return sources.map((source) => { const state = stateById.get(source.id); return { ...source, safetyReasonCodes: readCalendarFeedQuarantineReasons(source.safetyReasonCodes), lastSuccessfulSyncAt: state?.lastSuccessfulSyncAt ?? null, lastFailedSyncAt: state?.lastFailedSyncAt ?? null, latestSyncStatus: state?.latestSyncStatus ?? null, latestSyncStartedAt: state?.latestSyncStartedAt ?? null, latestSyncCompletedAt: state?.latestSyncCompletedAt ?? null, latestFetchedCount: state?.latestFetchedCount ?? 0, latestCreatedCount: state?.latestCreatedCount ?? 0, latestUpdatedCount: state?.latestUpdatedCount ?? 0, latestCancelledCount: state?.latestCancelledCount ?? 0, activeConflictCount: conflictBySource.get(source.id) ?? 0, isSyncing: state?.latestSyncStatus === "RUNNING" && Boolean(state.latestSyncStartedAt && state.latestSyncStartedAt.getTime() >= staleCutoff) }; });
@@ -400,7 +400,7 @@ export async function replaceCalendarSourceUrlTransaction(input: {
   });
 }
 export function setCalendarSourceActive(id: string, isActive: boolean) { return prisma.calendarSource.update({ where: { id }, data: { isActive }, select: { id: true, isActive: true } }); }
-export function listActiveCalendarSourceIdsForSync(filters: CalendarSourceFilters, take: number, accessScope?: AccessScope) { if (filters.isActive === false) return Promise.resolve([]); return prisma.calendarSource.findMany({ where: { isActive: true, roomId: filters.roomId, provider: filters.provider ?? { in: [...CALENDAR_PROVIDER_TYPES] }, room: { ...(roomScopeWhere(accessScope) ?? {}), propertyId: filters.propertyId, property: filters.companyIds ? { companyId: { in: [...filters.companyIds] } } : undefined } }, select: { id: true, roomId: true, provider: true }, orderBy: { id: "asc" }, take }); }
+export function listActiveCalendarSourceIdsForSync(filters: CalendarSourceFilters, take: number, accessScope?: AccessScope) { if (filters.isActive === false) return Promise.resolve([]); return prisma.calendarSource.findMany({ where: { isActive: true, roomId: filters.roomId, provider: filters.provider ?? { in: [...CALENDAR_PROVIDER_TYPES] }, room: { ...(roomScopeWhere(accessScope) ?? {}), isActive: true, propertyId: filters.propertyId, property: { isActive: true, company: { isActive: true }, ...(filters.companyIds ? { companyId: { in: [...filters.companyIds] } } : {}) } } }, select: { id: true, roomId: true, provider: true }, orderBy: { id: "asc" }, take }); }
 export function listActiveCalendarSourceIdsForRooms(roomIds: readonly string[], take: number, companyIds?: readonly string[], provider?: CalendarProviderType) {
   const uniqueRoomIds = [...new Set(roomIds)];
   if (!uniqueRoomIds.length) return Promise.resolve([]);
@@ -409,7 +409,7 @@ export function listActiveCalendarSourceIdsForRooms(roomIds: readonly string[], 
       isActive: true,
       roomId: { in: uniqueRoomIds },
       provider: provider ?? { in: [...CALENDAR_PROVIDER_TYPES] },
-      room: { property: companyIds ? { companyId: { in: [...companyIds] } } : undefined },
+      room: { isActive: true, property: { isActive: true, company: { isActive: true }, ...(companyIds ? { companyId: { in: [...companyIds] } } : {}) } },
     },
     select: { id: true, roomId: true, provider: true },
     orderBy: { id: "asc" },
@@ -428,6 +428,7 @@ export function listActiveCalendarSourceIdsForOverview(input: { propertyId?: str
         propertyId: input.propertyId,
         property: {
           isActive: true,
+          company: { isActive: true },
           ...(input.companyIds ? { companyId: { in: [...input.companyIds] } } : {}),
         },
       },

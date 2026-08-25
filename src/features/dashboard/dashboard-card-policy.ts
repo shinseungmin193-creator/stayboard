@@ -6,10 +6,11 @@ export type DashboardCardId =
   | "overbooking"
   | "priority-cleaning"
   | "flexible-cleaning"
+  | "completed-cleaning"
   | "cleaning-management"
   | "sync-failure";
 
-const CORE_CARD_IDS = ["today-check-in", "today-check-out", "overbooking", "priority-cleaning", "flexible-cleaning"] as const satisfies readonly DashboardCardId[];
+const CORE_CARD_IDS = ["today-check-in", "today-check-out", "overbooking", "priority-cleaning", "flexible-cleaning", "completed-cleaning"] as const satisfies readonly DashboardCardId[];
 
 export function getDashboardCardIds(role: UserRole | null | undefined): DashboardCardId[] {
   if (!role) return [...CORE_CARD_IDS, "sync-failure"];

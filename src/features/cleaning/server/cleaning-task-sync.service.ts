@@ -33,20 +33,27 @@ export async function syncCleaningTasksForCalendarSource(
       skipDuplicates: true,
     });
 
-    for (const reservation of activeReservations) {
-      await tx.cleaningTask.updateMany({
-        where: {
-          reservationId: reservation.id,
-          roomId: input.roomId,
-          status: { in: [...CANCELLABLE_CLEANING_TASK_STATUSES] },
-        },
-        data: { scheduledDate: reservation.endDate },
-      });
-      await tx.cleaningTask.updateMany({
-        where: { reservationId: reservation.id, roomId: input.roomId, status: "CANCELLED" },
-        data: { status: "PENDING", scheduledDate: reservation.endDate },
-      });
-    }
+    await tx.$executeRaw`
+      UPDATE "CleaningTask" AS task
+      SET
+        "scheduledDate" = reservation."endDate",
+        status = CASE
+          WHEN task.status = 'CANCELLED'::"CleaningTaskStatus" THEN 'PENDING'::"CleaningTaskStatus"
+          ELSE task.status
+        END,
+        "updatedAt" = NOW()
+      FROM "Reservation" AS reservation
+      WHERE task."reservationId" = reservation.id
+        AND reservation."calendarSourceId" = ${input.calendarSourceId}
+        AND reservation.status IN ('CONFIRMED'::"ReservationStatus", 'TENTATIVE'::"ReservationStatus")
+        AND task."roomId" = ${input.roomId}
+        AND task.status IN (
+          'PENDING'::"CleaningTaskStatus",
+          'IN_PROGRESS'::"CleaningTaskStatus",
+          'CANCELLED'::"CleaningTaskStatus"
+        )
+        AND (task."scheduledDate" <> reservation."endDate" OR task.status = 'CANCELLED'::"CleaningTaskStatus")
+    `;
   }
 
   const cancelledReservationIds = reservations
