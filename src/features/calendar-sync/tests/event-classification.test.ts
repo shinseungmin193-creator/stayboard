@@ -70,6 +70,36 @@ test("Booking.com 개별 fixture는 실제 예약·명시적 차단·취소를 �
   assert.equal(normalizer.classifyEvent(fixture("booking-cancelled")), "CANCELLED");
 });
 
+test("Booking·Agoda 실데이터형 fixture는 parse→classify→저장 계획에서 실제 예약만 생성한다", () => {
+  const cases = [
+    { name: "booking-calendar", emptyName: "booking-empty", normalizer: new BookingReservationNormalizer(), expected: ["RESERVATION", "BLOCKED", "BLOCKED", "CANCELLED", "UNKNOWN"] },
+    { name: "agoda-calendar", emptyName: "agoda-empty", normalizer: new AgodaReservationNormalizer(), expected: ["RESERVATION", "BLOCKED", "CANCELLED", "UNKNOWN"] },
+  ] as const;
+  for (const fixture of cases) {
+    const parsed = parseIcsCalendar(readFileSync(`src/features/calendar-sync/tests/fixtures/${fixture.name}.ics`, "utf8"));
+    assert.deepEqual(parsed.events.map((item) => fixture.normalizer.classifyEvent(item)), fixture.expected);
+    const classified = classifyCalendarEvents(parsed.events, fixture.normalizer);
+    const persistence = classifyReservations([], classified.reservations, {
+      observedUids: new Set(classified.observedUids),
+      blockedUids: new Set(classified.blockedUids),
+      fullyParsed: parsed.issues.length === 0,
+    });
+    assert.equal(persistence.create.length, 1, fixture.name);
+    assert.equal(persistence.create[0].status, "CONFIRMED", fixture.name);
+    assert.equal(persistence.update.length, 0, fixture.name);
+
+    const emptyParsed = parseIcsCalendar(readFileSync(`src/features/calendar-sync/tests/fixtures/${fixture.emptyName}.ics`, "utf8"));
+    const emptyClassified = classifyCalendarEvents(emptyParsed.events, fixture.normalizer);
+    assert.equal(emptyParsed.totalEventCount, 0, fixture.emptyName);
+    assert.equal(emptyClassified.reservations.length, 0, fixture.emptyName);
+    assert.equal(classifyReservations([], emptyClassified.reservations, {
+      observedUids: new Set(),
+      blockedUids: new Set(),
+      fullyParsed: true,
+    }).create.length, 0, fixture.emptyName);
+  }
+});
+
 test("교차 OTA 차단 이벤트는 충돌을 만들지 않고 실제 예약끼리의 겹침만 충돌로 남긴다", () => {
   const booking = classifyCalendarEvents([
     parsedEvent({ uid: "booking-stay@booking.com", organizer: "mailto:calendar@booking.com", summary: "Stay - Booking.com" }),
@@ -206,7 +236,7 @@ test("분류 결과는 예약만 저장 대상으로 만들고 차단·미분류
   assert.deepEqual(result.observedUids, ["reservation", "blocked", "unknown", "cancelled"]);
 });
 
-test("BLOCKED·UNKNOWN·누락 UID는 명시적 STATUS:CANCELLED 없이 기존 예약을 변경하지 않는다", () => {
+test("분류만으로는 BLOCKED·UNKNOWN·누락 UID를 변경하지 않고 완전 파싱 reconciliation이 최종 판단한다", () => {
   const blocked = existing({ id: "blocked", rawUid: "blocked", providerReservationId: "blocked", status: "CONFIRMED", summary: "CLOSED - Not available" });
   const unknown = existing({ id: "unknown", rawUid: "unknown", providerReservationId: "unknown" });
   const missing = existing({ id: "missing", rawUid: "missing", providerReservationId: "missing" });

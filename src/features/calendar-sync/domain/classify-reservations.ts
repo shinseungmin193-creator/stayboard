@@ -5,6 +5,7 @@ export function reservationFieldsEqual(left: ExistingReservation, right: Normali
 export interface ReservationClassification { create: NormalizedReservation[]; update: Array<{ id: string; reservation: NormalizedReservation }>; unchanged: ExistingReservation[]; missingDeletionIds: string[] }
 export interface MissingReservationReconciliation {
   observedUids: ReadonlySet<string>;
+  blockedUids: ReadonlySet<string>;
   fullyParsed: boolean;
 }
 export function classifyReservations(existing: ExistingReservation[], incoming: NormalizedReservation[], reconciliation?: MissingReservationReconciliation): ReservationClassification {
@@ -19,7 +20,16 @@ export function classifyReservations(existing: ExistingReservation[], incoming: 
   });
   if (reconciliation?.fullyParsed) {
     for (const reservation of existing) {
-      if (incomingByUid.has(reservation.rawUid) || reconciliation.observedUids.has(reservation.rawUid)) continue;
+      if (incomingByUid.has(reservation.rawUid)) continue;
+      // A fully parsed feed that explicitly classifies a previously persisted
+      // reservation UID as BLOCKED is authoritative: it is not a reservation.
+      // UNKNOWN remains observed-but-preserved so uncertain provider data never
+      // deletes an existing reservation.
+      if (reconciliation.blockedUids.has(reservation.rawUid)) {
+        result.missingDeletionIds.push(reservation.id);
+        continue;
+      }
+      if (reconciliation.observedUids.has(reservation.rawUid)) continue;
       result.missingDeletionIds.push(reservation.id);
     }
   }

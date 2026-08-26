@@ -284,6 +284,22 @@
       "SUCCESS": "정상",
       "FAILED": "오류",
       "TIMEOUT": "시간 초과"
+    },
+    "health": {
+      "successWithReservations": "정상 · 예약 {count}건",
+      "emptyCalendar": "정상 · 빈 캘린더",
+      "noReservations": "정상 · 예약 0건",
+      "warningWithReservations": "주의 · 예약 {count}건",
+      "dbReservations": "현재 DB 예약",
+      "visibleReservations": "예약 화면 표시",
+      "warningDescription": "통신은 완료됐지만 예약 데이터 확인이 필요합니다.",
+      "reasons": {
+        "UNCLASSIFIED_NONEMPTY_FEED": "VEVENT가 있지만 예약·차단·취소로 모두 분류되지 않았습니다.",
+        "UNKNOWN_EVENTS": "Provider 규칙으로 확정할 수 없는 이벤트가 있습니다.",
+        "FAILED_EVENTS": "일부 이벤트를 파싱하거나 처리하지 못했습니다.",
+        "RESERVATION_COUNT_DROPPED_TO_ZERO": "이전 동기화에는 예약이 있었지만 이번에는 0건입니다.",
+        "PERSISTENCE_COUNT_MISMATCH": "동기화 집계와 현재 DB 예약 수가 일치하지 않습니다."
+      }
     }
   },
   "units": {

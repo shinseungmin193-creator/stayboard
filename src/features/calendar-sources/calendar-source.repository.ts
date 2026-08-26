@@ -15,7 +15,7 @@ import { readCalendarFeedQuarantineReasons, type CalendarFeedSafetyDiagnostics }
 import type { CalendarEventClassificationCounts, UnknownCalendarEventDetail } from "@/features/calendar-sync/domain/classify-calendar-events";
 import type { CalendarSyncDiagnosticPayload } from "@/features/calendar-sync/domain/calendar-sync-diagnostics";
 import type { NormalizedReservation } from "@/features/calendar-sync/domain/normalized-reservation";
-import { reservationPersistenceData } from "@/features/calendar-sync/infrastructure/reservation-sync.repository";
+import { ReservationPersistenceInvariantError, reservationPersistenceData } from "@/features/calendar-sync/infrastructure/reservation-sync.repository";
 import { syncCleaningTasksForCalendarSource } from "@/features/cleaning/server/cleaning-task-sync.service";
 import { detectRoomReservationConflicts } from "@/features/reservation-conflicts/infrastructure/reservation-conflict.repository";
 import { maskCalendarUrl } from "./calendar-source-url";
@@ -324,6 +324,21 @@ export async function replaceCalendarSourceUrlTransaction(input: {
           skipDuplicates: true,
         })
       : { count: 0 };
+    const expectedSourceOperationalReservationCount = replacement.createReservations.filter(
+      (reservation) => reservation.status === "CONFIRMED" || reservation.status === "TENTATIVE",
+    ).length;
+    const currentSourceOperationalReservationCount = await tx.reservation.count({
+      where: {
+        calendarSourceId: source.id,
+        status: { in: ["CONFIRMED", "TENTATIVE"] },
+      },
+    });
+    if (currentSourceOperationalReservationCount !== expectedSourceOperationalReservationCount) {
+      throw new ReservationPersistenceInvariantError(
+        expectedSourceOperationalReservationCount,
+        currentSourceOperationalReservationCount,
+      );
+    }
     await syncCleaningTasksForCalendarSource(tx, {
       calendarSourceId: source.id,
       companyId: source.room.property.companyId,

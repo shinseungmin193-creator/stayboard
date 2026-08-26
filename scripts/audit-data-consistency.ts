@@ -382,6 +382,101 @@ async function collectAudit(client: Client) {
       WHERE source."isActive" = true AND (room."isActive" = false OR property."isActive" = false OR company."isActive" = false)
       ORDER BY source.id LIMIT ${SAMPLE_LIMIT}
     `),
+    successfulWithoutReservations: await finding(client, `
+      WITH latest_success AS (
+        SELECT DISTINCT ON (source.id)
+          source.id AS "calendarSourceId", source.provider::text AS provider,
+          property.name AS "propertyName", room.name AS "roomName",
+          log.id AS "syncLogId", log."startedAt", log."fetchedCount", log."parsedEventCount",
+          log."reservationEventCount", log."blockedEventCount", log."cancelledEventCount",
+          log."unknownEventCount", log."failedEventCount"
+        FROM "CalendarSource" source
+        JOIN "Room" room ON room.id = source."roomId"
+        JOIN "Property" property ON property.id = room."propertyId"
+        JOIN "Company" company ON company.id = property."companyId"
+        JOIN "SyncLog" log ON log."calendarSourceId" = source.id AND log.status = 'SUCCESS'
+        WHERE source."isActive" = true AND room."isActive" = true
+          AND property."isActive" = true AND company."isActive" = true
+          AND source.provider IN (${SUPPORTED_PROVIDERS})
+        ORDER BY source.id, log."startedAt" DESC, log.id DESC
+      ), source_counts AS (
+        SELECT "calendarSourceId",
+          COUNT(*) FILTER (WHERE status IN (${ACTIVE_RESERVATION_STATUSES}))::int AS "dbReservationCount",
+          COUNT(*) FILTER (WHERE status IN (${ACTIVE_RESERVATION_STATUSES}) AND "endDate" > $1)::int AS "visibleReservationCount"
+        FROM "Reservation" GROUP BY "calendarSourceId"
+      )
+      SELECT COUNT(*) OVER() AS __total, latest_success.*,
+        COALESCE(source_counts."dbReservationCount", 0) AS "dbReservationCount",
+        COALESCE(source_counts."visibleReservationCount", 0) AS "visibleReservationCount",
+        CASE
+          WHEN latest_success."fetchedCount" = 0 THEN 'EMPTY_FEED'
+          WHEN latest_success."unknownEventCount" > 0 THEN 'UNKNOWN_EVENTS'
+          WHEN latest_success."failedEventCount" > 0 THEN 'FAILED_EVENTS'
+          WHEN latest_success."reservationEventCount" > 0 THEN 'NO_CURRENT_OR_FUTURE_RESERVATIONS'
+          WHEN latest_success."blockedEventCount" + latest_success."cancelledEventCount" >= latest_success."fetchedCount" THEN 'ONLY_BLOCKED_OR_CANCELLED'
+          ELSE 'UNCLASSIFIED_NONEMPTY_FEED'
+        END AS reason
+      FROM latest_success
+      LEFT JOIN source_counts ON source_counts."calendarSourceId" = latest_success."calendarSourceId"
+      WHERE COALESCE(source_counts."visibleReservationCount", 0) = 0
+      ORDER BY "propertyName", "roomName", provider
+    `, [todayStart]),
+    successfulHealthWarnings: await finding(client, `
+      WITH latest_success AS (
+        SELECT DISTINCT ON (source.id)
+          source.id AS "calendarSourceId", source.provider::text AS provider,
+          property.name AS "propertyName", room.name AS "roomName",
+          log.id AS "syncLogId", log."startedAt", log."fetchedCount", log."parsedEventCount",
+          log."reservationEventCount", log."blockedEventCount", log."cancelledEventCount",
+          log."unknownEventCount", log."failedEventCount",
+          COALESCE(previous."reservationEventCount", 0) AS "previousReservationEventCount"
+        FROM "CalendarSource" source
+        JOIN "Room" room ON room.id = source."roomId"
+        JOIN "Property" property ON property.id = room."propertyId"
+        JOIN "Company" company ON company.id = property."companyId"
+        JOIN "SyncLog" log ON log."calendarSourceId" = source.id AND log.status = 'SUCCESS'
+        LEFT JOIN LATERAL (
+          SELECT previous_log."reservationEventCount"
+          FROM "SyncLog" previous_log
+          WHERE previous_log."calendarSourceId" = source.id AND previous_log.status = 'SUCCESS'
+            AND (previous_log."startedAt", previous_log.id) < (log."startedAt", log.id)
+          ORDER BY previous_log."startedAt" DESC, previous_log.id DESC LIMIT 1
+        ) previous ON TRUE
+        WHERE source."isActive" = true AND room."isActive" = true
+          AND property."isActive" = true AND company."isActive" = true
+          AND source.provider IN (${SUPPORTED_PROVIDERS})
+        ORDER BY source.id, log."startedAt" DESC, log.id DESC
+      ), source_counts AS (
+        SELECT "calendarSourceId", COUNT(*) FILTER (WHERE status IN (${ACTIVE_RESERVATION_STATUSES}))::int AS "dbReservationCount"
+        FROM "Reservation" GROUP BY "calendarSourceId"
+      )
+      SELECT COUNT(*) OVER() AS __total, latest_success.*,
+        COALESCE(source_counts."dbReservationCount", 0) AS "dbReservationCount",
+        ARRAY_REMOVE(ARRAY[
+          CASE WHEN latest_success."fetchedCount" > 0 AND latest_success."reservationEventCount" = 0
+            AND latest_success."blockedEventCount" + latest_success."cancelledEventCount" < latest_success."fetchedCount"
+            THEN 'UNCLASSIFIED_NONEMPTY_FEED' END,
+          CASE WHEN latest_success."unknownEventCount" > 0 THEN 'UNKNOWN_EVENTS' END,
+          CASE WHEN latest_success."failedEventCount" > 0 THEN 'FAILED_EVENTS' END,
+          CASE WHEN latest_success."previousReservationEventCount" > 0 AND latest_success."reservationEventCount" = 0
+            THEN 'RESERVATION_COUNT_DROPPED_TO_ZERO' END,
+          CASE WHEN latest_success."failedEventCount" = 0
+            AND latest_success."parsedEventCount" = latest_success."fetchedCount"
+            AND latest_success."reservationEventCount" <> COALESCE(source_counts."dbReservationCount", 0)
+            THEN 'PERSISTENCE_COUNT_MISMATCH' END
+        ], NULL) AS reasons
+      FROM latest_success
+      LEFT JOIN source_counts ON source_counts."calendarSourceId" = latest_success."calendarSourceId"
+      WHERE latest_success."unknownEventCount" > 0
+        OR latest_success."failedEventCount" > 0
+        OR (latest_success."fetchedCount" > 0 AND latest_success."reservationEventCount" = 0
+          AND latest_success."blockedEventCount" + latest_success."cancelledEventCount" < latest_success."fetchedCount")
+        OR (latest_success."previousReservationEventCount" > 0 AND latest_success."reservationEventCount" = 0)
+        OR (latest_success."failedEventCount" = 0
+          AND latest_success."parsedEventCount" = latest_success."fetchedCount"
+          AND latest_success."reservationEventCount" <> COALESCE(source_counts."dbReservationCount", 0))
+      ORDER BY "propertyName", "roomName", provider
+    `),
   };
 
   const checkoutBase = `
@@ -481,7 +576,8 @@ async function collectAudit(client: Client) {
     + sync.staleRunning.count
     + sync.lastSyncedMismatch.count
     + sync.unsupportedActiveSources.count
-    + sync.activeSourcesOutsideOperationalScope.count;
+    + sync.activeSourcesOutsideOperationalScope.count
+    + sync.successfulHealthWarnings.count;
 
   return {
     reservation,

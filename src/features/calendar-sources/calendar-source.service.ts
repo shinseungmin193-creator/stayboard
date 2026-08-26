@@ -6,8 +6,9 @@ import { CalendarSyncAlreadyRunningError, withCalendarSourceAdvisoryLock } from 
 import { readCalendarFeedFingerprint } from "@/features/calendar-sync/domain/calendar-feed-fingerprint";
 import { validateCalendarFeedTransition } from "@/features/calendar-sync/domain/calendar-feed-safety";
 import { createCalendarSyncDiagnosticPayload } from "@/features/calendar-sync/domain/calendar-sync-diagnostics";
-import { isCalendarSyncWarning } from "@/features/calendar-sync/domain/sync-health";
+import { getCalendarSyncHealth } from "@/features/calendar-sync/domain/sync-health";
 import { findCalendarFeedSafetyContext } from "@/features/calendar-sync/infrastructure/calendar-feed-safety.repository";
+import { ReservationPersistenceInvariantError } from "@/features/calendar-sync/infrastructure/reservation-sync.repository";
 import { calendarProviderRegistry, CalendarFetchError, type CalendarFetchErrorCode, type CalendarProviderType } from "@/providers/calendar";
 import { analyzeCalendarFeed, CalendarParseError, type CalendarParseErrorCode } from "./calendar-source.analysis";
 import type { CalendarConnectionResult, CalendarDraftConnectionResult, CalendarSourceDeleteTarget } from "./calendar-source.types";
@@ -18,7 +19,7 @@ import { CalendarSourceDeletionRepositoryError, CalendarSourceUrlReplacementRepo
 export { maskCalendarUrl } from "./calendar-source-url";
 
 type Input = { roomId: string; provider: CalendarProviderType; name: string; calendarUrl: string; isActive: boolean };
-export type CalendarSourceServiceErrorCode = "ROOM_NOT_FOUND" | "DUPLICATE" | "NOT_FOUND" | "FETCH" | "UNSUPPORTED" | "PROVIDER_MISMATCH" | "SYNC_IN_PROGRESS" | "CONFIRMATION_MISMATCH" | "SCOPE_CHANGED" | "FEED_QUARANTINED" | "URL_CHANGE_REQUIRES_REFRESH" | CalendarFetchErrorCode | CalendarParseErrorCode;
+export type CalendarSourceServiceErrorCode = "ROOM_NOT_FOUND" | "DUPLICATE" | "NOT_FOUND" | "FETCH" | "PERSISTENCE" | "UNSUPPORTED" | "PROVIDER_MISMATCH" | "SYNC_IN_PROGRESS" | "CONFIRMATION_MISMATCH" | "SCOPE_CHANGED" | "FEED_QUARANTINED" | "URL_CHANGE_REQUIRES_REFRESH" | CalendarFetchErrorCode | CalendarParseErrorCode;
 export class CalendarSourceServiceError extends Error { constructor(public readonly code: CalendarSourceServiceErrorCode, message: string) { super(message); this.name = "CalendarSourceServiceError"; } }
 
 export function normalizeCalendarUrl(value: string): string { const url = new URL(value.trim()); url.hash = ""; return url.toString(); }
@@ -164,7 +165,7 @@ export async function replaceCalendarSourceUrlSafely(input: {
               reservations: inspected.classified.reservations,
               unknownEvents: inspected.classified.unknownEvents,
               eventDiagnostics,
-              warning: isCalendarSyncWarning({
+              warning: getCalendarSyncHealth({
                 status: "SUCCESS",
                 fetchedEventCount: inspected.parsed.totalEventCount,
                 reservationEventCount: inspected.classified.reservationEventCount,
@@ -172,7 +173,8 @@ export async function replaceCalendarSourceUrlSafely(input: {
                 cancelledEventCount: inspected.classified.cancelledEventCount,
                 unknownEventCount: inspected.classified.unknownEventCount,
                 failedEventCount: inspected.classified.failedEventCount,
-              }),
+                previousSuccessfulReservationEventCount: safetyContext.syncLogs[0]?.reservationEventCount ?? null,
+              }).status === "WARNING",
               fetchedAt: new Date(inspected.connection.fetchedAt),
             };
           },
@@ -213,6 +215,9 @@ export async function replaceCalendarSourceUrlSafely(input: {
       if (error.code === "NOT_FOUND") throw new CalendarSourceServiceError("NOT_FOUND", "캘린더 연결을 찾을 수 없습니다.");
       if (error.code === "DUPLICATE") throw new CalendarSourceServiceError("DUPLICATE", "같은 객실에 동일한 ICS URL이 이미 등록되어 있습니다.");
       throw new CalendarSourceServiceError("SCOPE_CHANGED", "캘린더 연결 범위가 변경되었습니다. 새로고침 후 다시 시도해 주세요.");
+    }
+    if (error instanceof ReservationPersistenceInvariantError) {
+      throw new CalendarSourceServiceError("PERSISTENCE", "새 캘린더 예약 반영을 확인하지 못해 URL 변경을 저장하지 않았습니다.");
     }
     throw error;
   }

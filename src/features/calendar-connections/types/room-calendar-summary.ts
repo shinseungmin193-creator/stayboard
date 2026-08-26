@@ -1,6 +1,7 @@
 import type { CalendarConnectionStatus, CalendarProviderType, SyncExecutionMode, SyncStatus } from "@/lib/generated/prisma/enums";
 import type { AccessScope } from "@/features/access-control/domain/access-control";
 import type { CalendarFeedQuarantineReason } from "@/features/calendar-sync/domain/calendar-feed-safety";
+import type { CalendarSyncHealthStatus, CalendarSyncWarningReason } from "@/features/calendar-sync/domain/sync-health";
 
 export type RoomCalendarStatus = "HEALTHY" | "WARNING" | "PARTIAL_FAILURE" | "FAILED" | "SYNCING" | "RECONNECT_REQUIRED" | "NOT_SYNCED" | "DISABLED";
 export const ROOM_CALENDAR_STATUS_META = {
@@ -27,6 +28,7 @@ export interface CalendarSourceSummary {
   id: string; roomId: string; roomName: string; propertyId: string; propertyName: string; provider: CalendarProviderType; name: string; maskedUrl: string; isActive: boolean; connectionStatus: CalendarConnectionStatus; safetyReasonCodes: CalendarFeedQuarantineReason[]; lastSyncedAt: Date | null;
   latestSyncStatus: SyncStatus | null; latestSyncStartedAt: Date | null; latestSyncCompletedAt: Date | null; latestFetchedCount: number; latestCreatedCount: number; latestUpdatedCount: number; latestCancelledCount: number;
   latestReservationEventCount: number; latestBlockedCount: number; latestUnknownCount: number; latestFailedEventCount: number; latestRetryCount: number; latestHttpStatus: number | null; latestErrorCode: string | null; latestErrorMessage: string | null; latestErrorDetails: string | null; latestDurationMs: number | null; isSyncing: boolean; isWarning: boolean;
+  currentReservationCount: number; currentVisibleReservationCount: number; healthStatus: CalendarSyncHealthStatus; warningReasons: CalendarSyncWarningReason[];
 }
 
 export interface SyncRunHistoryItem { id: string; startedAt: Date; finishedAt: Date | null; executionMode: SyncExecutionMode; targetCount: number; successCount: number; failedCount: number; status: RoomCalendarStatus; actorName: string; errorSummary: string | null }

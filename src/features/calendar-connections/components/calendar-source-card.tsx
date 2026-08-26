@@ -19,8 +19,15 @@ import { getProviderLabel } from "@/features/reservations/provider-visuals";
 function SyncStatus({ source }: {source: CalendarSourceSummary;}) {const i18n = useTranslations();
   if (source.isSyncing) return <Badge variant="outline" className="gap-1 border-blue-500/30 text-blue-700 dark:text-blue-300"><RefreshCcw className="animate-spin" />{i18n("sync.statuses.RUNNING")}</Badge>;
   if (source.connectionStatus === "RECONNECT_REQUIRED") return <Badge variant="outline" className="gap-1 border-amber-500/40 bg-amber-500/10 text-amber-800 dark:text-amber-300"><AlertTriangle />{i18n("calendarStatus.RECONNECT_REQUIRED")}</Badge>;
-  if (source.isWarning) return <Badge variant="outline" className="gap-1 border-amber-500/35 bg-amber-500/10 text-amber-800 dark:text-amber-300"><AlertTriangle />{i18n("auto.m0031")}</Badge>;
-  if (source.latestSyncStatus === "SUCCESS") return <Badge variant="outline" className="gap-1 border-emerald-500/30 text-emerald-700 dark:text-emerald-300"><CheckCircle2 />{i18n("auto.m0206")}</Badge>;
+  if (source.isWarning) return <Badge variant="outline" className="gap-1 border-amber-500/35 bg-amber-500/10 text-amber-800 dark:text-amber-300"><AlertTriangle />{i18n("sync.health.warningWithReservations", { count: source.currentVisibleReservationCount })}</Badge>;
+  if (source.latestSyncStatus === "SUCCESS") {
+    const label = source.latestFetchedCount === 0
+      ? i18n("sync.health.emptyCalendar")
+      : source.latestReservationEventCount === 0
+        ? i18n("sync.health.noReservations")
+        : i18n("sync.health.successWithReservations", { count: source.currentVisibleReservationCount });
+    return <Badge variant="outline" className="gap-1 border-emerald-500/30 text-emerald-700 dark:text-emerald-300"><CheckCircle2 />{label}</Badge>;
+  }
   if (source.latestSyncStatus === "FAILED" || source.latestSyncStatus === "TIMEOUT") return <Badge variant="destructive" className="gap-1"><XCircle />{source.latestSyncStatus === "TIMEOUT" ? i18n("sync.statuses.TIMEOUT") : i18n("auto.m0208")}</Badge>;
   return <Badge variant="outline" className="gap-1"><Clock3 />{i18n("auto.m0209")}</Badge>;
 }
@@ -51,6 +58,8 @@ export function CalendarSourceCard({ source, rooms, showActions = true, canManag
           <div><dt className="text-muted-foreground">{i18n("auto.m0213")}</dt><dd className="mt-0.5 font-medium">{formatDate(source.latestSyncCompletedAt ?? source.lastSyncedAt)}</dd></div>
           <div><dt className="text-muted-foreground">{i18n("technical.vevent")}</dt><dd className="mt-0.5 font-medium tabular-nums">{source.latestFetchedCount}</dd></div>
           <div><dt className="text-muted-foreground">{i18n("auto.m0214")}</dt><dd className="mt-0.5 font-medium tabular-nums">{source.latestReservationEventCount}</dd></div>
+          <div><dt className="text-muted-foreground">{i18n("sync.health.dbReservations")}</dt><dd className="mt-0.5 font-medium tabular-nums">{source.currentReservationCount}</dd></div>
+          <div><dt className="text-muted-foreground">{i18n("sync.health.visibleReservations")}</dt><dd className="mt-0.5 font-medium tabular-nums">{source.currentVisibleReservationCount}</dd></div>
           <div><dt className="text-muted-foreground">{i18n("auto.m0215")}</dt><dd className="mt-0.5 font-medium tabular-nums">{source.latestCreatedCount}</dd></div>
           <div><dt className="text-muted-foreground">{i18n("auto.m0216")}</dt><dd className="mt-0.5 font-medium tabular-nums">{source.latestUpdatedCount}</dd></div>
           <div><dt className="text-muted-foreground">{i18n("auto.m0217")}</dt><dd className="mt-0.5 font-medium tabular-nums">{source.latestCancelledCount}</dd></div>
@@ -63,7 +72,7 @@ export function CalendarSourceCard({ source, rooms, showActions = true, canManag
           <div><dt className="text-muted-foreground">{i18n("auto.m0223")}</dt><dd className="mt-0.5 font-medium">{formatDate(source.latestSyncStartedAt)}</dd></div>
         </dl>
         {source.connectionStatus === "RECONNECT_REQUIRED" && <div className="space-y-1 rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-xs leading-5 text-amber-800 dark:text-amber-300"><div className="flex gap-2"><AlertTriangle className="mt-0.5 size-4 shrink-0" /><p>{i18n("calendarFeedSafety.reconnectMessage")}</p></div>{source.safetyReasonCodes.length > 0 && <p className="pl-6 font-mono text-[11px]">{source.safetyReasonCodes.join(", ")}</p>}</div>}
-        {source.isWarning && source.connectionStatus !== "RECONNECT_REQUIRED" && <div className="flex gap-2 rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-xs leading-5 text-amber-800 dark:text-amber-300"><AlertTriangle className="mt-0.5 size-4 shrink-0" /><p>{i18n("auto.m0224")}</p></div>}
+        {source.isWarning && source.connectionStatus !== "RECONNECT_REQUIRED" && <div className="flex gap-2 rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-xs leading-5 text-amber-800 dark:text-amber-300"><AlertTriangle className="mt-0.5 size-4 shrink-0" /><div><p className="font-medium">{i18n("sync.health.warningDescription")}</p>{source.warningReasons.length > 0 && <ul className="mt-1 list-disc space-y-0.5 pl-4">{source.warningReasons.map((reason) => <li key={reason}>{i18n(`sync.health.reasons.${reason}`)}</li>)}</ul>}</div></div>}
         {source.latestErrorMessage && <div className="space-y-2 rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-xs text-destructive"><div className="flex gap-2"><AlertTriangle className="mt-0.5 size-4 shrink-0" /><p className="break-words leading-5"><strong>{source.latestErrorCode}</strong>{source.latestErrorCode ? " · " : ""}{source.latestErrorMessage}</p></div>{source.latestErrorDetails && <details className="rounded border border-destructive/20 p-2"><summary className="cursor-pointer font-medium">{i18n("auto.m0225")}</summary><pre className="mt-2 whitespace-pre-wrap break-all font-mono">{source.latestErrorDetails}</pre></details>}</div>}
         {showActions && <div className="flex flex-wrap items-start gap-2 border-t pt-3">
           {canManage && <CalendarConnectionTest id={source.id} />}

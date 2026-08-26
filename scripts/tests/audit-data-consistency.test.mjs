@@ -33,6 +33,8 @@ test("감사는 Reservation·CleaningTask·Conflict·Sync와 대시보드 invari
     "invalidActive",
     "canonicalOrderViolations",
     "malformedSuccess",
+    "successfulWithoutReservations",
+    "successfulHealthWarnings",
     "cleaningActiveEqualsPriorityPlusFlexible",
     "dashboardOverbookingEqualsDetail",
   ]) assert.match(audit, new RegExp(marker));

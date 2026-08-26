@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { getRoomCalendarStatus } from "../lib/get-room-calendar-status";
-import { isCalendarSyncWarning } from "../../calendar-sync/domain/sync-health";
+import { getCalendarSyncHealth, isCalendarSyncWarning } from "../../calendar-sync/domain/sync-health";
 import { mapRoomCalendarSummary, type RoomCalendarMapperInput } from "../lib/map-room-calendar-summary";
 import { hasPermission, PERMISSIONS } from "../../access-control/domain/access-control";
 import { isCalendarSourceDeleteConfirmationValid, isCalendarSourceSyncRunning } from "../../calendar-sources/domain/calendar-source-deletion";
@@ -19,15 +19,34 @@ test("최신 SyncRun의 동일한 숫자로 통합 상태를 계산한다", () =
 
 test("다운로드 이벤트가 전부 UNKNOWN 또는 파싱 실패면 성공 대신 주의 상태다", () => {
   assert.equal(isCalendarSyncWarning({ status: "SUCCESS", fetchedEventCount: 3, reservationEventCount: 0, blockedEventCount: 0, cancelledEventCount: 0, unknownEventCount: 2, failedEventCount: 1 }), true);
-  assert.equal(isCalendarSyncWarning({ status: "SUCCESS", fetchedEventCount: 3, reservationEventCount: 1, blockedEventCount: 0, cancelledEventCount: 0, unknownEventCount: 2, failedEventCount: 0 }), false);
+  assert.equal(isCalendarSyncWarning({ status: "SUCCESS", fetchedEventCount: 3, reservationEventCount: 1, blockedEventCount: 0, cancelledEventCount: 0, unknownEventCount: 2, failedEventCount: 0 }), true);
+  assert.equal(isCalendarSyncWarning({ status: "SUCCESS", fetchedEventCount: 3, reservationEventCount: 0, blockedEventCount: 3, cancelledEventCount: 0, unknownEventCount: 0, failedEventCount: 0 }), false);
+  assert.equal(isCalendarSyncWarning({ status: "SUCCESS", fetchedEventCount: 0, reservationEventCount: 0, blockedEventCount: 0, cancelledEventCount: 0, unknownEventCount: 0, failedEventCount: 0 }), false);
+});
+
+test("이전 예약 급감과 DB 반영 불일치를 공통 health reason으로 판정한다", () => {
+  const health = getCalendarSyncHealth({
+    status: "SUCCESS",
+    fetchedEventCount: 2,
+    reservationEventCount: 0,
+    blockedEventCount: 2,
+    cancelledEventCount: 0,
+    unknownEventCount: 0,
+    failedEventCount: 0,
+    previousSuccessfulReservationEventCount: 3,
+    expectedPersistedReservationCount: 0,
+    persistedReservationCount: 1,
+  });
+  assert.equal(health.status, "WARNING");
+  assert.deepEqual(health.warningReasons, ["RESERVATION_COUNT_DROPPED_TO_ZERO", "PERSISTENCE_COUNT_MISMATCH"]);
 });
 
 const log = (calendarSourceId: string, provider: "AIRBNB" | "BOOKING" | "AGODA", status: "SUCCESS" | "FAILED", errorMessage: string | null = null) => ({ calendarSourceId, provider, status, startedAt: new Date("2026-07-24T14:25:00Z"), completedAt: new Date("2026-07-24T14:25:01Z"), fetchedCount: status === "SUCCESS" ? 5 : 0, reservationEventCount: status === "SUCCESS" ? 3 : 0, blockedEventCount: status === "SUCCESS" ? 2 : 0, cancelledEventCount: 0, unknownEventCount: 0, failedEventCount: 0, createdCount: status === "SUCCESS" ? 3 : 0, updatedCount: 0, cancelledCount: 0, retryCount: status === "FAILED" ? 2 : 0, httpStatus: status === "FAILED" ? 403 : null, errorCode: status === "FAILED" ? "ICS_HTTP_403" : null, errorMessage, errorDetails: status === "FAILED" ? "technical upstream response" : null, durationMs: 1000 });
 
 function row(): RoomCalendarMapperInput {
   return { id: "room-303", name: "303호", propertyId: "property-1", property: { name: "테스트 숙소" }, calendarSources: [
-    { id: "a", provider: "AIRBNB", name: "Airbnb", calendarUrl: "https://example.com/super-secret-a-token.ics", isActive: true, connectionStatus: "NORMAL", safetyReasonCodes: null, lastSyncedAt: new Date("2026-07-24T14:25:01Z") },
-    { id: "b", provider: "BOOKING", name: "Booking", calendarUrl: "https://example.com/super-secret-b-token.ics", isActive: true, connectionStatus: "NORMAL", safetyReasonCodes: null, lastSyncedAt: null },
+    { id: "a", provider: "AIRBNB", name: "Airbnb", calendarUrl: "https://example.com/super-secret-a-token.ics", isActive: true, connectionStatus: "NORMAL", safetyReasonCodes: null, lastSyncedAt: new Date("2026-07-24T14:25:01Z"), _count: { reservations: 3 }, reservations: [{ id: "visible-a" }] },
+    { id: "b", provider: "BOOKING", name: "Booking", calendarUrl: "https://example.com/super-secret-b-token.ics", isActive: true, connectionStatus: "NORMAL", safetyReasonCodes: null, lastSyncedAt: null, _count: { reservations: 3 }, reservations: [] },
   ], syncRuns: [
     { id: "latest", status: "SUCCESS", executionMode: "MANUAL", startedAt: new Date("2026-07-24T14:25:00Z"), finishedAt: new Date("2026-07-24T14:25:01Z"), targetCount: 2, successCount: 2, failedCount: 0, errorSummary: null, actor: { name: "관리자" }, syncLogs: [log("a", "AIRBNB", "SUCCESS"), log("b", "BOOKING", "SUCCESS")] },
     { id: "past", status: "FAILED", executionMode: "AUTO", startedAt: new Date("2026-07-23T14:25:00Z"), finishedAt: new Date("2026-07-23T14:25:01Z"), targetCount: 2, successCount: 1, failedCount: 1, errorSummary: "Booking.com 오류", actor: null, syncLogs: [log("a", "AIRBNB", "SUCCESS"), log("b", "BOOKING", "FAILED", "접근할 수 없습니다.")] },

@@ -41,7 +41,16 @@ export async function listRecentFailedSyncLogs(input: { since: Date; requestedPa
 export async function listCalendarSourceSyncLogs(calendarSourceId: string, requestedPage: number, companyIds?: readonly string[]) {
   const sourceWhere = { id: calendarSourceId, room: companyIds ? { property: { companyId: { in: [...companyIds] } } } : undefined };
   const [source, totalCount] = await Promise.all([
-    prisma.calendarSource.findFirst({ where: sourceWhere, select: { id: true, name: true, provider: true, room: { select: { name: true, property: { select: { name: true } } } } } }),
+    prisma.calendarSource.findFirst({
+      where: sourceWhere,
+      select: {
+        id: true,
+        name: true,
+        provider: true,
+        _count: { select: { reservations: { where: { status: { in: ["CONFIRMED", "TENTATIVE"] } } } } },
+        room: { select: { name: true, property: { select: { name: true } } } },
+      },
+    }),
     prisma.syncLog.count({ where: { calendarSourceId, calendarSource: companyIds ? { room: { property: { companyId: { in: [...companyIds] } } } } : undefined } }),
   ]);
   const totalPages = Math.max(1, Math.ceil(totalCount / SYNC_LOG_PAGE_SIZE));

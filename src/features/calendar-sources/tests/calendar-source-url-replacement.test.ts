@@ -232,6 +232,8 @@ test("URL 교체 transaction은 source-scoped 삭제·즉시 sync·마스킹 감
   assert.match(replacement, /syncLog\.create/);
   assert.match(replacement, /status: "SUCCESS"/);
   assert.match(replacement, /detectRoomReservationConflicts/);
+  assert.match(replacement, /currentSourceOperationalReservationCount/);
+  assert.match(replacement, /ReservationPersistenceInvariantError/);
   assert.match(replacement, /previousCalendarUrl: maskCalendarUrl/);
   assert.match(replacement, /removedReservationCount/);
   assert.match(replacement, /createdReservationCount/);

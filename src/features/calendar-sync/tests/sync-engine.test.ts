@@ -31,16 +31,29 @@ test("안전 검증을 통과하지 않은 빈 ICS는 기존 활성 예약을 �
 test("완전 파싱된 피드에서 사라진 UID는 source reconciliation 삭제 대상으로 분류한다", () => {
   const stale = existing({ id: "stale", rawUid: "old-uid", providerReservationId: "old-uid", startDate: new Date("2026-08-18"), endDate: new Date("2026-08-20") });
   const current = normalized({ rawUid: "new-uid", providerReservationId: "new-uid", startDate: new Date("2026-08-19"), endDate: new Date("2026-08-21") });
-  const result = classifyReservations([stale], [current], { observedUids: new Set(["new-uid"]), fullyParsed: true });
+  const result = classifyReservations([stale], [current], { observedUids: new Set(["new-uid"]), blockedUids: new Set(), fullyParsed: true });
   assert.deepEqual(result.missingDeletionIds, ["stale"]);
 });
-test("관찰된 BLOCKED·UNKNOWN UID와 불완전 파싱은 삭제하지 않고 완전 파싱의 다른 누락 UID는 삭제한다", () => {
+test("완전 파싱에서 BLOCKED UID와 누락 UID는 삭제하고 UNKNOWN UID와 불완전 파싱은 보존한다", () => {
   const values = [
     existing({ id: "observed", rawUid: "observed", providerReservationId: "observed", startDate: new Date("2026-08-18"), endDate: new Date("2026-08-20") }),
     existing({ id: "separate", rawUid: "separate", providerReservationId: "separate", startDate: new Date("2026-09-01"), endDate: new Date("2026-09-02") }),
     existing({ id: "past", rawUid: "past", providerReservationId: "past", startDate: new Date("2026-08-01"), endDate: new Date("2026-08-02") }),
   ];
   const incoming = [normalized({ rawUid: "new", providerReservationId: "new", startDate: new Date("2026-08-19"), endDate: new Date("2026-08-21") })];
-  assert.deepEqual(classifyReservations(values, incoming, { observedUids: new Set(["observed", "new"]), fullyParsed: true }).missingDeletionIds, ["separate", "past"]);
-  assert.deepEqual(classifyReservations([values[0]], incoming, { observedUids: new Set(["new"]), fullyParsed: false }).missingDeletionIds, []);
+  assert.deepEqual(classifyReservations(values, incoming, {
+    observedUids: new Set(["observed", "new"]),
+    blockedUids: new Set(["observed"]),
+    fullyParsed: true,
+  }).missingDeletionIds, ["observed", "separate", "past"]);
+  assert.deepEqual(classifyReservations([values[0]], incoming, {
+    observedUids: new Set(["observed", "new"]),
+    blockedUids: new Set(),
+    fullyParsed: true,
+  }).missingDeletionIds, []);
+  assert.deepEqual(classifyReservations([values[0]], incoming, {
+    observedUids: new Set(["new"]),
+    blockedUids: new Set(["observed"]),
+    fullyParsed: false,
+  }).missingDeletionIds, []);
 });

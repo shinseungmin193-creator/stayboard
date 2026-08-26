@@ -5,6 +5,7 @@ import { exceedsContentLengthLimit, exceedsResponseByteLimit, isRetryableHttpSta
 import { parseIcsCalendar } from "../infrastructure/ics-parser";
 import { isStaleRunning } from "../domain/sync-safety";
 import { getDashboardTodayRange } from "../../dashboard/dashboard-time";
+import { standardizeSyncError } from "../domain/sync-error";
 const calendar = (events:string) => `BEGIN:VCALENDAR\r\nVERSION:2.0\r\n${events}END:VCALENDAR\r\n`; const event = (uid:string,extra="") => `BEGIN:VEVENT\r\nUID:${uid}\r\nDTSTART;VALUE=DATE:20260101\r\nDTEND;VALUE=DATE:20260103\r\n${extra}END:VEVENT\r\n`;
 test("오래된 RUNNING을 30분 경계와 일관되게 판정한다",()=>{ const now=new Date("2026-01-02T00:00:00Z"); assert.equal(isStaleRunning(new Date("2026-01-01T23:00:00Z"),now),true); assert.equal(isStaleRunning(new Date("2026-01-01T23:30:00Z"),now),false); assert.equal(isStaleRunning(new Date("2026-01-01T23:45:00Z"),now),false); });
 test("재시도 가능한 HTTP 상태만 허용한다",()=>{ for(const status of [408,425,429,500,502,503,504]) assert.equal(isRetryableHttpStatus(status),true); for(const status of [400,401,403,404,409,501]) assert.equal(isRetryableHttpStatus(status),false); });
@@ -15,3 +16,4 @@ test("동일 UID는 LAST-MODIFIED, SEQUENCE, DTSTAMP 우선순위로 선택한�
 test("VEVENT 정확히 최대 수는 허용한다",()=>{ const many=Array.from({length:ICS_MAX_VEVENTS},(_,i)=>event(String(i))).join(""); assert.equal(parseIcsCalendar(calendar(many)).events.length,ICS_MAX_VEVENTS); });
 test("동일 UID 상태는 SEQUENCE와 마지막 이벤트 fallback을 따른다",()=>{ const confirmed=event("same","STATUS:CONFIRMED\r\nSEQUENCE:1\r\n"); const cancelled=event("same","STATUS:CANCELLED\r\nSEQUENCE:2\r\n"); assert.equal(parseIcsCalendar(calendar(confirmed+cancelled)).events[0].status,"CANCELLED"); const fallback=parseIcsCalendar(calendar(event("tie","SUMMARY:first\r\n")+event("tie","SUMMARY:last\r\n"))); assert.equal(fallback.events[0].summary,"last"); });
 test("대시보드 오늘 범위는 Asia/Tokyo 자정 경계를 사용한다",()=>{ const range=getDashboardTodayRange(new Date("2026-07-23T16:00:00Z"));assert.equal(range.start.toISOString(),"2026-07-23T15:00:00.000Z");assert.equal(range.end.toISOString(),"2026-07-24T15:00:00.000Z"); });
+test("저장 후 DB invariant 불일치는 실제 동기화 실패 코드로 표준화한다",()=>{ const error=Object.assign(new Error("expected 1, actual 0"),{code:"DATABASE_WRITE_FAILED"}); const standardized=standardizeSyncError(error); assert.equal(standardized.code,"DATABASE_WRITE_FAILED"); assert.match(standardized.safeMessage,/저장하지 못했습니다/); });

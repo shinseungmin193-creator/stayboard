@@ -284,6 +284,22 @@
       "SUCCESS": "正常",
       "FAILED": "エラー",
       "TIMEOUT": "タイムアウト"
+    },
+    "health": {
+      "successWithReservations": "正常・予約{count}件",
+      "emptyCalendar": "正常・空のカレンダー",
+      "noReservations": "正常・予約0件",
+      "warningWithReservations": "注意・予約{count}件",
+      "dbReservations": "現在のDB予約",
+      "visibleReservations": "予約画面の表示",
+      "warningDescription": "通信は完了しましたが、予約データの確認が必要です。",
+      "reasons": {
+        "UNCLASSIFIED_NONEMPTY_FEED": "VEVENTがありますが、予約・ブロック・キャンセルとしてすべて分類されていません。",
+        "UNKNOWN_EVENTS": "Providerルールで確定できないイベントがあります。",
+        "FAILED_EVENTS": "一部のイベントを解析または処理できませんでした。",
+        "RESERVATION_COUNT_DROPPED_TO_ZERO": "前回の同期には予約がありましたが、今回は0件です。",
+        "PERSISTENCE_COUNT_MISMATCH": "同期集計と現在のDB予約数が一致しません。"
+      }
     }
   },
   "units": {

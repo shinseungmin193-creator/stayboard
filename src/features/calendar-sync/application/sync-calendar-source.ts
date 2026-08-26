@@ -11,7 +11,7 @@ import { reservationNormalizerRegistry } from "../providers/normalizer-registry"
 import { classifyStoredCalendarEvent } from "../providers/reservation-normalizer";
 import { standardizeSyncError } from "../domain/sync-error";
 import { countFailedCalendarEvents, createCalendarSyncDiagnosticPayload, type CalendarSyncDiagnosticPayload } from "../domain/calendar-sync-diagnostics";
-import { isCalendarSyncWarning } from "../domain/sync-health";
+import { getCalendarSyncHealth } from "../domain/sync-health";
 import { createCalendarFeedFingerprint, readCalendarFeedFingerprint } from "../domain/calendar-feed-fingerprint";
 import { CalendarFeedQuarantinedError, validateCalendarFeedTransition, type CalendarFeedSafetyDiagnostics } from "../domain/calendar-feed-safety";
 import { findCalendarFeedSafetyContext } from "../infrastructure/calendar-feed-safety.repository";
@@ -67,7 +67,7 @@ export async function syncCalendarSource(calendarSourceId: string, signal?: Abor
       fetchedCount = parsed.totalEventCount;
       const failedEventCount = countFailedCalendarEvents(parsed.issues);
       const classified = classifyCalendarEvents(parsed.events, normalizer, parsed.excludedCount, failedEventCount);
-      const { reservations, observedUids, unknownEvents, eventDiagnostics: classifiedDiagnostics, eventDiagnosticTruncatedCount } = classified;
+      const { reservations, observedUids, blockedUids, unknownEvents, eventDiagnostics: classifiedDiagnostics, eventDiagnosticTruncatedCount } = classified;
       eventCounts = {
         parsedEventCount: classified.parsedEventCount,
         reservationEventCount: classified.reservationEventCount,
@@ -121,6 +121,7 @@ export async function syncCalendarSource(calendarSourceId: string, signal?: Abor
         provider: source.provider,
         reservations,
         observedUids,
+        blockedUids,
         fullyParsed: parsed.issues.length === 0,
         unknownEventDetails,
         eventDiagnostics: eventDiagnostics as unknown as Prisma.InputJsonValue,
@@ -132,18 +133,25 @@ export async function syncCalendarSource(calendarSourceId: string, signal?: Abor
         safetyDiagnostics,
       });
 
+      const health = getCalendarSyncHealth({
+        status: "SUCCESS",
+        fetchedEventCount: fetchedCount,
+        reservationEventCount: eventCounts.reservationEventCount,
+        blockedEventCount: eventCounts.blockedEventCount,
+        cancelledEventCount: eventCounts.cancelledEventCount,
+        unknownEventCount: eventCounts.unknownEventCount,
+        failedEventCount: eventCounts.failedEventCount,
+        previousSuccessfulReservationEventCount: previous?.reservationEventCount ?? null,
+        expectedPersistedReservationCount: persisted.expectedSourceOperationalReservationCount,
+        persistedReservationCount: persisted.currentSourceOperationalReservationCount,
+      });
+
       return {
         calendarSourceId: source.id,
         provider: source.provider,
-        warning: isCalendarSyncWarning({
-          status: "SUCCESS",
-          fetchedEventCount: fetchedCount,
-          reservationEventCount: eventCounts.reservationEventCount,
-          blockedEventCount: eventCounts.blockedEventCount,
-          cancelledEventCount: eventCounts.cancelledEventCount,
-          unknownEventCount: eventCounts.unknownEventCount,
-          failedEventCount: eventCounts.failedEventCount,
-        }),
+        warning: health.status === "WARNING",
+        healthStatus: health.status,
+        warningReasons: health.warningReasons,
         fetchedCount,
         parsedCount: eventCounts.parsedEventCount,
         excludedCount: eventCounts.skippedEventCount,
