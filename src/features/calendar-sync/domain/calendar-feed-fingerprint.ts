@@ -6,6 +6,7 @@ import { hasProviderDomain } from "../providers/event-classification";
 
 export interface CalendarFeedFingerprint {
   version: 1;
+  classificationVersion: number;
   provider: CalendarProviderType;
   calendarHostname: string;
   prodIdFingerprint: string | null;
@@ -60,6 +61,7 @@ function ratio(value: number, total: number): number {
 
 export function createCalendarFeedFingerprint(input: {
   provider: CalendarProviderType;
+  classificationVersion?: number;
   calendarHostname: string;
   prodId: string | null;
   totalEventCount: number;
@@ -79,6 +81,7 @@ export function createCalendarFeedFingerprint(input: {
   ].join("|"));
   return {
     version: 1,
+    classificationVersion: input.classificationVersion ?? 1,
     provider: input.provider,
     calendarHostname: input.calendarHostname.toLowerCase(),
     prodIdFingerprint: input.prodId ? digest([input.prodId.normalize("NFKC").trim().toLowerCase()]) : null,
@@ -103,5 +106,8 @@ export function readCalendarFeedFingerprint(value: unknown): CalendarFeedFingerp
   for (const field of ["totalEventCount", "parsedEventCount", "reservationCount", "blockedCount", "cancelledCount", "unknownCount", "providerIdentityRatio"] as const) {
     if (typeof candidate[field] !== "number" || !Number.isFinite(candidate[field])) return null;
   }
-  return candidate as CalendarFeedFingerprint;
+  const classificationVersion = Number.isSafeInteger(candidate.classificationVersion) && Number(candidate.classificationVersion) > 0
+    ? Number(candidate.classificationVersion)
+    : 1;
+  return { ...candidate, classificationVersion } as CalendarFeedFingerprint;
 }

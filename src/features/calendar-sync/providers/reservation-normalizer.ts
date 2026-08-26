@@ -5,6 +5,7 @@ import type { CalendarEventClassification } from "../domain/calendar-event";
 
 export interface ReservationNormalizer {
   readonly provider: CalendarProviderType;
+  readonly classificationVersion: number;
   classifyEvent(event: ParsedCalendarEvent): CalendarEventClassification;
   normalize(event: ParsedCalendarEvent): NormalizedReservation;
 }

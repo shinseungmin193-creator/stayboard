@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import type { CalendarProviderType } from "../../../providers/calendar";
-import { createCalendarFeedFingerprint, type CalendarFeedFingerprint } from "../domain/calendar-feed-fingerprint";
+import { createCalendarFeedFingerprint, readCalendarFeedFingerprint, type CalendarFeedFingerprint } from "../domain/calendar-feed-fingerprint";
 import { validateCalendarFeedTransition, type CalendarFeedSafetyReservation } from "../domain/calendar-feed-safety";
 import type { CalendarEventClassificationCounts } from "../domain/classify-calendar-events";
 import type { NormalizedReservation } from "../domain/normalized-reservation";
@@ -20,6 +20,7 @@ const counts = (overrides: Partial<CalendarEventClassificationCounts> = {}): Cal
 });
 const fingerprint = (provider: CalendarProviderType = "BOOKING", overrides: Partial<CalendarFeedFingerprint> = {}): CalendarFeedFingerprint => ({
   version: 1,
+  classificationVersion: 1,
   provider,
   calendarHostname: provider === "BOOKING" ? "ical.booking.com" : provider === "AIRBNB" ? "www.airbnb.com" : "ycs.agoda.com",
   prodIdFingerprint: "prod-booking",
@@ -138,6 +139,23 @@ test("명시적 URL 교체의 baseline reset은 비교형 drift를 무시하되 
   assert.equal(reset.status, "SAFE");
   const invalidIdentity = validate({ baselineReset: true, fingerprint: fingerprint("BOOKING", { providerIdentityRatio: 0 }) });
   assert.equal(invalidIdentity.status, "QUARANTINED");
+});
+
+test("분류 정책 버전 변경은 기존 안전 기준선을 재사용하지 않는다", () => {
+  const legacy = readCalendarFeedFingerprint({ ...fingerprint(), classificationVersion: undefined });
+  assert.equal(legacy?.classificationVersion, 1);
+  const current = fingerprint("BOOKING", { classificationVersion: 2, reservationCount: 11, blockedCount: 0, totalEventCount: 11, parsedEventCount: 11 });
+  const many = Array.from({ length: 11 }, (_, index) => incoming(`policy-${index}@booking.com`, 12 + index * 3));
+  const result = validate({
+    counts: counts({ parsedEventCount: 11, reservationEventCount: 11, blockedEventCount: 0, skippedEventCount: 0 }),
+    fingerprint: current,
+    baselineFingerprint: legacy,
+    baselineReset: legacy?.classificationVersion !== current.classificationVersion,
+    sourceReservations: [],
+    roomReservations: [],
+    incomingReservations: many,
+  });
+  assert.equal(result.status, "SAFE");
 });
 
 test("Airbnb와 Agoda는 Booking 전용 guard로 회귀 차단되지 않는다", () => {

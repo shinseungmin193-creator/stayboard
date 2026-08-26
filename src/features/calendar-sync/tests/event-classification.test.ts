@@ -37,6 +37,7 @@ test("Airbnb 실제 예약과 guestName 없는 예약을 RESERVATION으로 유�
 test("Booking.com 실제 응답의 UID·ORGANIZER 신호를 조합해 예약을 분류한다", () => {
   const normalizer = new BookingReservationNormalizer();
   assert.equal(normalizer.classifyEvent(parsedEvent({ uid: "stay-1@booking.com", organizer: "mailto:calendar@booking.com", summary: "Stay - Booking.com" })), "RESERVATION");
+  assert.equal(normalizer.classifyEvent(parsedEvent({ uid: "0123456789abcdef0123456789abcdef@booking.com", organizer: "mailto:calendar@booking.com", summary: "CLOSED - Not available" })), "RESERVATION");
   assert.equal(normalizer.classifyEvent(parsedEvent({ uid: "closed@booking.com", organizer: "mailto:calendar@booking.com", summary: "CLOSED - Not available" })), "BLOCKED");
   assert.equal(normalizer.classifyEvent(parsedEvent({ uid: "closed@booking.com", summary: "closed-not_available" })), "BLOCKED");
   assert.equal(normalizer.classifyEvent(parsedEvent({ uid: "stay-2@booking.com", organizer: "mailto:calendar@booking.com", summary: "Maintenance" })), "BLOCKED");

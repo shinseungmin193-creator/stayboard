@@ -5,10 +5,6 @@ import { calendarProperty, hasProviderDomain, isCancelledCalendarEvent, matchesC
 const BOOKING_DOMAIN = "booking.com";
 const BOOKING_EXPLICIT_BLOCKED_SUMMARIES = new Set([
   "blocked",
-  "closed not available",
-  "closed",
-  "not available",
-  "unavailable",
   "owner use",
   "maintenance",
   "stop sell",
@@ -18,14 +14,29 @@ const BOOKING_EXPLICIT_BLOCKED_SUMMARIES = new Set([
   "owner block",
   "owner blocked",
 ]);
+const BOOKING_OPAQUE_AVAILABILITY_SUMMARIES = new Set([
+  "closed not available",
+  "closed",
+  "not available",
+  "unavailable",
+]);
 const BOOKING_RESERVATION_SUMMARIES = new Set(["reserved", "reservation", "booking", "booking reservation"]);
+
+function isBookingGeneratedUid(uid: string) {
+  return /^[0-9a-f]{32}@booking\.com$/i.test(uid.trim());
+}
 
 export function classifyBookingEvent(event: ParsedCalendarEvent) {
   if (isCancelledCalendarEvent(event)) return "CANCELLED" as const;
   if (matchesCalendarText(event.summary, BOOKING_EXPLICIT_BLOCKED_SUMMARIES)) return "BLOCKED" as const;
 
   const organizer = calendarProperty(event, "organizer");
-  const hasBookingIdentity = hasProviderDomain(event.uid, BOOKING_DOMAIN) || hasProviderDomain(organizer, BOOKING_DOMAIN);
+  const hasBookingOrganizer = hasProviderDomain(organizer, BOOKING_DOMAIN);
+  if (matchesCalendarText(event.summary, BOOKING_OPAQUE_AVAILABILITY_SUMMARIES)) {
+    return isBookingGeneratedUid(event.uid) && hasBookingOrganizer ? "RESERVATION" as const : "BLOCKED" as const;
+  }
+
+  const hasBookingIdentity = hasProviderDomain(event.uid, BOOKING_DOMAIN) || hasBookingOrganizer;
   const summary = normalizeCalendarText(event.summary);
   if (summary && hasBookingIdentity) return "RESERVATION" as const;
   if (matchesCalendarText(event.summary, BOOKING_RESERVATION_SUMMARIES)) return "RESERVATION" as const;

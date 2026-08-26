@@ -7,6 +7,7 @@ const RESERVED_SUMMARY = "reserved";
 
 export class AirbnbReservationNormalizer implements ReservationNormalizer {
   readonly provider = "AIRBNB" as const;
+  readonly classificationVersion = 1;
   classifyEvent = classifyAirbnbEvent;
 
   normalize(event: Parameters<ReservationNormalizer["normalize"]>[0]) {

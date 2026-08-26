@@ -81,6 +81,7 @@ export async function syncCalendarSource(calendarSourceId: string, signal?: Abor
       eventDiagnostics = createCalendarSyncDiagnosticPayload({ events: classifiedDiagnostics, eventDiagnosticTruncatedCount, issues: parsed.issues, counts: eventCounts });
       const fingerprint = createCalendarFeedFingerprint({
         provider: providerType,
+        classificationVersion: normalizer.classificationVersion,
         calendarHostname: new URL(source.calendarUrl).hostname,
         prodId: parsed.prodId,
         totalEventCount: parsed.totalEventCount,
@@ -96,6 +97,11 @@ export async function syncCalendarSource(calendarSourceId: string, signal?: Abor
       const sourceReservationsForSafety = safetyContext.reservations.filter((reservation) => !knownNonReservationIds.has(reservation.id));
       const roomReservationsForSafety = safetyContext.room.reservations.filter((reservation) => !knownNonReservationIds.has(reservation.id));
       const previous = safetyContext.syncLogs[0] ?? null;
+      const baselineFingerprint = readCalendarFeedFingerprint(safetyContext.feedFingerprint);
+      const classificationBaselineReset = Boolean(
+        baselineFingerprint
+        && baselineFingerprint.classificationVersion !== fingerprint.classificationVersion,
+      );
       const safety = validateCalendarFeedTransition({
         provider: providerType,
         sourceId: source.id,
@@ -103,11 +109,12 @@ export async function syncCalendarSource(calendarSourceId: string, signal?: Abor
         fetchedEventCount: fetchedCount,
         counts: eventCounts,
         fingerprint,
-        baselineFingerprint: readCalendarFeedFingerprint(safetyContext.feedFingerprint),
+        baselineFingerprint,
         previousSuccessfulCounts: previous ? { fetchedCount: previous.fetchedCount, reservationCount: previous.reservationEventCount, unknownCount: previous.unknownEventCount } : null,
         sourceReservations: sourceReservationsForSafety,
         roomReservations: roomReservationsForSafety,
         incomingReservations: reservations,
+        baselineReset: classificationBaselineReset,
       });
       safetyDiagnostics = safety.diagnostics;
       if (safety.status === "QUARANTINED") throw new CalendarFeedQuarantinedError(safety, fingerprint);

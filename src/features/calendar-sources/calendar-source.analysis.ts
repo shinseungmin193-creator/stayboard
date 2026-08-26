@@ -38,7 +38,7 @@ export function analyzeCalendarFeed(result: CalendarFetchResult, responseTimeMs:
       cancelledCount: classified.cancelledEventCount,
       unknownCount: classified.unknownEventCount,
     };
-    const fingerprint = createCalendarFeedFingerprint({ provider, calendarHostname, prodId: parsed.prodId, totalEventCount: parsed.totalEventCount, events: parsed.events, counts: classified });
+    const fingerprint = createCalendarFeedFingerprint({ provider, classificationVersion: normalizer.classificationVersion, calendarHostname, prodId: parsed.prodId, totalEventCount: parsed.totalEventCount, events: parsed.events, counts: classified });
     return { connection, parsed, classified, fingerprint };
   } catch (error) {
     if (error instanceof CalendarParseError) throw error;

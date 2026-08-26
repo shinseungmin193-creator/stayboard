@@ -10,6 +10,7 @@ import type { NormalizedReservation } from "../../calendar-sync/domain/normalize
 
 const fingerprint: CalendarFeedFingerprint = {
   version: 1,
+  classificationVersion: 2,
   provider: "BOOKING",
   calendarHostname: "ical.booking.com",
   prodIdFingerprint: "prod-hash",
