@@ -88,6 +88,7 @@
       "reservation-conflicts": "オーバーブッキング",
       "properties": "宿泊施設",
       "rooms": "客室",
+      "room-notes": "客室メモ",
       "calendar-sources": "カレンダー連携",
       "member-management": "メンバー管理",
       "occupancy-statistics": "稼働率統計",
@@ -309,6 +310,61 @@
     "DEVELOPER": "開発者",
     "ADMIN": "管理者",
     "STAFF": "スタッフ"
+  },
+  "roomNotes": {
+    "eyebrow": "ROOM NOTES",
+    "title": "客室メモ",
+    "description": "客室ごとのメモと注意事項を確認します。",
+    "actions": {
+      "add": "メモを追加",
+      "create": "追加",
+      "apply": "検索",
+      "reset": "リセット",
+      "openCleaning": "清掃記録を開く"
+    },
+    "filters": {
+      "property": "宿泊施設",
+      "room": "客室",
+      "search": "検索",
+      "allProperties": "すべての宿泊施設",
+      "allRooms": "すべての客室",
+      "placeholder": "メモ、客室、宿泊施設、作成者を検索"
+    },
+    "columns": {
+      "property": "宿泊施設",
+      "room": "客室",
+      "content": "メモ内容",
+      "author": "作成者",
+      "createdAt": "作成日"
+    },
+    "form": {
+      "title": "客室メモを追加",
+      "description": "宿泊施設と客室を選択してメモを入力します。",
+      "selectProperty": "宿泊施設を選択してください",
+      "selectRoom": "客室を選択してください",
+      "contentPlaceholder": "客室の注意事項や必要な対応を入力してください。"
+    },
+    "details": {
+      "description": "客室メモの詳細情報",
+      "source": "作成元",
+      "photos": "関連写真 {count}枚",
+      "noPhotos": "関連する写真はありません。"
+    },
+    "source": {
+      "CLEANING": "清掃完了時に作成",
+      "MANUAL": "直接作成"
+    },
+    "empty": "条件に一致する客室メモはありません。",
+    "count": "合計 {count}件",
+    "pagination": {
+      "label": "客室メモのページ",
+      "previous": "前へ",
+      "next": "次へ"
+    },
+    "messages": {
+      "invalid": "入力内容を確認してください。",
+      "created": "客室メモを追加しました。"
+    }
   },
   "cleaning": {
     "eyebrow": "CLEANING MANAGEMENT",

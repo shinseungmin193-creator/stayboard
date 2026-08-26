@@ -88,6 +88,7 @@
       "reservation-conflicts": "오버부킹",
       "properties": "숙소",
       "rooms": "객실",
+      "room-notes": "객실 메모",
       "calendar-sources": "캘린더 연결",
       "member-management": "구성원 관리",
       "occupancy-statistics": "점유율 통계",
@@ -309,6 +310,61 @@
     "DEVELOPER": "개발자",
     "ADMIN": "관리자",
     "STAFF": "직원"
+  },
+  "roomNotes": {
+    "eyebrow": "ROOM NOTES",
+    "title": "객실 메모",
+    "description": "객실별 메모와 특이사항을 확인합니다.",
+    "actions": {
+      "add": "메모 추가",
+      "create": "추가",
+      "apply": "검색",
+      "reset": "초기화",
+      "openCleaning": "청소 기록으로 이동"
+    },
+    "filters": {
+      "property": "숙소",
+      "room": "객실",
+      "search": "검색",
+      "allProperties": "전체 숙소",
+      "allRooms": "전체 객실",
+      "placeholder": "메모, 객실, 숙소, 작성자 검색"
+    },
+    "columns": {
+      "property": "숙소",
+      "room": "객실",
+      "content": "메모내용",
+      "author": "작성자",
+      "createdAt": "작성일"
+    },
+    "form": {
+      "title": "객실 메모 추가",
+      "description": "숙소와 객실을 선택하고 메모를 작성합니다.",
+      "selectProperty": "숙소를 선택하세요",
+      "selectRoom": "객실을 선택하세요",
+      "contentPlaceholder": "객실 특이사항이나 필요한 조치를 입력하세요."
+    },
+    "details": {
+      "description": "객실 메모 상세 정보",
+      "source": "작성 경로",
+      "photos": "관련 사진 {count}장",
+      "noPhotos": "연결된 사진이 없습니다."
+    },
+    "source": {
+      "CLEANING": "청소 완료에서 작성됨",
+      "MANUAL": "직접 작성"
+    },
+    "empty": "조건에 맞는 객실 메모가 없습니다.",
+    "count": "총 {count}건",
+    "pagination": {
+      "label": "객실 메모 페이지",
+      "previous": "이전",
+      "next": "다음"
+    },
+    "messages": {
+      "invalid": "입력 내용을 확인해 주세요.",
+      "created": "객실 메모를 추가했습니다."
+    }
   },
   "cleaning": {
     "eyebrow": "CLEANING MANAGEMENT",

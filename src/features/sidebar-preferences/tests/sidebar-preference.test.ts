@@ -54,6 +54,7 @@ test("역할 권한과 사용자 숨김 설정을 순서 설정에 함께 적용
   assert.equal(staff.some((item) => item.id === "dashboard"), false);
   assert.equal(staff.some((item) => item.id === "room-overview"), true);
   assert.equal(staff.some((item) => item.id === "cleaning"), true);
+  assert.equal(staff.some((item) => item.id === "room-notes"), true);
   const developer = getAuthorizedSidebarMenus(SIDEBAR_MENU_ITEMS, DEFAULT_SIDEBAR_PREFERENCE, "DEVELOPER");
   assert.equal(developer.some((item) => item.id === "developer-settings"), true);
   const admin = getAuthorizedSidebarMenus(SIDEBAR_MENU_ITEMS, DEFAULT_SIDEBAR_PREFERENCE, "ADMIN");
@@ -62,6 +63,13 @@ test("역할 권한과 사용자 숨김 설정을 순서 설정에 함께 적용
   assert.equal(admin.some((item) => item.id === "developer-settings"), false);
   assert.equal(staff.some((item) => item.id === "member-management"), false);
   assert.equal(staff.some((item) => item.id === "admin-settings"), false);
+});
+
+test("객실 메모는 관리 그룹에서 객실과 캘린더 연결 사이에 배치된다", () => {
+  const roomIndex = DEFAULT_SIDEBAR_MENU_ORDER.indexOf("rooms");
+  const noteIndex = DEFAULT_SIDEBAR_MENU_ORDER.indexOf("room-notes");
+  const calendarIndex = DEFAULT_SIDEBAR_MENU_ORDER.indexOf("calendar-sources");
+  assert.ok(roomIndex < noteIndex && noteIndex < calendarIndex);
 });
 
 test("사용자 지정 이름은 메뉴 ID별로 정규화하고 기본 정의는 변경하지 않는다", () => {

@@ -116,6 +116,7 @@ model Company {
   memberships                 CompanyMembership[]
   invitationCodes             InvitationCode[]
   cleaningTasks               CleaningTask[]
+  roomNotes                   RoomNote[]
   developerRoleSessions       DeveloperRoleSession[]
   mobileNavigationPreferences MobileNavigationPreference[]
   suspendedBy                 User?                        @relation("CompanySuspendedBy", fields: [suspendedById], references: [id], onDelete: SetNull)
@@ -190,6 +191,7 @@ model Property {
   staffAssignments StaffAssignment[]
   propertyAccesses PropertyAccess[]
   cleaningTasks    CleaningTask[]
+  roomNotes        RoomNote[]
 
   @@unique([companyId, name])
   @@index([companyId, isActive])
@@ -215,6 +217,7 @@ model Room {
   staffAssignments           StaffAssignment[]
   syncRuns                   SyncRun[]
   cleaningTasks              CleaningTask[]
+  roomNotes                  RoomNote[]
 
   @@unique([propertyId, code])
   @@index([propertyId, isActive, sortOrder])
@@ -260,6 +263,7 @@ model User {
   cleaningTasksCompleted  CleaningTask[]         @relation("CleaningTaskCompletedBy")
   cleaningTaskLogs        CleaningTaskLog[]      @relation("CleaningTaskLogActor")
   cleaningPhotosUploaded  CleaningPhoto[]        @relation("CleaningPhotoUploader")
+  roomNotesAuthored       RoomNote[]             @relation("RoomNoteAuthor")
   developerRoleSessions   DeveloperRoleSession[]
 
   @@index([isActive, name])
@@ -565,6 +569,29 @@ model CleaningPhoto {
   @@index([taskId, createdAt])
   @@index([deleteAfter, deletedAt])
   @@index([uploadedById, createdAt])
+}
+
+/// Directly authored room notes only. Cleaning notes remain on CleaningTask
+/// and are merged at read time so their content and photos are never copied.
+model RoomNote {
+  id           String   @id @default(cuid())
+  companyId    String
+  propertyId   String
+  roomId       String
+  authorUserId String
+  authorName   String
+  content      String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  company      Company  @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  property     Property @relation(fields: [propertyId], references: [id], onDelete: Restrict)
+  room         Room     @relation(fields: [roomId], references: [id], onDelete: Restrict)
+  author       User     @relation("RoomNoteAuthor", fields: [authorUserId], references: [id], onDelete: Restrict)
+
+  @@index([companyId, createdAt, id])
+  @@index([propertyId, createdAt, id])
+  @@index([roomId, createdAt, id])
+  @@index([authorUserId, createdAt])
 }
 
 model ReservationConflict {
