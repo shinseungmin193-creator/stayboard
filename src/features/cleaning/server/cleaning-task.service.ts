@@ -159,12 +159,23 @@ export async function completeCleaningTask(taskId: string, input: CleaningActor 
       const task = await tx.cleaningTask.findUnique({
         where: { id: taskId },
         select: {
+          id: true,
+          companyId: true,
+          propertyId: true,
+          roomId: true,
+          note: true,
           status: true,
           assignedToId: true,
           assigneeName: true,
           assignedById: true,
           updatedAt: true,
           assignedTo: { select: { name: true } },
+          logs: {
+            where: { action: "NOTE_ADDED" },
+            select: { actorUserId: true, createdAt: true, actor: { select: { name: true } } },
+            orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+            take: 1,
+          },
           photos: { where: { storageKey: { not: null }, deletedAt: null }, select: { id: true }, take: MIN_REQUIRED_CLEANING_PHOTOS },
         },
       });
@@ -193,6 +204,34 @@ export async function completeCleaningTask(taskId: string, input: CleaningActor 
         await createLog(tx, { taskId, action: "ASSIGNED", actorUserId: input.userId, workerName, previousStatus: task.status, nextStatus: task.status, auditMetadata: input.auditMetadata });
       }
       await createLog(tx, { taskId, action: "COMPLETED", actorUserId: input.userId, workerName, previousStatus: task.status, nextStatus: "COMPLETED", auditMetadata: input.auditMetadata });
+      const note = task.note?.trim();
+      if (note) {
+        const noteLog = task.logs[0];
+        await tx.roomNote.upsert({
+          where: { cleaningTaskId: task.id },
+          create: {
+            companyId: task.companyId,
+            propertyId: task.propertyId,
+            roomId: task.roomId,
+            authorUserId: noteLog?.actorUserId ?? input.userId,
+            authorName: noteLog?.actor?.name ?? (input.name || workerName),
+            content: null,
+            sourceType: "CLEANING",
+            cleaningTaskId: task.id,
+            status: "OPEN",
+            createdAt: noteLog?.createdAt ?? completedAt,
+          },
+          update: {
+            companyId: task.companyId,
+            propertyId: task.propertyId,
+            roomId: task.roomId,
+            authorUserId: noteLog?.actorUserId ?? input.userId,
+            authorName: noteLog?.actor?.name ?? (input.name || workerName),
+            content: null,
+            sourceType: "CLEANING",
+          },
+        });
+      }
       await tx.cleaningPhoto.updateMany({
         where: { taskId, storageKey: { not: null }, deletedAt: null },
         data: { deleteAfter: getCleaningPhotoDeleteAfter(completedAt), deleteError: null },

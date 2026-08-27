@@ -7,7 +7,7 @@ import { AccessDenied, authorizeAccess, hasPermission, PERMISSIONS } from "@/fea
 import { RoomNoteCreateDialog } from "@/features/room-notes/components/room-note-create-dialog";
 import { RoomNoteFilterBar } from "@/features/room-notes/components/room-note-filter-bar";
 import { RoomNoteList } from "@/features/room-notes/components/room-note-list";
-import { listRoomNoteOptions, listRoomNotes, normalizeRoomNoteSelection, type RoomNoteFilters } from "@/features/room-notes";
+import { listRoomNoteOptions, listRoomNotes, normalizeRoomNoteSelection, parseRoomNoteStatusFilter, serializeRoomNoteStatusFilter, type RoomNoteFilters } from "@/features/room-notes";
 
 export const dynamic = "force-dynamic";
 
@@ -33,6 +33,7 @@ export default async function RoomNotesPage({ searchParams }: { searchParams: Pr
   const filters: RoomNoteFilters = {
     ...selection,
     query: (value(params, "query") ?? "").trim().slice(0, 100),
+    status: parseRoomNoteStatusFilter(value(params, "status")),
     page: Number.isInteger(requestedPage) && requestedPage > 0 ? requestedPage : 1,
   };
   const result = await listRoomNotes(access.context, filters);
@@ -41,6 +42,7 @@ export default async function RoomNotesPage({ searchParams }: { searchParams: Pr
     if (filters.propertyId) query.set("propertyId", filters.propertyId);
     if (filters.roomId) query.set("roomId", filters.roomId);
     if (filters.query) query.set("query", filters.query);
+    if (filters.status !== "OPEN") query.set("status", serializeRoomNoteStatusFilter(filters.status));
     if (page > 1) query.set("page", String(page));
     return query.size ? `/room-notes?${query}` : "/room-notes";
   };
@@ -49,7 +51,11 @@ export default async function RoomNotesPage({ searchParams }: { searchParams: Pr
     <PageHeader eyebrow={t("eyebrow")} title={t("title")} description={t("description")} action={hasPermission(access.context.role, PERMISSIONS.ROOM_NOTE_CREATE) ? <RoomNoteCreateDialog options={options} /> : undefined} />
     <RoomNoteFilterBar filters={filters} options={options} />
     <div className="flex min-h-7 items-center justify-between gap-3"><p className="text-sm font-semibold">{t("count", { count: result.totalCount })}</p><p className="text-xs text-muted-foreground">{result.page} / {result.totalPages}</p></div>
-    <RoomNoteList notes={result.items} />
+    <RoomNoteList
+      notes={result.items}
+      canComplete={hasPermission(access.context.role, PERMISSIONS.ROOM_NOTE_COMPLETE)}
+      canDelete={hasPermission(access.context.role, PERMISSIONS.ROOM_NOTE_DELETE)}
+    />
     {result.totalPages > 1 && <nav className="flex justify-end gap-2" aria-label={t("pagination.label")}><Button nativeButton={false} render={<Link href={pageHref(Math.max(1, result.page - 1))} />} variant="outline" disabled={result.page <= 1}>{t("pagination.previous")}</Button><Button nativeButton={false} render={<Link href={pageHref(Math.min(result.totalPages, result.page + 1))} />} variant="outline" disabled={result.page >= result.totalPages}>{t("pagination.next")}</Button></nav>}
   </div>;
 }

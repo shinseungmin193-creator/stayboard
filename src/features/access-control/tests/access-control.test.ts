@@ -32,10 +32,18 @@ test("STAFF has operational permissions only", () => {
   assert.equal(hasPermission("STAFF", PERMISSIONS.CLEANING_MANAGE), true);
   assert.equal(hasPermission("STAFF", PERMISSIONS.ROOM_NOTE_READ), true);
   assert.equal(hasPermission("STAFF", PERMISSIONS.ROOM_NOTE_CREATE), true);
+  assert.equal(hasPermission("STAFF", PERMISSIONS.ROOM_NOTE_COMPLETE), true);
+  assert.equal(hasPermission("STAFF", PERMISSIONS.ROOM_NOTE_DELETE), false);
   assert.equal(hasPermission("STAFF", PERMISSIONS.ROOM_MANAGE), false);
   assert.equal(hasPermission("STAFF", PERMISSIONS.CALENDAR_SOURCE_MANAGE), false);
   assert.equal(hasPermission("STAFF", PERMISSIONS.ADMIN_SETTINGS_READ), false);
   assert.equal(hasPermission("STAFF", PERMISSIONS.CLEANING_ASSIGN), false);
+});
+
+test("ADMIN과 DEVELOPER만 객실 메모 삭제 권한을 가진다", () => {
+  assert.equal(hasPermission("STAFF", PERMISSIONS.ROOM_NOTE_DELETE), false);
+  assert.equal(hasPermission("ADMIN", PERMISSIONS.ROOM_NOTE_DELETE), true);
+  assert.equal(hasPermission("DEVELOPER", PERMISSIONS.ROOM_NOTE_DELETE), true);
 });
 
 test("permission mapping covers every role", () => {

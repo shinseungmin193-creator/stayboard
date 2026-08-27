@@ -320,14 +320,20 @@
       "create": "追加",
       "apply": "検索",
       "reset": "リセット",
-      "openCleaning": "清掃記録を開く"
+      "openCleaning": "清掃記録を開く",
+      "complete": "完了にする",
+      "reopen": "未対応に戻す",
+      "delete": "削除",
+      "cancel": "キャンセル"
     },
     "filters": {
       "property": "宿泊施設",
       "room": "客室",
+      "status": "ステータス",
       "search": "検索",
       "allProperties": "すべての宿泊施設",
       "allRooms": "すべての客室",
+      "allStatuses": "すべてのステータス",
       "placeholder": "メモ、客室、宿泊施設、作成者を検索"
     },
     "columns": {
@@ -335,7 +341,9 @@
       "room": "客室",
       "content": "メモ内容",
       "author": "作成者",
-      "createdAt": "作成日"
+      "createdAt": "作成日",
+      "status": "ステータス",
+      "actions": "管理"
     },
     "form": {
       "title": "客室メモを追加",
@@ -347,12 +355,23 @@
     "details": {
       "description": "客室メモの詳細情報",
       "source": "作成元",
+      "completedBy": "完了処理者",
+      "completedAt": "完了処理日",
       "photos": "関連写真 {count}枚",
       "noPhotos": "関連する写真はありません。"
     },
     "source": {
       "CLEANING": "清掃完了時に作成",
       "MANUAL": "直接作成"
+    },
+    "status": {
+      "OPEN": "未対応",
+      "COMPLETED": "完了"
+    },
+    "delete": {
+      "title": "この客室メモを削除しますか？",
+      "description": "削除した客室メモは一覧から復元できません。",
+      "cleaningPreserved": "清掃タスク、清掃履歴、写真の原本は削除されません。"
     },
     "empty": "条件に一致する客室メモはありません。",
     "count": "合計 {count}件",
@@ -363,7 +382,12 @@
     },
     "messages": {
       "invalid": "入力内容を確認してください。",
-      "created": "客室メモを追加しました。"
+      "created": "客室メモを追加しました。",
+      "completed": "客室メモを完了にしました。",
+      "reopened": "客室メモを未対応に戻しました。",
+      "deleted": "客室メモを削除しました。",
+      "statusFailed": "客室メモのステータスを変更できませんでした。",
+      "deleteFailed": "客室メモを削除できませんでした。"
     }
   },
   "cleaning": {

@@ -28,8 +28,8 @@ export function RoomNoteCreateDialog({ options }: { options: RoomNoteOptions }) 
   const noticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
   const [result, formAction] = useActionState(createRoomNoteAction, INITIAL_RESULT);
-  const activeProperties = options.properties.filter((property) => property.isActive);
-  const activeRooms = options.rooms.filter((room) => room.isActive && room.propertyId === propertyId);
+  const activeProperties = options.properties.filter((property) => property.isActive && options.rooms.some((room) => room.propertyId === property.id && room.isActive && room.canCreate));
+  const activeRooms = options.rooms.filter((room) => room.isActive && room.canCreate && room.propertyId === propertyId);
 
   useEffect(() => () => { if (noticeTimer.current) clearTimeout(noticeTimer.current); }, []);
   useEffect(() => {

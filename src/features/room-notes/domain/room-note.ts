@@ -1,30 +1,21 @@
-import type { RoomNoteRoomOption, RoomNoteViewModel } from "../room-note.types";
+import type { RoomNoteRoomOption } from "../room-note.types";
 
 export const ROOM_NOTE_SOURCE_TYPES = ["CLEANING", "MANUAL"] as const;
 export type RoomNoteSourceType = (typeof ROOM_NOTE_SOURCE_TYPES)[number];
+export const ROOM_NOTE_STATUSES = ["OPEN", "COMPLETED"] as const;
+export type RoomNoteStatus = (typeof ROOM_NOTE_STATUSES)[number];
+export type RoomNoteStatusFilter = RoomNoteStatus | null;
 export const ROOM_NOTE_PAGE_SIZE = 20;
 
-export function compareRoomNotesNewestFirst(left: RoomNoteViewModel, right: RoomNoteViewModel) {
-  const dateOrder = right.createdAt.localeCompare(left.createdAt);
-  return dateOrder || right.id.localeCompare(left.id);
+export function parseRoomNoteStatusFilter(value: string | null | undefined): RoomNoteStatusFilter {
+  if (value?.toLowerCase() === "completed") return "COMPLETED";
+  if (value?.toLowerCase() === "all") return null;
+  return "OPEN";
 }
 
-/**
- * Both sources are already bounded to the requested page prefix in the
- * repository. De-duplicating by the source-qualified id makes cleaning note
- * retries and joins idempotent without copying CleaningTask.note.
- */
-export function mergeRoomNotePage(
-  manualNotes: readonly RoomNoteViewModel[],
-  cleaningNotes: readonly RoomNoteViewModel[],
-  page: number,
-  pageSize = ROOM_NOTE_PAGE_SIZE,
-) {
-  const unique = new Map<string, RoomNoteViewModel>();
-  for (const note of [...manualNotes, ...cleaningNotes]) unique.set(note.id, note);
-  const sorted = [...unique.values()].sort(compareRoomNotesNewestFirst);
-  const offset = (Math.max(1, page) - 1) * pageSize;
-  return sorted.slice(offset, offset + pageSize);
+export function serializeRoomNoteStatusFilter(status: RoomNoteStatusFilter) {
+  if (status === null) return "all";
+  return status.toLowerCase();
 }
 
 export function normalizeRoomNoteSelection(

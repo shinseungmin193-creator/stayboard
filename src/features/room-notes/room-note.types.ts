@@ -1,4 +1,4 @@
-import type { RoomNoteSourceType } from "./domain/room-note";
+import type { RoomNoteSourceType, RoomNoteStatus, RoomNoteStatusFilter } from "./domain/room-note";
 
 export interface RoomNotePhoto {
   id: string;
@@ -15,6 +15,7 @@ export interface RoomNoteFilters {
   propertyId: string | null;
   roomId: string | null;
   query: string;
+  status: RoomNoteStatusFilter;
   page: number;
 }
 
@@ -22,6 +23,7 @@ export interface RoomNoteViewModel {
   id: string;
   sourceType: RoomNoteSourceType;
   sourceId: string;
+  status: RoomNoteStatus;
   propertyId: string;
   propertyName: string;
   propertyTimeZone: string;
@@ -30,6 +32,8 @@ export interface RoomNoteViewModel {
   content: string;
   authorName: string;
   createdAt: string;
+  completedAt: string | null;
+  completedByName: string | null;
   cleaningTaskId: string | null;
   cleaningDate: string | null;
   photoCount: number;
@@ -48,6 +52,7 @@ export interface RoomNoteRoomOption {
   propertyName: string;
   name: string;
   isActive: boolean;
+  canCreate: boolean;
 }
 
 export interface RoomNoteOptions {

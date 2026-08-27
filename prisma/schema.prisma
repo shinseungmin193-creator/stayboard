@@ -69,6 +69,16 @@ enum CleaningTaskLogAction {
   PHOTO_ADDED
 }
 
+enum RoomNoteSourceType {
+  MANUAL
+  CLEANING
+}
+
+enum RoomNoteStatus {
+  OPEN
+  COMPLETED
+}
+
 enum GuestFallbackMode {
   PROVIDER
   GENERIC
@@ -264,6 +274,7 @@ model User {
   cleaningTaskLogs        CleaningTaskLog[]      @relation("CleaningTaskLogActor")
   cleaningPhotosUploaded  CleaningPhoto[]        @relation("CleaningPhotoUploader")
   roomNotesAuthored       RoomNote[]             @relation("RoomNoteAuthor")
+  roomNotesCompleted      RoomNote[]             @relation("RoomNoteCompletedBy")
   developerRoleSessions   DeveloperRoleSession[]
 
   @@index([isActive, name])
@@ -515,6 +526,7 @@ model CleaningTask {
   completedBy     User?              @relation("CleaningTaskCompletedBy", fields: [completedById], references: [id], onDelete: SetNull)
   photos          CleaningPhoto[]
   logs            CleaningTaskLog[]
+  roomNote        RoomNote?
 
   @@unique([reservationId, roomId])
   @@index([companyId, status, scheduledDate])
@@ -571,27 +583,36 @@ model CleaningPhoto {
   @@index([uploadedById, createdAt])
 }
 
-/// Directly authored room notes only. Cleaning notes remain on CleaningTask
-/// and are merged at read time so their content and photos are never copied.
+/// Manual notes keep their content here. Cleaning note rows contain only
+/// source/status metadata; their content and photos remain on CleaningTask.
 model RoomNote {
-  id           String   @id @default(cuid())
-  companyId    String
-  propertyId   String
-  roomId       String
-  authorUserId String
-  authorName   String
-  content      String
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  company      Company  @relation(fields: [companyId], references: [id], onDelete: Restrict)
-  property     Property @relation(fields: [propertyId], references: [id], onDelete: Restrict)
-  room         Room     @relation(fields: [roomId], references: [id], onDelete: Restrict)
-  author       User     @relation("RoomNoteAuthor", fields: [authorUserId], references: [id], onDelete: Restrict)
+  id                String             @id @default(cuid())
+  companyId         String
+  propertyId        String
+  roomId            String
+  authorUserId      String?
+  authorName        String
+  content           String?
+  sourceType        RoomNoteSourceType @default(MANUAL)
+  cleaningTaskId    String?            @unique
+  status            RoomNoteStatus     @default(OPEN)
+  completedAt       DateTime?
+  completedByUserId String?
+  completedByName   String?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  company           Company            @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  property          Property           @relation(fields: [propertyId], references: [id], onDelete: Restrict)
+  room              Room               @relation(fields: [roomId], references: [id], onDelete: Restrict)
+  author            User?              @relation("RoomNoteAuthor", fields: [authorUserId], references: [id], onDelete: Restrict)
+  completedBy       User?              @relation("RoomNoteCompletedBy", fields: [completedByUserId], references: [id], onDelete: SetNull)
+  cleaningTask      CleaningTask?      @relation(fields: [cleaningTaskId], references: [id], onDelete: Cascade)
 
-  @@index([companyId, createdAt, id])
-  @@index([propertyId, createdAt, id])
-  @@index([roomId, createdAt, id])
+  @@index([companyId, status, createdAt, id])
+  @@index([propertyId, status, createdAt, id])
+  @@index([roomId, status, createdAt, id])
   @@index([authorUserId, createdAt])
+  @@index([completedByUserId, completedAt])
 }
 
 model ReservationConflict {

@@ -2,6 +2,7 @@ import "server-only";
 
 import { canAccessCompany, canAccessRoom, PermissionDeniedError, withAccessAuditMetadata, type AccessContext } from "@/features/access-control";
 import { prisma } from "@/lib/prisma";
+import type { RoomNoteStatus } from "../domain/room-note";
 
 export class RoomNoteServiceError extends Error {
   constructor(message: string) {
@@ -37,6 +38,8 @@ export async function createManualRoomNote(context: AccessContext, input: { prop
         authorUserId: context.userId,
         authorName,
         content,
+        sourceType: "MANUAL",
+        status: "OPEN",
       },
       select: { id: true },
     });
@@ -54,5 +57,85 @@ export async function createManualRoomNote(context: AccessContext, input: { prop
       },
     });
     return note;
+  });
+}
+
+export async function changeRoomNoteStatus(context: AccessContext, roomNoteId: string, status: RoomNoteStatus) {
+  return prisma.$transaction(async (tx) => {
+    const current = await tx.roomNote.findUnique({
+      where: { id: roomNoteId },
+      select: { id: true, companyId: true, propertyId: true, roomId: true, status: true },
+    });
+    if (!current) throw new RoomNoteServiceError("객실 메모를 찾을 수 없습니다.");
+    if (!canAccessCompany(context, current.companyId)) throw new PermissionDeniedError();
+    if (current.status === status) {
+      return tx.roomNote.findUniqueOrThrow({
+        where: { id: roomNoteId },
+        select: { id: true, status: true, completedAt: true, completedByName: true },
+      });
+    }
+
+    const completed = status === "COMPLETED";
+    const updated = await tx.roomNote.update({
+      where: { id: roomNoteId },
+      data: completed
+        ? {
+            status,
+            completedAt: new Date(),
+            completedByUserId: context.userId,
+            completedByName: context.name?.trim() || "-",
+          }
+        : {
+            status,
+            completedAt: null,
+            completedByUserId: null,
+            completedByName: null,
+          },
+      select: { id: true, status: true, completedAt: true, completedByName: true },
+    });
+    await tx.auditLog.create({
+      data: {
+        actorUserId: context.userId,
+        targetCompanyId: current.companyId,
+        action: completed ? "ROOM_NOTE_COMPLETED" : "ROOM_NOTE_REOPENED",
+        details: withAccessAuditMetadata(context, {
+          roomNoteId,
+          propertyId: current.propertyId,
+          roomId: current.roomId,
+          previousStatus: current.status,
+          status,
+        }),
+      },
+    });
+    return updated;
+  });
+}
+
+export async function deleteRoomNote(context: AccessContext, roomNoteId: string) {
+  return prisma.$transaction(async (tx) => {
+    const current = await tx.roomNote.findUnique({
+      where: { id: roomNoteId },
+      select: { id: true, companyId: true, propertyId: true, roomId: true, sourceType: true, cleaningTaskId: true },
+    });
+    if (!current) throw new RoomNoteServiceError("객실 메모를 찾을 수 없습니다.");
+    if (!canAccessCompany(context, current.companyId)) throw new PermissionDeniedError();
+
+    // CLEANING 메모도 RoomNote 메타데이터만 삭제한다. CleaningTask/Log/Photo는 부모 원본으로 유지된다.
+    await tx.roomNote.delete({ where: { id: roomNoteId } });
+    await tx.auditLog.create({
+      data: {
+        actorUserId: context.userId,
+        targetCompanyId: current.companyId,
+        action: "ROOM_NOTE_DELETED",
+        details: withAccessAuditMetadata(context, {
+          roomNoteId,
+          propertyId: current.propertyId,
+          roomId: current.roomId,
+          sourceType: current.sourceType,
+          cleaningTaskId: current.cleaningTaskId,
+        }),
+      },
+    });
+    return { id: roomNoteId };
   });
 }
