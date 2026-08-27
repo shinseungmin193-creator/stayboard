@@ -519,6 +519,19 @@
       "history": "기록 보기",
       "more": "더보기"
     },
+    "roomNotes": {
+      "title": "객실 메모",
+      "openLabel": "미처리 객실 메모 {count}건 전체 보기",
+      "more": "+ {count}건 더보기",
+      "photoCount": "관련 사진 {count}장",
+      "dialogTitle": "{room} 미처리 객실 메모",
+      "dialogDescription": "현재 미처리 상태인 객실 메모 {count}건입니다.",
+      "authorAndDate": "{author} · {date}",
+      "complete": "완료 처리",
+      "completed": "객실 메모를 완료 처리했습니다.",
+      "completionFailed": "객실 메모를 완료 처리하지 못했습니다.",
+      "empty": "남아 있는 미처리 객실 메모가 없습니다."
+    },
     "workflow": {
       "titles": { "assign": "담당자 이름 입력", "reassign": "담당 변경", "start": "청소 시작", "complete": "청소 완료" },
       "description": "{room}의 실제 청소 직원 이름을 기록합니다.",
@@ -532,9 +545,12 @@
       "photoRequiredHint": "청소 완료 전에 사진을 1장 이상 업로드해야 합니다.",
       "photoUploadPendingHint": "선택한 사진의 업로드를 먼저 완료해 주세요.",
       "photoUploadFailedHint": "실패한 사진을 다시 업로드하거나 선택에서 제거해 주세요.",
+      "openRoomNotesWarning": "미처리 객실 메모가 {count}건 남아 있습니다.",
+      "openRoomNotesNonBlocking": "해결하기 어려운 메모가 있어도 청소 완료는 계속할 수 있습니다.",
+      "reviewRoomNotes": "메모 확인",
       "cancel": "취소",
       "saving": "저장 중",
-      "submit": { "assign": "저장", "reassign": "변경", "start": "시작하기", "complete": "청소 완료" }
+      "submit": { "assign": "저장", "reassign": "변경", "start": "시작하기", "complete": "청소 완료", "completeWithOpenNotes": "그대로 청소 완료" }
     },
     "logs": { "ASSIGNED": "담당 등록", "REASSIGNED": "담당 변경", "STARTED": "작업 시작", "COMPLETED": "청소 완료", "NOTE_ADDED": "메모 추가", "PHOTO_ADDED": "사진 추가" },
     "messages": {

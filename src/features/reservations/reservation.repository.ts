@@ -6,6 +6,7 @@ import { formatRoomDisplayName } from "@/features/rooms/room-display";
 import type { Prisma } from "@/lib/generated/prisma/client";
 import { buildActiveReservationWhere, buildScopedActiveReservationWhere } from "./active-reservation-where";
 import { buildOperationalReservationWhere } from "./operational-reservation-where";
+import { RESERVATION_DEFAULT_ORDER_BY } from "./reservation-order";
 
 export async function listReservations(filters: ReservationFilters): Promise<{ items: ReservationListItem[]; totalCount: number; totalPages: number; page: number }> {
   const where = buildActiveReservationWhere(filters);
@@ -29,7 +30,7 @@ export async function listReservations(filters: ReservationFilters): Promise<{ i
         createdAt: true,
         updatedAt: true,
         property: { select: { name: true } },
-        room: { select: { name: true } },
+        room: { select: { name: true, sortOrder: true } },
         calendarSource: {
           select: {
             name: true,
@@ -41,7 +42,7 @@ export async function listReservations(filters: ReservationFilters): Promise<{ i
           },
         },
       },
-      orderBy: [{ startDate: "asc" }, { room: { name: "asc" } }],
+      orderBy: [...RESERVATION_DEFAULT_ORDER_BY] satisfies Prisma.ReservationOrderByWithRelationInput[],
       skip: (filters.page - 1) * RESERVATION_PAGE_SIZE,
       take: RESERVATION_PAGE_SIZE,
     }),

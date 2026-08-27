@@ -1,4 +1,5 @@
 import type { UserRole } from "@/features/access-control";
+import type { RoomNoteViewModel } from "@/features/room-notes";
 import type { CleaningSection } from "./domain/cleaning-meta";
 import type { CleaningPriority } from "./domain/cleaning-priority";
 
@@ -69,6 +70,7 @@ export interface CleaningTaskViewModel {
   photos: CleaningPhotoViewModel[];
   logs: CleaningTaskLogViewModel[];
   eligibleAssignees: CleaningAssigneeAccount[];
+  openRoomNotes: RoomNoteViewModel[];
 }
 
 export interface CleaningSectionData {

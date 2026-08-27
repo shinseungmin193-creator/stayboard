@@ -6,6 +6,7 @@ import type { ReservationFilters, ReservationListItem } from "@/features/reserva
 import { getReservationDisplayStatus } from "@/features/reservations";
 import { RESERVATION_PAGE_SIZE } from "@/features/reservations/reservation.constants";
 import { isActiveReservationListItem } from "@/features/reservations/reservation-list-policy";
+import { compareReservationDefaultOrder } from "@/features/reservations/reservation-order";
 import type { RoomStatusRoom } from "@/features/room-status/room-status.types";
 import { isReservationVisibleInRoomStatusRange, type RoomStatusCalendarRange } from "@/features/room-status/room-status-calendar";
 import type { OccupancyPeriod, OccupancyRoom } from "@/features/statistics/occupancy/domain/occupancy";
@@ -146,6 +147,16 @@ export function getDemoReservations(filters: ReservationFilters) {
   const totalCount = visible.length;
   const totalPages = Math.max(1, Math.ceil(totalCount / RESERVATION_PAGE_SIZE));
   const page = Math.min(filters.page, totalPages);
+  visible.sort((left, right) => compareReservationDefaultOrder(
+    {
+      ...left,
+      roomSortOrder: roomById.get(left.roomId)?.sortOrder ?? Number.MAX_SAFE_INTEGER,
+    },
+    {
+      ...right,
+      roomSortOrder: roomById.get(right.roomId)?.sortOrder ?? Number.MAX_SAFE_INTEGER,
+    },
+  ));
   return {
     items: visible.slice((page - 1) * RESERVATION_PAGE_SIZE, page * RESERVATION_PAGE_SIZE),
     totalCount,

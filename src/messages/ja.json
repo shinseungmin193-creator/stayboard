@@ -519,6 +519,19 @@
       "history": "履歴を見る",
       "more": "その他"
     },
+    "roomNotes": {
+      "title": "客室メモ",
+      "openLabel": "未対応の客室メモ{count}件をすべて表示",
+      "more": "+ 残り{count}件を表示",
+      "photoCount": "関連写真{count}枚",
+      "dialogTitle": "{room}の未対応客室メモ",
+      "dialogDescription": "現在未対応の客室メモは{count}件です。",
+      "authorAndDate": "{author}・{date}",
+      "complete": "完了にする",
+      "completed": "客室メモを完了にしました。",
+      "completionFailed": "客室メモを完了にできませんでした。",
+      "empty": "未対応の客室メモは残っていません。"
+    },
     "workflow": {
       "titles": { "assign": "担当者名を入力", "reassign": "担当変更", "start": "清掃開始", "complete": "清掃完了" },
       "description": "{room}を実際に清掃するスタッフ名を記録します。",
@@ -532,9 +545,12 @@
       "photoRequiredHint": "清掃完了前に写真を1枚以上アップロードしてください。",
       "photoUploadPendingHint": "選択した写真を先にアップロードしてください。",
       "photoUploadFailedHint": "失敗した写真を再アップロードするか、選択から削除してください。",
+      "openRoomNotesWarning": "未対応の客室メモが{count}件残っています。",
+      "openRoomNotesNonBlocking": "現場で解決できないメモがあっても、清掃完了は続行できます。",
+      "reviewRoomNotes": "メモを確認",
       "cancel": "キャンセル",
       "saving": "保存中",
-      "submit": { "assign": "保存", "reassign": "変更", "start": "開始する", "complete": "清掃完了" }
+      "submit": { "assign": "保存", "reassign": "変更", "start": "開始する", "complete": "清掃完了", "completeWithOpenNotes": "そのまま清掃完了" }
     },
     "logs": { "ASSIGNED": "担当登録", "REASSIGNED": "担当変更", "STARTED": "作業開始", "COMPLETED": "清掃完了", "NOTE_ADDED": "メモ追加", "PHOTO_ADDED": "写真追加" },
     "messages": {

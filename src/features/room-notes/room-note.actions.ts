@@ -51,6 +51,7 @@ export async function changeRoomNoteStatusAction(input: unknown): Promise<Action
     const { context } = await requireRoomNoteAccess(parsed.data.id, PERMISSIONS.ROOM_NOTE_COMPLETE);
     const updated = await changeRoomNoteStatus(context, parsed.data.id, parsed.data.status);
     revalidatePath("/room-notes");
+    revalidatePath("/cleaning");
     return {
       success: true,
       data: {

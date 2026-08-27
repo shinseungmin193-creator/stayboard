@@ -5,6 +5,7 @@ export type RoomNoteSourceType = (typeof ROOM_NOTE_SOURCE_TYPES)[number];
 export const ROOM_NOTE_STATUSES = ["OPEN", "COMPLETED"] as const;
 export type RoomNoteStatus = (typeof ROOM_NOTE_STATUSES)[number];
 export type RoomNoteStatusFilter = RoomNoteStatus | null;
+export const OPEN_ROOM_NOTE_STATUS = "OPEN" as const satisfies RoomNoteStatus;
 export const ROOM_NOTE_PAGE_SIZE = 20;
 
 export function parseRoomNoteStatusFilter(value: string | null | undefined): RoomNoteStatusFilter {

@@ -1,7 +1,7 @@
 import { getTranslations } from "next-intl/server";
 
 import { PageHeader } from "@/components/shared/page-header";
-import { AccessDenied, authorizeAccess, getCurrentAccessContext, PERMISSIONS } from "@/features/access-control";
+import { AccessDenied, authorizeAccess, getCurrentAccessContext, hasPermission, PERMISSIONS } from "@/features/access-control";
 import { CleaningWorkspace } from "@/features/cleaning/components/cleaning-workspace";
 import type { CleaningFilters } from "@/features/cleaning/cleaning.types";
 import { isCleaningSection } from "@/features/cleaning/domain/cleaning-meta";
@@ -63,6 +63,7 @@ export default async function CleaningPage({ searchParams }: { searchParams: Pro
         currentUserId={context.userId}
         currentUserName={context.name ?? ""}
         role={context.role}
+        canCompleteRoomNotes={hasPermission(context.role, PERMISSIONS.ROOM_NOTE_COMPLETE)}
       />
     </div>
   );

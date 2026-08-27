@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
-import { Camera, UserRound } from "lucide-react";
+import { Camera, MessageSquareText, UserRound } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -26,6 +26,7 @@ export function CleaningWorkflowDialog({
   onSubmit,
   onUploadResult,
   onPhotoUploaded,
+  onReviewRoomNotes,
 }: {
   task: CleaningTaskViewModel | null;
   mode: CleaningWorkflowMode | null;
@@ -37,6 +38,7 @@ export function CleaningWorkflowDialog({
   onSubmit: (input: { task: CleaningTaskViewModel; mode: CleaningWorkflowMode; workerName: string; assigneeUserId?: string }) => void;
   onUploadResult: (result: CleaningActionResult) => void;
   onPhotoUploaded: () => void;
+  onReviewRoomNotes: () => void;
 }) {
   const t = useTranslations("cleaning.workflow");
   const assignmentMode = mode === "assign" || mode === "reassign";
@@ -72,6 +74,7 @@ export function CleaningWorkflowDialog({
   const validName = normalizedName.length >= 1 && normalizedName.length <= 30;
   const identityValid = assignmentMode ? Boolean(selectedAssignee) && (!showWorkerNameInput || validName) : validName;
   const valid = identityValid && (mode !== "complete" || photoState.readyForCompletion);
+  const openRoomNoteCount = mode === "complete" ? task?.openRoomNotes.length ?? 0 : 0;
 
   return (
     <Dialog open={Boolean(task && mode)} onOpenChange={(open) => { if (!open) onClose(); }}>
@@ -123,6 +126,11 @@ export function CleaningWorkflowDialog({
               />
               {!photoState.readyForCompletion && <p className="text-xs font-medium text-amber-700 dark:text-amber-300">{t(photoState.hasFailedFiles ? "photoUploadFailedHint" : photoState.hasUnuploadedFiles || photoState.isUploading ? "photoUploadPendingHint" : "photoRequiredHint")}</p>}
             </section>}
+            {openRoomNoteCount > 0 && <section className="space-y-2 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-amber-900 dark:text-amber-200">
+              <p className="flex items-start gap-2 text-sm font-medium"><MessageSquareText className="mt-0.5 size-4 shrink-0" />{t("openRoomNotesWarning", { count: openRoomNoteCount })}</p>
+              <p className="text-xs">{t("openRoomNotesNonBlocking")}</p>
+              <Button type="button" variant="outline" size="sm" className="bg-background/80" disabled={pending} onClick={onReviewRoomNotes}><MessageSquareText />{t("reviewRoomNotes")}</Button>
+            </section>}
           </div>
           <div className="grid grid-cols-2 gap-2 pt-2">
             <Button type="button" variant="outline" onClick={onClose} disabled={pending}>{t("cancel")}</Button>
@@ -136,7 +144,7 @@ export function CleaningWorkflowDialog({
                 ...(assignmentMode ? { assigneeUserId: selectedUserId } : {}),
               })}
             >
-              {pending ? t("saving") : t(`submit.${mode}`)}
+              {pending ? t("saving") : openRoomNoteCount > 0 ? t("submit.completeWithOpenNotes") : t(`submit.${mode}`)}
             </Button>
           </div>
         </>}

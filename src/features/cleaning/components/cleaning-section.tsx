@@ -25,6 +25,7 @@ export function CleaningSection({
   pendingTaskId,
   onViewAll,
   onOpenDetails,
+  onOpenRoomNotes,
   onWorkflow,
 }: {
   section: CleaningSectionName;
@@ -38,6 +39,7 @@ export function CleaningSection({
   pendingTaskId: string | null;
   onViewAll: (section: CleaningSectionName | "all") => void;
   onOpenDetails: (task: CleaningTaskViewModel, focus?: "photos" | "note" | "logs") => void;
+  onOpenRoomNotes: (task: CleaningTaskViewModel) => void;
   onWorkflow: (task: CleaningTaskViewModel, mode: CleaningWorkflowMode) => void;
 }) {
   const t = useTranslations("cleaning");
@@ -53,7 +55,7 @@ export function CleaningSection({
         </div>
         {(selected || data.totalCount > data.items.length) && <Button type="button" variant="ghost" size="xs" onClick={() => onViewAll(selected ? "all" : section)}>{selected ? t("sections.allSections") : t("sections.viewAll")}</Button>}
       </header>
-      {data.items.length > 0 ? <div className="space-y-2.5">{data.items.map((task) => <CleaningTaskCard key={task.id} task={task} role={role} currentUserId={currentUserId} referenceAt={referenceAt} timeZone={timeZone} locale={locale} pending={pendingTaskId === task.id} onOpenDetails={onOpenDetails} onWorkflow={onWorkflow} />)}</div> : <div className="rounded-2xl border border-dashed bg-muted/15 px-4 py-8 text-center text-sm text-muted-foreground">{t(`sections.empty.${section}`)}</div>}
+      {data.items.length > 0 ? <div className="space-y-2.5">{data.items.map((task) => <CleaningTaskCard key={task.id} task={task} role={role} currentUserId={currentUserId} referenceAt={referenceAt} timeZone={timeZone} locale={locale} pending={pendingTaskId === task.id} onOpenDetails={onOpenDetails} onOpenRoomNotes={onOpenRoomNotes} onWorkflow={onWorkflow} />)}</div> : <div className="rounded-2xl border border-dashed bg-muted/15 px-4 py-8 text-center text-sm text-muted-foreground">{t(`sections.empty.${section}`)}</div>}
     </section>
   );
 }

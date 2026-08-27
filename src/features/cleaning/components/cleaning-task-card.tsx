@@ -13,6 +13,7 @@ import { getCleaningPriorityMeta } from "../domain/cleaning-meta";
 import { getCleaningTimeStatus } from "../domain/cleaning-time";
 import type { CleaningWorkflowMode } from "./cleaning-workflow-dialog";
 import { CleaningTaskStatusBadge } from "./cleaning-task-status-badge";
+import { CleaningRoomNoteSummary } from "./cleaning-room-note-summary";
 
 function formatRemainingTime(status: ReturnType<typeof getCleaningTimeStatus>, t: ReturnType<typeof useTranslations>) {
   if (status.kind === "none") return t("time.noTarget");
@@ -31,6 +32,7 @@ export function CleaningTaskCard({
   locale,
   pending,
   onOpenDetails,
+  onOpenRoomNotes,
   onWorkflow,
 }: {
   task: CleaningTaskViewModel;
@@ -41,6 +43,7 @@ export function CleaningTaskCard({
   locale: string;
   pending: boolean;
   onOpenDetails: (task: CleaningTaskViewModel, focus?: "photos" | "note" | "logs") => void;
+  onOpenRoomNotes: (task: CleaningTaskViewModel) => void;
   onWorkflow: (task: CleaningTaskViewModel, mode: CleaningWorkflowMode) => void;
 }) {
   const t = useTranslations("cleaning");
@@ -74,10 +77,13 @@ export function CleaningTaskCard({
           <p className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground"><Clock3 className="size-3.5" />{t("card.checkoutAt", { time: dateTime.format(new Date(task.scheduledDate)) })}</p>
         </button>
 
-        <div className="grid min-w-0 grid-cols-2 gap-2 rounded-xl bg-muted/35 p-2.5 text-xs sm:grid-cols-3">
-          <div className="min-w-0"><p className="text-muted-foreground">{t("card.targetTime")}</p><p className="mt-0.5 truncate font-semibold">{task.targetAt ? dateTime.format(new Date(task.targetAt)) : t("time.noTarget")}</p></div>
-          <div className="min-w-0"><p className="text-muted-foreground">{t("card.timeStatus")}</p><p className={cn("mt-0.5 truncate font-semibold", time.kind === "delayed" && "text-red-600 dark:text-red-400")}>{formatRemainingTime(time, t)}</p></div>
-          <div className="col-span-2 min-w-0 sm:col-span-1"><p className="text-muted-foreground">{t("fields.assignee")}</p><p className="mt-0.5 truncate font-semibold">{task.assignee?.name ?? t("status.unassigned")}</p></div>
+        <div className="min-w-0 space-y-2">
+          <CleaningRoomNoteSummary notes={task.openRoomNotes} onOpen={() => onOpenRoomNotes(task)} />
+          <div className="grid min-w-0 grid-cols-2 gap-2 rounded-xl bg-muted/35 p-2.5 text-xs sm:grid-cols-3">
+            <div className="min-w-0"><p className="text-muted-foreground">{t("card.targetTime")}</p><p className="mt-0.5 truncate font-semibold">{task.targetAt ? dateTime.format(new Date(task.targetAt)) : t("time.noTarget")}</p></div>
+            <div className="min-w-0"><p className="text-muted-foreground">{t("card.timeStatus")}</p><p className={cn("mt-0.5 truncate font-semibold", time.kind === "delayed" && "text-red-600 dark:text-red-400")}>{formatRemainingTime(time, t)}</p></div>
+            <div className="col-span-2 min-w-0 sm:col-span-1"><p className="text-muted-foreground">{t("fields.assignee")}</p><p className="mt-0.5 truncate font-semibold">{task.assignee?.name ?? t("status.unassigned")}</p></div>
+          </div>
         </div>
 
         <div className="flex min-w-0 items-center justify-end gap-2">

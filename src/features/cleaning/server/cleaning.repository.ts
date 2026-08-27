@@ -16,6 +16,7 @@ import { CLEANING_LIST_STATUSES, CLEANING_SECTIONS, type CleaningSection } from 
 import { classifyCleaningPriority } from "../domain/cleaning-priority";
 import { getCleaningPhotoStorage } from "../storage/local-file-storage-provider";
 import { buildOperationalReservationWhere } from "@/features/reservations/operational-reservation-where";
+import { listOpenRoomNotesForRooms } from "@/features/room-notes";
 import {
   buildCheckoutCleaningTaskWhere,
   DASHBOARD_CLEANING_TASK_STATUSES,
@@ -226,6 +227,15 @@ export async function listCleaningPage(context: AccessContext, filters: Cleaning
     });
   }));
 
+  const visibleRoomIds = sectionRows.flatMap((rows) => rows.map((task) => task.roomId));
+  const openRoomNotes = await listOpenRoomNotesForRooms(context, visibleRoomIds);
+  const openRoomNotesByRoomId = new Map<string, typeof openRoomNotes>();
+  for (const note of openRoomNotes) {
+    const notes = openRoomNotesByRoomId.get(note.roomId) ?? [];
+    notes.push(note);
+    openRoomNotesByRoomId.set(note.roomId, notes);
+  }
+
   const storage = getCleaningPhotoStorage();
   const toViewModel = (task: (typeof sectionRows)[number][number]): CleaningTaskViewModel => {
     const checkInDates = task.room.reservations.map((reservation) => reservation.startDate);
@@ -288,6 +298,7 @@ export async function listCleaningPage(context: AccessContext, filters: Cleaning
         createdAt: log.createdAt.toISOString(),
       })),
       eligibleAssignees,
+      openRoomNotes: openRoomNotesByRoomId.get(task.roomId) ?? [],
     };
   };
   const sectionData = Object.fromEntries(CLEANING_SECTIONS.map((section, index) => {
