@@ -24,6 +24,8 @@ test("ADMIN has admin permissions but no developer permissions", () => {
   assert.equal(hasPermission("ADMIN", PERMISSIONS.DEVELOPER_SETTINGS_READ), false);
   assert.equal(hasPermission("ADMIN", PERMISSIONS.DEVELOPER_MANAGEMENT_READ), false);
   assert.equal(hasPermission("ADMIN", PERMISSIONS.DEVELOPER_MANAGEMENT_MANAGE), false);
+  assert.equal(hasPermission("ADMIN", PERMISSIONS.PROPERTY_REVIEW_READ), true);
+  assert.equal(hasPermission("ADMIN", PERMISSIONS.PROPERTY_REVIEW_SYNC), true);
 });
 
 test("STAFF has operational permissions only", () => {
@@ -41,6 +43,8 @@ test("STAFF has operational permissions only", () => {
   assert.equal(hasPermission("STAFF", PERMISSIONS.CALENDAR_SOURCE_MANAGE), false);
   assert.equal(hasPermission("STAFF", PERMISSIONS.ADMIN_SETTINGS_READ), false);
   assert.equal(hasPermission("STAFF", PERMISSIONS.CLEANING_ASSIGN), false);
+  assert.equal(hasPermission("STAFF", PERMISSIONS.PROPERTY_REVIEW_READ), false);
+  assert.equal(hasPermission("STAFF", PERMISSIONS.PROPERTY_REVIEW_SYNC), false);
   assert.equal(hasPermission("ADMIN", PERMISSIONS.CLEANING_WORKER_MANAGE), true);
 });
 

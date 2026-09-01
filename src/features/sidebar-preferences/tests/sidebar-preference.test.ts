@@ -63,6 +63,9 @@ test("역할 권한과 사용자 숨김 설정을 순서 설정에 함께 적용
   assert.equal(admin.some((item) => item.id === "developer-settings"), false);
   assert.equal(staff.some((item) => item.id === "member-management"), false);
   assert.equal(staff.some((item) => item.id === "admin-settings"), false);
+  assert.equal(staff.some((item) => item.id === "property-reviews"), false);
+  assert.equal(admin.some((item) => item.id === "property-reviews"), true);
+  assert.equal(developer.some((item) => item.id === "property-reviews"), true);
 });
 
 test("객실 메모는 관리 그룹에서 객실과 캘린더 연결 사이에 배치된다", () => {

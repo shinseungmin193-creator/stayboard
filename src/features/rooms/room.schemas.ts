@@ -3,6 +3,8 @@ import { NAME_MAX_LENGTH, ROOM_CAPACITY_MAX } from "../../lib/constants";
 import { CALENDAR_SOURCE_NAME_MAX_LENGTH, CALENDAR_URL_MAX_LENGTH } from "../calendar-sources/calendar-source.constants";
 import { ROOM_OPERATIONAL_STATUS_VALUES } from "./room-operational-status";
 import { ROOM_CALENDAR_PROVIDER_CONFIG, type RoomCalendarProvider } from "./room-calendar-draft";
+import { REVIEW_PROVIDER_TYPES } from "../reviews/domain/listing-provider";
+import { ROOM_LISTING_URL_MAX_LENGTH } from "./room-listing";
 
 export const roomInputSchema = z.object({
   propertyId: z.string().trim().min(1, "숙소를 선택해 주세요."),
@@ -39,4 +41,12 @@ const newRoomCalendarSourceSchema = roomCalendarSourceBaseSchema.extend({
 export const roomWithCalendarSourcesUpdateSchema = roomInputSchema.extend({
   id: z.string().trim().min(1),
   sources: z.array(z.discriminatedUnion("kind", [existingRoomCalendarSourceSchema, newRoomCalendarSourceSchema])).max(50),
+  listings: z.array(z.object({
+    provider: z.enum(REVIEW_PROVIDER_TYPES),
+    listingUrl: z.string().trim().max(ROOM_LISTING_URL_MAX_LENGTH),
+  })).length(REVIEW_PROVIDER_TYPES.length).superRefine((listings, context) => {
+    if (new Set(listings.map((listing) => listing.provider)).size !== REVIEW_PROVIDER_TYPES.length) {
+      context.addIssue({ code: "custom", message: "숙소 링크 플랫폼 구성이 올바르지 않습니다." });
+    }
+  }),
 });

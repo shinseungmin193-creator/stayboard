@@ -8,6 +8,7 @@ import {
   planCleaningAssignment,
   planCleaningCompletion,
   planCleaningStart,
+  planCleaningStartCancellation,
   type CleaningWorkflowSnapshot,
 } from "../domain/cleaning-workflow";
 import { getCleaningPhotoDeleteAfter, MIN_REQUIRED_CLEANING_PHOTOS } from "../domain/cleaning-retention";
@@ -46,7 +47,7 @@ function translateWorkflowError(error: unknown): never {
 
 async function createLog(tx: Prisma.TransactionClient, input: {
   taskId: string;
-  action: "ASSIGNED" | "REASSIGNED" | "STARTED" | "COMPLETED" | "NOTE_ADDED" | "PHOTO_ADDED";
+  action: "ASSIGNED" | "REASSIGNED" | "STARTED" | "START_CANCELLED" | "COMPLETED" | "NOTE_ADDED" | "PHOTO_ADDED";
   actorUserId: string;
   workerName?: string | null;
   previousStatus?: CleaningTaskStatus | null;
@@ -148,6 +149,35 @@ export async function startCleaningTask(taskId: string, input: CleaningActor & {
         await createLog(tx, { taskId, action: "ASSIGNED", actorUserId: input.userId, workerName, previousStatus: "PENDING", nextStatus: "PENDING", auditMetadata: input.auditMetadata });
       }
       await createLog(tx, { taskId, action: "STARTED", actorUserId: input.userId, workerName, previousStatus: "PENDING", nextStatus: "IN_PROGRESS", auditMetadata: input.auditMetadata });
+    });
+  } catch (error) {
+    translateWorkflowError(error);
+  }
+}
+
+export async function cancelCleaningTaskStart(taskId: string, input: CleaningActor) {
+  try {
+    await prisma.$transaction(async (tx) => {
+      const task = await tx.cleaningTask.findUnique({
+        where: { id: taskId },
+        select: { status: true, cleanerName: true, updatedAt: true },
+      });
+      if (!task) throw new CleaningTaskStateError("NOT_ACTIONABLE");
+      const reset = planCleaningStartCancellation(task.status);
+      const updated = await tx.cleaningTask.updateMany({
+        where: { id: taskId, status: "IN_PROGRESS", updatedAt: task.updatedAt },
+        data: reset,
+      });
+      if (!updated.count) throw new CleaningTaskStateError("CONFLICT");
+      await createLog(tx, {
+        taskId,
+        action: "START_CANCELLED",
+        actorUserId: input.userId,
+        workerName: task.cleanerName,
+        previousStatus: "IN_PROGRESS",
+        nextStatus: "PENDING",
+        auditMetadata: input.auditMetadata,
+      });
     });
   } catch (error) {
     translateWorkflowError(error);

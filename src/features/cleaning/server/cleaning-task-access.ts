@@ -39,6 +39,8 @@ export class CleaningTaskStateError extends Error {
     | "NAME_REQUIRED"
     | "INVALID_NOTE"
     | "ALREADY_ASSIGNED"
+    | "ALREADY_COMPLETED"
+    | "NOT_IN_PROGRESS"
     | "CONFLICT") {
     super(code);
     this.name = "CleaningTaskStateError";

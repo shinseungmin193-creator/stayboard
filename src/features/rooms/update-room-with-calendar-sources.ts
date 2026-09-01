@@ -6,6 +6,8 @@ import {
   type RoomCalendarProvider,
   type SupportedRoomCalendarProvider,
 } from "./room-calendar-draft";
+import type { ReviewProviderType } from "../reviews/domain/listing-provider";
+import { planRoomListingWrites, type CurrentRoomListing, type RoomListingDraft, type RoomListingWritePlan } from "./room-listing";
 
 export type RoomCalendarSourceUpdateDraft =
   | {
@@ -35,6 +37,7 @@ export interface UpdateRoomWithCalendarSourcesInput {
   name: string;
   capacity: number;
   sources: RoomCalendarSourceUpdateDraft[];
+  listings?: RoomListingDraft[];
 }
 
 export interface CurrentRoomForCalendarUpdate {
@@ -46,6 +49,7 @@ export interface CurrentRoomForCalendarUpdate {
     calendarUrl: string;
     isActive: boolean;
   }>;
+  listings?: CurrentRoomListing[];
 }
 
 export interface RoomWithCalendarSourcesAtomicInput {
@@ -62,6 +66,9 @@ export interface RoomWithCalendarSourcesAtomicInput {
     calendarUrl: string;
     isActive: true;
   }>;
+  listingCreates: RoomListingWritePlan["listingCreates"];
+  listingUpdates: RoomListingWritePlan["listingUpdates"];
+  listingDeactivations: RoomListingWritePlan["listingDeactivations"];
 }
 
 export type UpdateRoomCalendarErrorCode =
@@ -117,6 +124,12 @@ export async function updateRoomWithCalendarSources(
   if (!(await dependencies.propertyExists(input.propertyId))) {
     throw new UpdateRoomCalendarError("PROPERTY_NOT_FOUND", "선택한 숙소가 존재하지 않습니다.");
   }
+
+  const listingWrites = input.listings ? planRoomListingWrites(
+    input.listings,
+    (current.listings ?? []).filter((listing): listing is CurrentRoomListing =>
+      ["AIRBNB", "BOOKING", "AGODA"].includes(listing.provider as ReviewProviderType)),
+  ) : { listingCreates: [], listingUpdates: [], listingDeactivations: [] };
 
   const currentById = new Map(current.sources.map((source) => [source.id, source]));
   const submittedExistingIds = new Set<string>();
@@ -224,11 +237,15 @@ export async function updateRoomWithCalendarSources(
     room: { id: input.id, propertyId: input.propertyId, name: input.name, capacity: input.capacity },
     sourceUpdates,
     sourceCreates,
+    ...listingWrites,
   });
 
   return {
     id: input.id,
     updatedSourceCount: sourceUpdates.length,
     createdSourceCount: sourceCreates.length,
+    activeListingCount: input.listings
+      ? input.listings.filter((listing) => listing.listingUrl.trim()).length
+      : (current.listings ?? []).filter((listing) => listing.isActive).length,
   };
 }

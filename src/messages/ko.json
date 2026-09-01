@@ -92,6 +92,7 @@
       "calendar-sources": "캘린더 연결",
       "member-management": "구성원 관리",
       "occupancy-statistics": "점유율 통계",
+      "property-reviews": "숙소별 리뷰",
       "admin-settings": "관리자 설정",
       "developer-settings": "개발자 설정",
       "developer-error-logs": "오류 로그",
@@ -100,6 +101,58 @@
       "developer-audit-logs": "작업 로그"
     },
     "currentOperations": "운영 현황"
+  },
+  "roomListings": {
+    "title": "숙소 링크",
+    "calendarCount": "캘린더 {count}개",
+    "listingCount": "숙소 링크 {count}개"
+  },
+  "reviews": {
+    "description": "플랫폼별 별점, 리뷰 수, 리뷰 내용을 확인합니다.",
+    "filters": {
+      "property": "숙소",
+      "allProperties": "전체 숙소",
+      "provider": "플랫폼",
+      "allProviders": "전체 플랫폼",
+      "search": "숙소 검색",
+      "searchPlaceholder": "숙소명 또는 객실명",
+      "apply": "조회"
+    },
+    "actions": {
+      "refresh": "새로고침",
+      "refreshing": "새로고침 중",
+      "refreshReviews": "리뷰 새로고침",
+      "recentReviews": "최근 리뷰 보기",
+      "details": "상세",
+      "back": "목록으로",
+      "previous": "이전",
+      "next": "다음",
+      "retry": "다시 시도"
+    },
+    "states": {
+      "unregistered": "미등록",
+      "notCollected": "아직 리뷰 정보를 불러오지 않았습니다.",
+      "collecting": "수집 중",
+      "lastFailed": "마지막 수집에 실패했습니다.",
+      "noLinks": "등록된 숙소 링크가 없습니다.",
+      "noRooms": "조건에 맞는 숙소가 없습니다.",
+      "changeFilters": "숙소 또는 객실 검색 조건을 변경해 보세요.",
+      "providerMissing": "이 플랫폼의 숙소 링크가 등록되지 않았습니다.",
+      "noReviewContent": "저장된 리뷰 내용이 없습니다.",
+      "noPublicContent": "공개 구조화 데이터에 리뷰 본문이 없거나 아직 수집하지 않았습니다.",
+      "preservedAfterFailure": "마지막 수집에 실패했습니다. 기존 리뷰 데이터는 유지됩니다.",
+      "loadError": "숙소별 리뷰를 표시하지 못했습니다.",
+      "loading": "숙소별 리뷰를 불러오는 중입니다."
+    },
+    "labels": {
+      "reviewCount": "리뷰 {count}",
+      "reviewCountValue": "리뷰 {count}개",
+      "unknownReviewer": "작성자 정보 없음",
+      "storedData": "플랫폼별 최근 저장 데이터",
+      "page": "{page} / {totalPages}",
+      "pagination": "리뷰 숙소 페이지",
+      "providerNavigation": "리뷰 플랫폼"
+    }
   },
   "reservation": {
     "dateNavigation": {
@@ -430,11 +483,15 @@
       "pagination": { "label": "청소 실적 상세 페이지", "previous": "이전", "next": "다음" }
     },
     "workers": {
-      "manage": "직원 이름 관리",
-      "title": "청소 직원 이름 관리",
+      "manage": "청소 직원 관리",
+      "title": "청소 직원 관리",
       "description": "회사별 청소 직원 이름을 등록하고 활성 상태를 관리합니다. 과거 작업 기록은 변경되지 않습니다.",
+      "registrationTitle": "청소 직원 등록",
+      "registrationDescription": "{company}에서 사용할 청소 직원 이름을 등록합니다.",
+      "registrationName": "직원 이름",
       "namePlaceholder": "청소 직원 이름",
       "add": "등록",
+      "registering": "등록 중",
       "edit": "수정",
       "save": "저장",
       "cancel": "취소",
@@ -574,11 +631,20 @@
       "assign": "배정하기",
       "changeAssignee": "담당 변경",
       "addPhoto": "사진 추가",
+      "cancelStart": "시작 취소",
       "note": "메모",
       "saveNote": "메모 저장",
       "details": "상세 보기",
       "history": "기록 보기",
       "more": "더보기"
+    },
+    "startCancellation": {
+      "title": "청소 시작을 취소하시겠습니까?",
+      "description": "진행 전 상태로 돌아갑니다.",
+      "preservedData": "이미 등록한 사진과 메모는 유지됩니다.",
+      "cancel": "취소",
+      "confirm": "시작 취소",
+      "cancelling": "취소 중"
     },
     "roomNotes": {
       "title": "객실 메모",
@@ -602,8 +668,7 @@
       "registeredWorker": "등록된 직원 선택",
       "registeredWorkerPlaceholder": "직원을 선택하세요",
       "orDirect": "또는 직접 입력",
-      "registerName": "이 이름 등록",
-      "registering": "등록 중",
+      "registerName": "직원 등록",
       "useMyName": "내 이름 사용",
       "namePlaceholder": "예: 김민수",
       "completionPhotos": "청소 완료 사진",
@@ -618,7 +683,7 @@
       "saving": "저장 중",
       "submit": { "assign": "저장", "reassign": "변경", "start": "시작하기", "complete": "청소 완료", "completeWithOpenNotes": "그대로 청소 완료" }
     },
-    "logs": { "ASSIGNED": "담당 등록", "REASSIGNED": "담당 변경", "STARTED": "작업 시작", "COMPLETED": "청소 완료", "NOTE_ADDED": "메모 추가", "PHOTO_ADDED": "사진 추가" },
+    "logs": { "ASSIGNED": "담당 등록", "REASSIGNED": "담당 변경", "STARTED": "작업 시작", "START_CANCELLED": "작업 시작 취소", "COMPLETED": "청소 완료", "NOTE_ADDED": "메모 추가", "PHOTO_ADDED": "사진 추가" },
     "messages": {
       "invalidRequest": "요청 내용을 확인해 주세요.",
       "forbidden": "이 작업을 수행할 권한이 없습니다.",
@@ -632,8 +697,11 @@
       "nameRequired": "실제 청소 직원 이름을 입력해 주세요.",
       "alreadyAssigned": "다른 담당자가 먼저 등록했습니다. 최신 상태를 확인해 주세요.",
       "conflict": "작업 상태가 변경되었습니다. 최신 내용을 다시 불러왔습니다.",
+      "alreadyCompleted": "이미 완료된 청소입니다.",
+      "notInProgress": "현재 진행 중인 청소가 아닙니다.",
       "invalidNote": "메모를 1~500자로 입력해 주세요.",
       "started": "청소 작업을 시작했습니다.",
+      "startCancelled": "청소 시작을 취소했습니다. 사진과 메모는 유지됩니다.",
       "assigned": "담당자를 등록했습니다.",
       "completed": "청소 작업을 완료했습니다.",
       "noteSaved": "메모를 저장했습니다.",
@@ -645,6 +713,7 @@
       "photoEmpty": "빈 파일은 업로드할 수 없습니다.",
       "photoInvalidType": "JPEG, PNG, WebP, HEIC, HEIF 이미지 파일만 업로드할 수 있습니다.",
       "startFailed": "청소 작업을 시작하지 못했습니다.",
+      "cancelStartFailed": "청소 시작을 취소하지 못했습니다.",
       "assignFailed": "담당자를 변경하지 못했습니다.",
       "completeFailed": "청소 작업을 완료하지 못했습니다.",
       "noteFailed": "메모를 저장하지 못했습니다.",

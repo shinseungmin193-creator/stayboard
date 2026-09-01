@@ -1,4 +1,5 @@
 import type { CalendarProviderType, SyncStatus } from "@/lib/generated/prisma/enums";
+import type { ReviewProviderType } from "@/features/reviews/domain/listing-provider";
 
 export interface RoomCalendarSourceSummary {
   id: string;
@@ -25,4 +26,11 @@ export interface RoomListItem {
   isActive: boolean;
   calendarSourceCount: number;
   calendarSources: RoomCalendarSourceSummary[];
+  listingCount: number;
+  listings: Array<{
+    id: string;
+    provider: ReviewProviderType;
+    listingUrl: string;
+    isActive: boolean;
+  }>;
 }

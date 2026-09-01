@@ -46,7 +46,7 @@ export interface CleaningPhotoViewModel {
 
 export interface CleaningTaskLogViewModel {
   id: string;
-  action: "ASSIGNED" | "REASSIGNED" | "STARTED" | "COMPLETED" | "NOTE_ADDED" | "PHOTO_ADDED";
+  action: "ASSIGNED" | "REASSIGNED" | "STARTED" | "START_CANCELLED" | "COMPLETED" | "NOTE_ADDED" | "PHOTO_ADDED";
   actorName: string | null;
   workerName: string | null;
   previousStatus: string | null;

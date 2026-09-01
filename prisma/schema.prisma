@@ -64,6 +64,7 @@ enum CleaningTaskLogAction {
   ASSIGNED
   REASSIGNED
   STARTED
+  START_CANCELLED
   COMPLETED
   NOTE_ADDED
   PHOTO_ADDED
@@ -223,6 +224,7 @@ model Room {
   updatedAt                  DateTime              @updatedAt
   property                   Property              @relation(fields: [propertyId], references: [id], onDelete: Restrict)
   calendarSources            CalendarSource[]
+  listings                   RoomListing[]
   reservations               Reservation[]
   conflicts                  ReservationConflict[]
   staffAssignments           StaffAssignment[]
@@ -277,6 +279,7 @@ model User {
   roomNotesAuthored       RoomNote[]             @relation("RoomNoteAuthor")
   roomNotesCompleted      RoomNote[]             @relation("RoomNoteCompletedBy")
   developerRoleSessions   DeveloperRoleSession[]
+  reviewSyncLogs          ReviewSyncLog[]        @relation("ReviewSyncActor")
 
   @@index([isActive, name])
   @@index([status, createdAt])
@@ -415,6 +418,79 @@ model CalendarSource {
   @@index([provider, isActive])
   @@index([connectionStatus, isActive])
   @@index([isActive, lastSyncedAt])
+}
+
+model RoomListing {
+  id                String               @id @default(cuid())
+  roomId            String
+  provider          CalendarProviderType
+  listingUrl        String
+  externalListingId String?
+  isActive          Boolean              @default(true)
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+  room              Room                 @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  reviewSnapshots   ReviewSnapshot[]
+  reviews           ListingReview[]
+  syncLogs          ReviewSyncLog[]
+
+  @@unique([roomId, provider])
+  @@index([roomId, isActive])
+  @@index([provider, isActive])
+}
+
+model ReviewSnapshot {
+  id               String      @id @default(cuid())
+  roomListingId    String
+  sourceListingUrl String
+  rating           Decimal?    @db.Decimal(5, 2)
+  reviewCount      Int?
+  collectedAt      DateTime    @default(now())
+  roomListing      RoomListing @relation(fields: [roomListingId], references: [id], onDelete: Cascade)
+
+  @@index([roomListingId, collectedAt])
+  @@index([roomListingId, sourceListingUrl, collectedAt])
+}
+
+model ListingReview {
+  id               String      @id @default(cuid())
+  roomListingId    String
+  sourceListingUrl String
+  providerReviewId String?
+  reviewerName     String?
+  rating           Decimal?    @db.Decimal(5, 2)
+  content          String?
+  reviewedAt       DateTime?
+  fingerprint      String
+  collectedAt      DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+  roomListing      RoomListing @relation(fields: [roomListingId], references: [id], onDelete: Cascade)
+
+  @@unique([roomListingId, fingerprint])
+  @@index([roomListingId, reviewedAt])
+  @@index([roomListingId, sourceListingUrl, reviewedAt])
+}
+
+model ReviewSyncLog {
+  id                 String               @id @default(cuid())
+  roomListingId      String
+  actorUserId        String?
+  provider           CalendarProviderType
+  sourceListingUrl   String
+  status             SyncStatus           @default(RUNNING)
+  startedAt          DateTime             @default(now())
+  finishedAt         DateTime?
+  fetchedReviewCount Int                  @default(0)
+  newReviewCount     Int                  @default(0)
+  errorCode          String?
+  errorMessage       String?
+  createdAt          DateTime             @default(now())
+  roomListing        RoomListing          @relation(fields: [roomListingId], references: [id], onDelete: Cascade)
+  actor              User?                @relation("ReviewSyncActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([roomListingId, startedAt])
+  @@index([status, startedAt])
+  @@index([actorUserId, startedAt])
 }
 
 model SyncRun {

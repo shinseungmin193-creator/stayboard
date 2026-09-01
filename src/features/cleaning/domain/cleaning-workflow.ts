@@ -20,7 +20,9 @@ export type CleaningWorkflowErrorCode =
   | "NOT_ACTIONABLE"
   | "NAME_REQUIRED"
   | "ALREADY_ASSIGNED"
-  | "ASSIGNEE_REQUIRED";
+  | "ASSIGNEE_REQUIRED"
+  | "ALREADY_COMPLETED"
+  | "NOT_IN_PROGRESS";
 
 export class CleaningWorkflowError extends Error {
   constructor(public readonly code: CleaningWorkflowErrorCode) {
@@ -61,6 +63,18 @@ export function planCleaningStart(task: CleaningWorkflowSnapshot, workerName?: s
   if (task.status !== "PENDING") throw new CleaningWorkflowError("NOT_ACTIONABLE");
   const normalizedWorkerName = normalizeCleaningWorkerName(workerName);
   return { shouldAssign: !hasCleaningAssignee(task), workerName: normalizedWorkerName };
+}
+
+export function planCleaningStartCancellation(status: CleaningWorkflowStatus) {
+  if (status === "COMPLETED") throw new CleaningWorkflowError("ALREADY_COMPLETED");
+  if (status !== "IN_PROGRESS") throw new CleaningWorkflowError("NOT_IN_PROGRESS");
+  return {
+    status: "PENDING" as const,
+    startedAt: null,
+    startedById: null,
+    startedByName: null,
+    cleanerName: null,
+  };
 }
 
 export function planCleaningCompletion(task: CleaningWorkflowSnapshot, workerName?: string | null) {

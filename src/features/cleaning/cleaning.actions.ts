@@ -8,6 +8,7 @@ import { logServerError } from "@/lib/prisma-errors";
 import {
   cleaningTaskAssignmentSchema,
   cleaningTaskCompletionSchema,
+  cleaningTaskIdSchema,
   cleaningTaskNoteSchema,
   cleaningTaskStartSchema,
 } from "./cleaning.schemas";
@@ -16,6 +17,7 @@ import { resolveCleaningAssignmentWorkerName } from "./domain/cleaning-workflow"
 import { CleaningTaskStateError, requireCleaningTaskAccess } from "./server/cleaning-task-access";
 import {
   assignCleaningTask,
+  cancelCleaningTaskStart,
   completeCleaningTask,
   getEligibleCleaningAssignee,
   saveCleaningTaskNote,
@@ -28,10 +30,14 @@ export interface CleaningActionResult {
   code?: string;
 }
 
-async function errorResult(error: unknown, key: "startFailed" | "assignFailed" | "completeFailed" | "noteFailed"): Promise<CleaningActionResult> {
+async function errorResult(error: unknown, key: "startFailed" | "cancelStartFailed" | "assignFailed" | "completeFailed" | "noteFailed"): Promise<CleaningActionResult> {
   const t = await getTranslations("cleaning.messages");
   if (error instanceof CleaningTaskStateError) {
-    const messageKey = error.code === "PHOTO_REQUIRED"
+    const messageKey = error.code === "ALREADY_COMPLETED"
+      ? "alreadyCompleted"
+      : error.code === "NOT_IN_PROGRESS"
+        ? "notInProgress"
+        : error.code === "PHOTO_REQUIRED"
       ? "photoRequired"
       : error.code === "ASSIGNEE_REQUIRED"
         ? "assigneeRequired"
@@ -136,6 +142,20 @@ export async function startCleaningTaskAction(input: { taskId: string; workerNam
     return { success: true, message: t("started") };
   } catch (error) {
     return errorResult(error, "startFailed");
+  }
+}
+
+export async function cancelCleaningTaskStartAction(input: { taskId: string }): Promise<CleaningActionResult> {
+  const parsed = cleaningTaskIdSchema.safeParse(input);
+  const t = await getTranslations("cleaning.messages");
+  if (!parsed.success) return { success: false, message: t("invalidRequest"), code: "INVALID_REQUEST" };
+  try {
+    const { context } = await requireCleaningTaskAccess(parsed.data.taskId, PERMISSIONS.CLEANING_MANAGE);
+    await cancelCleaningTaskStart(parsed.data.taskId, actor(context));
+    revalidateCleaning();
+    return { success: true, message: t("startCancelled") };
+  } catch (error) {
+    return errorResult(error, "cancelStartFailed");
   }
 }
 

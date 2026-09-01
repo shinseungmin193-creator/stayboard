@@ -1,7 +1,8 @@
 "use client";import { useTranslations } from "next-intl";
 
 import { type FormEvent, useEffect, useState, useTransition } from "react";
-import { CalendarClock, LoaderCircle, Settings2 } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { CalendarClock, Link2, LoaderCircle, Settings2 } from "lucide-react";
 import type { PropertyOption } from "@/features/properties";
 import type { RoomListItem } from "../room.types";
 import { updateRoomWithCalendarSourcesAction, type UpdateRoomWithCalendarSourcesActionResult } from "../room.actions";
@@ -19,14 +20,25 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RoomCalendarSourceEditor } from "./room-calendar-source-editor";
+import { REVIEW_PROVIDER_CONFIG, type ReviewProviderType } from "@/features/reviews/domain/listing-provider";
+import { listingUrlField } from "../room-listing";
+import { EMPTY_ROOM_LISTING_URLS, RoomListingFields, type RoomListingUrlValues } from "./room-listing-fields";
 
 const initialResult: UpdateRoomWithCalendarSourcesActionResult = { success: true, message: "" };
 
+function listingValues(room: RoomListItem): RoomListingUrlValues {
+  const values = { ...EMPTY_ROOM_LISTING_URLS };
+  for (const listing of room.listings) values[listing.provider] = listing.listingUrl;
+  return values;
+}
+
 export function RoomFormDialog({ properties, room, canManageCalendarSources }: {properties: PropertyOption[];room: RoomListItem;canManageCalendarSources: boolean;}) {const i18n = useTranslations();
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [propertyId, setPropertyId] = useState(room.propertyId);
   const [name, setName] = useState(room.name);
   const [capacity, setCapacity] = useState(String(room.capacity));
+  const [listingUrls, setListingUrls] = useState<RoomListingUrlValues>(() => listingValues(room));
   const [drafts, setDrafts] = useState<CalendarSourceDraft[]>(() => createInitialCalendarSourceDrafts(room.calendarSources));
   const [result, setResult] = useState<UpdateRoomWithCalendarSourcesActionResult>(initialResult);
   const [sourceErrors, setSourceErrors] = useState<Record<string, string[]>>({});
@@ -38,6 +50,7 @@ export function RoomFormDialog({ properties, room, canManageCalendarSources }: {
     setPropertyId(room.propertyId);
     setName(room.name);
     setCapacity(String(room.capacity));
+    setListingUrls(listingValues(room));
     setDrafts(createInitialCalendarSourceDrafts(room.calendarSources.filter((source) => !deletedSourceIds.has(source.id))));
     setResult(initialResult);
     setSourceErrors({});
@@ -48,6 +61,15 @@ export function RoomFormDialog({ properties, room, canManageCalendarSources }: {
     setNotice({ message, success: true });
   };
   const handleNotice = (message: string, success: boolean) => setNotice({ message, success });
+  const handleListingChange = (provider: ReviewProviderType, value: string) => {
+    setListingUrls((current) => ({ ...current, [provider]: value }));
+    if (!result.success) {
+      const key = listingUrlField(provider);
+      if (result.fieldErrors?.[key]) {
+        setResult({ ...result, fieldErrors: { ...result.fieldErrors, [key]: [] } });
+      }
+    }
+  };
   useEffect(() => {
     if (!notice) return;
     const timeout = window.setTimeout(() => setNotice(null), 4000);
@@ -73,11 +95,15 @@ export function RoomFormDialog({ properties, room, canManageCalendarSources }: {
         propertyId,
         name,
         capacity: Number(capacity),
-        sources: toCalendarSourceUpdateDrafts(drafts)
+        sources: toCalendarSourceUpdateDrafts(drafts),
+        listings: REVIEW_PROVIDER_CONFIG.map(({ provider }) => ({ provider, listingUrl: listingUrls[provider] })),
       });
       setResult(actionResult);
       setSourceErrors(actionResult.success ? {} : actionResult.sourceErrors ?? {});
-      if (actionResult.success) setOpen(false);
+      if (actionResult.success) {
+        setOpen(false);
+        router.refresh();
+      }
     });
   };
 
@@ -97,6 +123,10 @@ export function RoomFormDialog({ properties, room, canManageCalendarSources }: {
               <div className="space-y-1.5"><Label htmlFor={`room-name-${room.id}`}>{i18n("auto.m0577")}</Label><Input id={`room-name-${room.id}`} value={name} onChange={(event) => setName(event.target.value)} maxLength={100} required /><FieldError errors={!result.success ? result.fieldErrors?.name : undefined} /></div>
               <div className="space-y-1.5"><Label htmlFor={`capacity-${room.id}`}>{i18n("auto.m0578")}</Label><Input id={`capacity-${room.id}`} value={capacity} onChange={(event) => setCapacity(event.target.value)} type="number" min={1} max={100} required /><FieldError errors={!result.success ? result.fieldErrors?.capacity : undefined} /></div>
             </div>
+          </section>
+          <section className="space-y-3 border-t pt-4">
+            <div className="flex items-start gap-2"><Link2 className="mt-0.5 size-4 text-muted-foreground" /><h3 className="text-sm font-semibold">{i18n("roomListings.title")}</h3></div>
+            <RoomListingFields idPrefix={`room-listing-${room.id}`} values={listingUrls} onChange={handleListingChange} fieldErrors={!result.success ? result.fieldErrors : undefined} />
           </section>
           <section className="space-y-3 border-t pt-4">
             <div className="flex items-start gap-2"><CalendarClock className="mt-0.5 size-4 text-muted-foreground" /><div><h3 className="text-sm font-semibold">{i18n("auto.m0580")}</h3><p className="text-xs text-muted-foreground">{i18n("auto.m0586")}</p></div></div>

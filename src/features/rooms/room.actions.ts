@@ -11,10 +11,12 @@ import { roomActiveSchema, roomInputSchema, roomUpdateSchema, roomWithCalendarSo
 import { createRoomRegistration, RoomRegistrationError } from "./create-room-registration";
 import { calendarUrlField, prepareRoomCalendarDrafts, ROOM_CALENDAR_PROVIDER_CONFIG, testedCalendarUrlField, type RoomCalendarProvider, type SupportedRoomCalendarProvider } from "./room-calendar-draft";
 import { updateRoomWithCalendarSources, UpdateRoomCalendarError, type UpdateRoomWithCalendarSourcesInput } from "./update-room-with-calendar-sources";
+import { ListingUrlError } from "@/features/reviews/domain/listing-provider";
+import { listingUrlField, normalizeRoomListingDrafts, roomListingDraftsFromFormData } from "./room-listing";
 
 function fields(formData: FormData) { return { propertyId: formData.get("propertyId"), name: formData.get("name"), capacity: formData.get("capacity") }; }
 function validationFailure(error: { flatten(): { fieldErrors: Record<string, string[]> } }): ActionResult { return { success: false, message: "입력 내용을 확인해 주세요.", fieldErrors: error.flatten().fieldErrors }; }
-const ROOM_DATA_PATHS = ["/", "/rooms", "/properties", "/calendar-sources", "/room-overview", "/room-status"] as const;
+const ROOM_DATA_PATHS = ["/", "/rooms", "/properties", "/calendar-sources", "/room-overview", "/room-status", "/property-reviews"] as const;
 function revalidateRoomData() { for (const path of ROOM_DATA_PATHS) revalidatePath(path); }
 
 export async function createRoomAction(_state: ActionResult, formData: FormData): Promise<ActionResult> {
@@ -22,8 +24,22 @@ export async function createRoomAction(_state: ActionResult, formData: FormData)
   try { await requirePropertyAccess(parsed.data.propertyId, PERMISSIONS.ROOM_MANAGE); } catch (error) { if (isAccessControlError(error)) return FORBIDDEN_ACTION_RESULT; throw error; }
   const draftResult = prepareRoomCalendarDrafts(ROOM_CALENDAR_PROVIDER_CONFIG.map(({ provider }) => ({ provider, calendarUrl: String(formData.get(calendarUrlField(provider)) ?? ""), testedCalendarUrl: String(formData.get(testedCalendarUrlField(provider)) ?? "") })));
   if (!draftResult.success) return { success: false, message: "OTA 캘린더 연결 상태를 확인해 주세요.", fieldErrors: Object.fromEntries(Object.entries(draftResult.errors).map(([provider, error]) => [calendarUrlField(provider as RoomCalendarProvider), error ? [error.message] : []])) };
-  try { const property = await propertyExists(parsed.data.propertyId); if (!property) return { success: false, message: "선택한 숙소가 존재하지 않습니다." }; if (!property.isActive) return { success: false, message: "비활성 숙소에는 새 객실을 등록할 수 없습니다." }; const calendars = draftResult.drafts.map((draft) => ({ ...draft, name: `${parsed.data.name} ${ROOM_CALENDAR_PROVIDER_CONFIG.find((item) => item.provider === draft.provider)?.label ?? draft.provider}` })); await createRoomRegistration({ room: parsed.data, calendars }, { testConnection: testCalendarUrlConnection, createAtomically: createRoomWithCalendarSources }); revalidateRoomData(); return { success: true, message: calendars.length ? `객실과 캘린더 연결 ${calendars.length}개를 등록했습니다.` : "객실을 등록했습니다." }; }
-  catch (error) { if (error instanceof RoomRegistrationError) return { success: false, status: 502, errorCode: "SYNC_FAILED", message: "캘린더 연결 테스트에 실패했습니다.", fieldErrors: { [calendarUrlField(error.provider)]: [error.message] } }; if (isPrismaUniqueError(error)) return { success: false, status: 422, errorCode: "VALIDATION_ERROR", message: "같은 객실에 중복된 캘린더 URL이 있습니다." }; return actionFailureFromError(error, "createRoom"); }
+  try {
+    const listings = normalizeRoomListingDrafts(roomListingDraftsFromFormData(formData));
+    const property = await propertyExists(parsed.data.propertyId);
+    if (!property) return { success: false, message: "선택한 숙소가 존재하지 않습니다." };
+    if (!property.isActive) return { success: false, message: "비활성 숙소에는 새 객실을 등록할 수 없습니다." };
+    const calendars = draftResult.drafts.map((draft) => ({ ...draft, name: `${parsed.data.name} ${ROOM_CALENDAR_PROVIDER_CONFIG.find((item) => item.provider === draft.provider)?.label ?? draft.provider}` }));
+    await createRoomRegistration({ room: parsed.data, calendars, listings }, { testConnection: testCalendarUrlConnection, createAtomically: createRoomWithCalendarSources });
+    revalidateRoomData();
+    return { success: true, message: `객실을 등록했습니다. 캘린더 ${calendars.length}개 · 숙소 링크 ${listings.length}개` };
+  }
+  catch (error) {
+    if (error instanceof ListingUrlError) return { success: false, status: 422, errorCode: "VALIDATION_ERROR", message: "숙소 링크를 확인해 주세요.", fieldErrors: { [listingUrlField(error.provider)]: [error.message] } };
+    if (error instanceof RoomRegistrationError) return { success: false, status: 502, errorCode: "SYNC_FAILED", message: "캘린더 연결 테스트에 실패했습니다.", fieldErrors: { [calendarUrlField(error.provider)]: [error.message] } };
+    if (isPrismaUniqueError(error)) return { success: false, status: 422, errorCode: "VALIDATION_ERROR", message: "같은 객실에 중복된 연결 정보가 있습니다." };
+    return actionFailureFromError(error, "createRoom");
+  }
 }
 
 export type RoomCalendarTestActionResult =
@@ -91,7 +107,7 @@ export async function updateRoomWithCalendarSourcesAction(
     revalidateRoomData();
     return {
       success: true,
-      message: `객실 정보와 캘린더 연결을 저장했습니다. 신규 ${result.createdSourceCount}개 · 변경 ${result.updatedSourceCount}개`,
+      message: `객실 정보와 연결을 저장했습니다. 캘린더 신규 ${result.createdSourceCount}개 · 변경 ${result.updatedSourceCount}개 · 숙소 링크 ${result.activeListingCount}개`,
     };
   } catch (error) {
     if (isAccessControlError(error)) return FORBIDDEN_ACTION_RESULT;
@@ -100,6 +116,13 @@ export async function updateRoomWithCalendarSourcesAction(
         success: false,
         message: error.message,
         sourceErrors: error.sourceKey ? { [error.sourceKey]: [error.message] } : undefined,
+      };
+    }
+    if (error instanceof ListingUrlError) {
+      return {
+        success: false,
+        message: "숙소 링크를 확인해 주세요.",
+        fieldErrors: { [listingUrlField(error.provider)]: [error.message] },
       };
     }
     if (isPrismaUniqueError(error)) {

@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { useTranslations } from "next-intl";
-import { Camera, CircleCheck, Clock3, Ellipsis, FileClock, MessageSquareText, Play, UserRoundPlus } from "lucide-react";
+import { Camera, CircleCheck, Clock3, Ellipsis, FileClock, MessageSquareText, Play, RotateCcw, UserRoundPlus } from "lucide-react";
 
 import { Button, buttonVariants } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -33,6 +33,7 @@ export function CleaningTaskCard({
   pending,
   onOpenDetails,
   onOpenRoomNotes,
+  onCancelStart,
   onWorkflow,
 }: {
   task: CleaningTaskViewModel;
@@ -44,6 +45,7 @@ export function CleaningTaskCard({
   pending: boolean;
   onOpenDetails: (task: CleaningTaskViewModel, focus?: "photos" | "note" | "logs") => void;
   onOpenRoomNotes: (task: CleaningTaskViewModel) => void;
+  onCancelStart: (task: CleaningTaskViewModel) => void;
   onWorkflow: (task: CleaningTaskViewModel, mode: CleaningWorkflowMode) => void;
 }) {
   const t = useTranslations("cleaning");
@@ -86,8 +88,9 @@ export function CleaningTaskCard({
           </div>
         </div>
 
-        <div className="flex min-w-0 items-center justify-end gap-2">
+        <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
           {task.status === "IN_PROGRESS" && <Button type="button" size="sm" variant="outline" data-cleaning-photo-action={task.id} disabled={pending} onClick={() => onOpenDetails(task, "photos")}><Camera />{t("actions.addPhoto")}</Button>}
+          {task.status === "IN_PROGRESS" && <Button type="button" size="sm" variant="outline" data-cleaning-cancel-start-action={task.id} disabled={pending} onClick={() => onCancelStart(task)}><RotateCcw />{t("actions.cancelStart")}</Button>}
           <button
             type="button"
             data-cleaning-primary-action={task.id}

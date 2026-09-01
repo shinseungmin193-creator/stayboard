@@ -8,6 +8,7 @@ import type { RoomOperationalStatus } from "@/lib/generated/prisma/enums";
 import type { RoomWithCalendarSourcesAtomicInput } from "./update-room-with-calendar-sources";
 import { formatRoomDisplayName } from "./room-display";
 import { CALENDAR_SYNC_STALE_RUNNING_MS } from "@/features/calendar-sync/calendar-sync.constants";
+import type { NormalizedRoomListing } from "./room-listing";
 
 type RoomWriteInput = { propertyId: string; name: string; capacity: number };
 const internalRoomCode = () => `room_${randomUUID()}`;
@@ -36,19 +37,26 @@ export async function listRooms(propertyId?: string, companyIds?: readonly strin
         },
         orderBy: [{ provider: "asc" }, { name: "asc" }, { id: "asc" }],
       },
-      _count: { select: { calendarSources: true } },
+      listings: {
+        where: { isActive: true, provider: { in: ["AIRBNB", "BOOKING", "AGODA"] } },
+        select: { id: true, provider: true, listingUrl: true, isActive: true },
+        orderBy: [{ provider: "asc" }, { id: "asc" }],
+      },
+      _count: { select: { calendarSources: true, listings: { where: { isActive: true } } } },
     },
     orderBy: [{ isActive: "desc" }, { property: { name: "asc" } }, { sortOrder: "asc" }, { name: "asc" }],
   });
   const syncStates = await findCalendarSourceSyncStates(rooms.flatMap((room) => room.calendarSources.map((source) => source.id)));
   const syncStateBySourceId = new Map(syncStates.map((state) => [state.sourceId, state]));
   const staleRunningCutoff = Date.now() - CALENDAR_SYNC_STALE_RUNNING_MS;
-  return rooms.map(({ property, _count, calendarSources, ...room }) => ({
+  return rooms.map(({ property, _count, calendarSources, listings, ...room }) => ({
     ...room,
     name: formatRoomDisplayName(room),
     propertyName: property.name,
     propertyIsActive: property.isActive,
     calendarSourceCount: _count.calendarSources,
+    listingCount: _count.listings,
+    listings: listings.map((listing) => ({ ...listing, provider: listing.provider as "AIRBNB" | "BOOKING" | "AGODA" })),
     calendarSources: calendarSources.map((source) => {
       const syncState = syncStateBySourceId.get(source.id);
       return {
@@ -70,11 +78,16 @@ export function createRoom(data: RoomWriteInput) {
     return tx.room.create({ data: { ...data, code: internalRoomCode(), sortOrder: (lastRoom?.sortOrder ?? -1) + 1 }, select: { id: true } });
   });
 }
-export function createRoomWithCalendarSources(room: RoomRegistrationInput["room"], calendars: RoomRegistrationInput["calendars"]) {
+export function createRoomWithCalendarSources(
+  room: RoomRegistrationInput["room"],
+  calendars: RoomRegistrationInput["calendars"],
+  listings: NormalizedRoomListing[],
+) {
   return prisma.$transaction(async (tx) => {
     const lastRoom = await tx.room.findFirst({ where: { propertyId: room.propertyId }, select: { sortOrder: true }, orderBy: { sortOrder: "desc" } });
     const created = await tx.room.create({ data: { ...room, code: internalRoomCode(), sortOrder: (lastRoom?.sortOrder ?? -1) + 1 }, select: { id: true } });
     if (calendars.length) await tx.calendarSource.createMany({ data: calendars.map((calendar) => ({ roomId: created.id, provider: calendar.provider, name: calendar.name, calendarUrl: calendar.calendarUrl, isActive: true })) });
+    if (listings.length) await tx.roomListing.createMany({ data: listings.map((listing) => ({ ...listing, roomId: created.id, isActive: true })) });
     return created;
   });
 }
@@ -98,8 +111,16 @@ export function findRoomWithCalendarSourcesForUpdate(id: string) {
         select: { id: true, provider: true, name: true, calendarUrl: true, isActive: true },
         orderBy: [{ provider: "asc" }, { name: "asc" }, { id: "asc" }],
       },
+      listings: {
+        select: { id: true, provider: true, listingUrl: true, isActive: true },
+        orderBy: [{ provider: "asc" }, { id: "asc" }],
+      },
     },
-  }).then((room) => room ? { id: room.id, sources: room.calendarSources } : null);
+  }).then((room) => room ? {
+    id: room.id,
+    sources: room.calendarSources,
+    listings: room.listings.map((listing) => ({ ...listing, provider: listing.provider as "AIRBNB" | "BOOKING" | "AGODA" })),
+  } : null);
 }
 export function updateRoomWithCalendarSourcesAtomically(input: RoomWithCalendarSourcesAtomicInput) {
   return prisma.$transaction(async (tx) => {
@@ -139,6 +160,29 @@ export function updateRoomWithCalendarSourcesAtomically(input: RoomWithCalendarS
     if (input.sourceCreates.length) {
       await tx.calendarSource.createMany({
         data: input.sourceCreates.map((source) => ({ ...source, roomId: input.room.id })),
+      });
+    }
+    for (const listing of input.listingUpdates) {
+      const updated = await tx.roomListing.updateMany({
+        where: { id: listing.id, roomId: input.room.id, provider: listing.provider },
+        data: {
+          listingUrl: listing.listingUrl,
+          externalListingId: listing.externalListingId,
+          isActive: true,
+        },
+      });
+      if (updated.count !== 1) throw new Error("ROOM_LISTING_WRITE_CONFLICT");
+    }
+    for (const listing of input.listingDeactivations) {
+      const updated = await tx.roomListing.updateMany({
+        where: { id: listing.id, roomId: input.room.id, isActive: true },
+        data: { isActive: false },
+      });
+      if (updated.count !== 1) throw new Error("ROOM_LISTING_WRITE_CONFLICT");
+    }
+    if (input.listingCreates.length) {
+      await tx.roomListing.createMany({
+        data: input.listingCreates.map((listing) => ({ ...listing, roomId: input.room.id, isActive: true })),
       });
     }
     return { id: input.room.id };

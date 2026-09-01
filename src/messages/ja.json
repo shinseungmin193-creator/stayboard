@@ -92,6 +92,7 @@
       "calendar-sources": "カレンダー連携",
       "member-management": "メンバー管理",
       "occupancy-statistics": "稼働率統計",
+      "property-reviews": "宿泊施設別レビュー",
       "admin-settings": "管理者設定",
       "developer-settings": "開発者設定",
       "developer-error-logs": "エラーログ",
@@ -100,6 +101,58 @@
       "developer-audit-logs": "操作ログ"
     },
     "currentOperations": "運営状況"
+  },
+  "roomListings": {
+    "title": "宿泊施設リンク",
+    "calendarCount": "カレンダー {count}件",
+    "listingCount": "宿泊施設リンク {count}件"
+  },
+  "reviews": {
+    "description": "プラットフォーム別の評価、レビュー数、レビュー内容を確認します。",
+    "filters": {
+      "property": "宿泊施設",
+      "allProperties": "すべての宿泊施設",
+      "provider": "プラットフォーム",
+      "allProviders": "すべてのプラットフォーム",
+      "search": "宿泊施設検索",
+      "searchPlaceholder": "宿泊施設名または客室名",
+      "apply": "表示"
+    },
+    "actions": {
+      "refresh": "更新",
+      "refreshing": "更新中",
+      "refreshReviews": "レビューを更新",
+      "recentReviews": "最近のレビューを見る",
+      "details": "詳細",
+      "back": "一覧へ",
+      "previous": "前へ",
+      "next": "次へ",
+      "retry": "再試行"
+    },
+    "states": {
+      "unregistered": "未登録",
+      "notCollected": "レビュー情報はまだ取得されていません。",
+      "collecting": "取得中",
+      "lastFailed": "前回の取得に失敗しました。",
+      "noLinks": "登録された宿泊施設リンクがありません。",
+      "noRooms": "条件に一致する宿泊施設がありません。",
+      "changeFilters": "宿泊施設または客室の検索条件を変更してください。",
+      "providerMissing": "このプラットフォームの宿泊施設リンクは未登録です。",
+      "noReviewContent": "保存されたレビュー内容がありません。",
+      "noPublicContent": "公開構造化データにレビュー本文がないか、まだ取得されていません。",
+      "preservedAfterFailure": "前回の取得に失敗しました。既存のレビューデータは保持されています。",
+      "loadError": "宿泊施設別レビューを表示できませんでした。",
+      "loading": "宿泊施設別レビューを読み込んでいます。"
+    },
+    "labels": {
+      "reviewCount": "レビュー {count}",
+      "reviewCountValue": "レビュー {count}件",
+      "unknownReviewer": "投稿者情報なし",
+      "storedData": "プラットフォーム別の最新保存データ",
+      "page": "{page} / {totalPages}",
+      "pagination": "レビュー宿泊施設ページ",
+      "providerNavigation": "レビュープラットフォーム"
+    }
   },
   "reservation": {
     "dateNavigation": {
@@ -430,11 +483,15 @@
       "pagination": { "label": "清掃実績詳細ページ", "previous": "前へ", "next": "次へ" }
     },
     "workers": {
-      "manage": "スタッフ名管理",
-      "title": "清掃スタッフ名管理",
+      "manage": "清掃スタッフ管理",
+      "title": "清掃スタッフ管理",
       "description": "会社ごとに清掃スタッフ名を登録し、有効状態を管理します。過去の作業記録は変更されません。",
+      "registrationTitle": "清掃スタッフ登録",
+      "registrationDescription": "{company}で使用する清掃スタッフ名を登録します。",
+      "registrationName": "スタッフ名",
       "namePlaceholder": "清掃スタッフ名",
       "add": "登録",
+      "registering": "登録中",
       "edit": "編集",
       "save": "保存",
       "cancel": "キャンセル",
@@ -574,11 +631,20 @@
       "assign": "割り当てる",
       "changeAssignee": "担当変更",
       "addPhoto": "写真を追加",
+      "cancelStart": "開始取消",
       "note": "メモ",
       "saveNote": "メモを保存",
       "details": "詳細を見る",
       "history": "履歴を見る",
       "more": "その他"
+    },
+    "startCancellation": {
+      "title": "清掃開始を取り消しますか？",
+      "description": "開始前の状態に戻ります。",
+      "preservedData": "登録済みの写真とメモは保持されます。",
+      "cancel": "キャンセル",
+      "confirm": "開始取消",
+      "cancelling": "取消中"
     },
     "roomNotes": {
       "title": "客室メモ",
@@ -602,8 +668,7 @@
       "registeredWorker": "登録済みスタッフを選択",
       "registeredWorkerPlaceholder": "スタッフを選択してください",
       "orDirect": "または直接入力",
-      "registerName": "この名前を登録",
-      "registering": "登録中",
+      "registerName": "スタッフ登録",
       "useMyName": "自分の名前を使用",
       "namePlaceholder": "例：山田太郎",
       "completionPhotos": "清掃完了写真",
@@ -618,7 +683,7 @@
       "saving": "保存中",
       "submit": { "assign": "保存", "reassign": "変更", "start": "開始する", "complete": "清掃完了", "completeWithOpenNotes": "そのまま清掃完了" }
     },
-    "logs": { "ASSIGNED": "担当登録", "REASSIGNED": "担当変更", "STARTED": "作業開始", "COMPLETED": "清掃完了", "NOTE_ADDED": "メモ追加", "PHOTO_ADDED": "写真追加" },
+    "logs": { "ASSIGNED": "担当登録", "REASSIGNED": "担当変更", "STARTED": "作業開始", "START_CANCELLED": "作業開始取消", "COMPLETED": "清掃完了", "NOTE_ADDED": "メモ追加", "PHOTO_ADDED": "写真追加" },
     "messages": {
       "invalidRequest": "リクエスト内容を確認してください。",
       "forbidden": "この操作を行う権限がありません。",
@@ -632,8 +697,11 @@
       "nameRequired": "実際の清掃スタッフ名を入力してください。",
       "alreadyAssigned": "別の担当者が先に登録しました。最新の状態を確認してください。",
       "conflict": "タスクの状態が変更されました。最新の内容を再読み込みしました。",
+      "alreadyCompleted": "すでに完了した清掃です。",
+      "notInProgress": "現在進行中の清掃ではありません。",
       "invalidNote": "メモを1～500文字で入力してください。",
       "started": "清掃タスクを開始しました。",
+      "startCancelled": "清掃開始を取り消しました。写真とメモは保持されます。",
       "assigned": "担当者を登録しました。",
       "completed": "清掃タスクを完了しました。",
       "noteSaved": "メモを保存しました。",
@@ -645,6 +713,7 @@
       "photoEmpty": "空のファイルはアップロードできません。",
       "photoInvalidType": "JPEG、PNG、WebP、HEIC、HEIF画像のみアップロードできます。",
       "startFailed": "清掃タスクを開始できませんでした。",
+      "cancelStartFailed": "清掃開始を取り消せませんでした。",
       "assignFailed": "担当者を変更できませんでした。",
       "completeFailed": "清掃タスクを完了できませんでした。",
       "noteFailed": "メモを保存できませんでした。",

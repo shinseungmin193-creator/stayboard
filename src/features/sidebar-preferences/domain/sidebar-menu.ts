@@ -1,5 +1,5 @@
 import type { LucideIcon } from "lucide-react";
-import { BedDouble, Bug, Building2, CalendarDays, ChartNoAxesCombined, Code2, Hotel, LayoutDashboard, MessageSquareText, Rows3, ScrollText, Settings, Sparkles, TriangleAlert, Unplug, UserCog, Users } from "lucide-react";
+import { BedDouble, Bug, Building2, CalendarDays, ChartNoAxesCombined, Code2, Hotel, LayoutDashboard, MessageSquareText, Rows3, ScrollText, Settings, Sparkles, Star, TriangleAlert, Unplug, UserCog, Users } from "lucide-react";
 import { PERMISSIONS, type Permission } from "../../access-control/domain/access-control";
 import { RESERVATION_CONFLICT_UI } from "../../reservation-conflicts/reservation-conflict.labels";
 
@@ -36,6 +36,7 @@ export const SIDEBAR_MENU_ITEMS = [
   { id: "calendar-sources", label: "캘린더 연결", href: "/calendar-sources", icon: Unplug, group: "management", requiredPermission: PERMISSIONS.CALENDAR_SOURCE_READ, hideable: true },
   { id: "member-management", label: "구성원 관리", href: "/settings/members", icon: Users, group: "management", requiredPermission: PERMISSIONS.USER_MANAGE, hideable: true },
   { id: "occupancy-statistics", label: "점유율 통계", href: "/statistics/occupancy", icon: ChartNoAxesCombined, group: "statistics", requiredPermission: PERMISSIONS.STATISTICS_READ, hideable: true },
+  { id: "property-reviews", label: "숙소별 리뷰", href: "/property-reviews", icon: Star, group: "statistics", requiredPermission: PERMISSIONS.PROPERTY_REVIEW_READ, hideable: true },
   { id: "admin-settings", label: "관리자 설정", href: "/settings/admin", icon: Settings, group: "settings", requiredPermission: PERMISSIONS.ADMIN_SETTINGS_READ, hideable: false },
   { id: "developer-settings", label: "개발자 설정", href: "/developer/settings", icon: Code2, group: "developer", requiredPermission: PERMISSIONS.DEVELOPER_SETTINGS_READ, hideable: false },
   { id: "developer-users", label: "회원 관리", href: "/developer/users", icon: UserCog, group: "developer", requiredPermission: PERMISSIONS.DEVELOPER_MANAGEMENT_READ, hideable: false },
