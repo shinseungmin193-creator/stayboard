@@ -56,6 +56,7 @@ export function CleaningTaskDetailDialog({
               <h3 className="flex items-center gap-2 font-semibold"><UserRound className="size-4" />{t("details.workInfo")}</h3>
               <dl className="grid grid-cols-[6.5rem_1fr] gap-x-3 gap-y-2 text-sm">
                 <dt className="text-muted-foreground">{t("fields.assignee")}</dt><dd className="break-words">{task.assignee?.name ?? t("status.unassigned")}</dd>
+                <dt className="text-muted-foreground">{t("fields.cleanerName")}</dt><dd className="break-words">{task.cleanerName ?? t("none")}</dd>
                 <dt className="text-muted-foreground">{t("fields.startedBy")}</dt><dd>{task.startedByName ?? t("none")}</dd>
                 <dt className="text-muted-foreground">{t("fields.startedAt")}</dt><dd>{task.startedAt ? dateTime.format(new Date(task.startedAt)) : t("none")}</dd>
                 <dt className="text-muted-foreground">{t("fields.completedBy")}</dt><dd>{task.completedBy?.name ?? t("none")}</dd>

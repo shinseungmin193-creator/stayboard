@@ -5,6 +5,7 @@ import { reservationDateHref, reservationDateRangeLabel, shiftReservationDateInp
 import { getReservationFilterCount } from "../reservation-filter-count";
 import { EMPTY_RESERVATION_FILTERS, parseReservationFilters, serializeReservationFilters } from "../reservation-filter-query";
 import { getReservationDatePresetRange } from "../reservation-date-presets";
+import { buildReservationListDateWhere } from "../reservation-list-date-where";
 import { applyQuickReservationFilter } from "../reservation-quick-filters";
 import {
   applyReservationDateNavigationToFilters,
@@ -17,6 +18,30 @@ import {
 } from "../reservation-date-navigation";
 
 const TOKYO_NOW = new Date("2026-08-14T12:00:00+09:00");
+
+type DateRangeFilter = { gte?: Date; gt?: Date; lt?: Date; lte?: Date };
+
+function matchesDateFilter(value: Date, filter: DateRangeFilter | undefined): boolean {
+  if (!filter) return true;
+  return (filter.gte === undefined || value >= filter.gte)
+    && (filter.gt === undefined || value > filter.gt)
+    && (filter.lt === undefined || value < filter.lt)
+    && (filter.lte === undefined || value <= filter.lte);
+}
+
+function matchesReservationListDateWhere(
+  where: ReturnType<typeof buildReservationListDateWhere>,
+  reservation: { startDate: Date; endDate: Date },
+): boolean {
+  return matchesDateFilter(reservation.startDate, where.startDate as DateRangeFilter | undefined)
+    && matchesDateFilter(reservation.endDate, where.endDate as DateRangeFilter | undefined);
+}
+
+const utcDate = (value: string) => new Date(`${value}T00:00:00.000Z`);
+const HISTORICAL_RANGE = {
+  from: utcDate("2026-08-01"),
+  toExclusive: utcDate("2026-08-25"),
+};
 
 test("체크아웃 날짜 탐색은 Asia/Tokyo의 오늘을 기준으로 URL 상태를 만든다", () => {
   const navigation = parseReservationDateNavigation(
@@ -102,13 +127,94 @@ test("선택 날짜 표시는 한국어와 일본어 요일을 안정적으로 �
   assert.equal(formatReservationNavigationDate("2026-08-14", "ja"), "2026.08.14 (金)");
 });
 
-test("체크아웃 전용 Prisma 조회는 일반 목록의 과거 제외 정책과 분리된다", () => {
-  const activeWhere = readFileSync("src/features/reservations/active-reservation-where.ts", "utf8");
+test("체크아웃 전용 날짜 탐색도 예약 목록의 공통 날짜 정책을 사용한다", () => {
+  const listWhere = readFileSync("src/features/reservations/reservation-list-where.ts", "utf8");
   const dashboard = readFileSync("src/app/page.tsx", "utf8");
-  assert.match(activeWhere, /filters\.dateMode === "checkout"/);
-  assert.match(activeWhere, /\{ gt: filters\.from, lte: filters\.toExclusive \}/);
-  assert.match(activeWhere, /const endDateStart = laterDate\(businessDateStart, requestedEndDateStart\)/);
+  assert.match(listWhere, /buildReservationListDateWhere\(filters\)/);
   assert.match(dashboard, /\/reservations\?mode=checkout&date=\$\{today\}/);
+});
+
+test("숙박 기간 조회는 오늘이 2026-08-28이어도 선택 기간과 겹치는 과거·경계 예약을 모두 포함한다", () => {
+  const where = buildReservationListDateWhere({
+    dateField: "stay",
+    ...HISTORICAL_RANGE,
+  });
+  assert.deepEqual(where, {
+    startDate: { lt: HISTORICAL_RANGE.toExclusive },
+    endDate: { gt: HISTORICAL_RANGE.from },
+  });
+  for (const reservation of [
+    { startDate: utcDate("2026-08-01"), endDate: utcDate("2026-08-05") },
+    { startDate: utcDate("2026-07-30"), endDate: utcDate("2026-08-03") },
+    { startDate: utcDate("2026-08-20"), endDate: utcDate("2026-08-30") },
+  ]) {
+    assert.equal(matchesReservationListDateWhere(where, reservation), true);
+  }
+  assert.equal(matchesReservationListDateWhere(where, {
+    startDate: utcDate("2026-07-30"),
+    endDate: HISTORICAL_RANGE.from,
+  }), false);
+  assert.equal(matchesReservationListDateWhere(where, {
+    startDate: HISTORICAL_RANGE.toExclusive,
+    endDate: utcDate("2026-08-30"),
+  }), false);
+});
+
+test("체크인 기준은 startDate가 선택 범위 안에 있을 때만 포함한다", () => {
+  const where = buildReservationListDateWhere({
+    dateField: "checkIn",
+    ...HISTORICAL_RANGE,
+  });
+  assert.deepEqual(where, {
+    startDate: { gte: HISTORICAL_RANGE.from, lt: HISTORICAL_RANGE.toExclusive },
+  });
+  assert.equal(matchesReservationListDateWhere(where, {
+    startDate: utcDate("2026-07-30"),
+    endDate: utcDate("2026-08-03"),
+  }), false);
+  assert.equal(matchesReservationListDateWhere(where, {
+    startDate: HISTORICAL_RANGE.from,
+    endDate: utcDate("2026-08-03"),
+  }), true);
+});
+
+test("체크아웃 기준은 from 초과, toExclusive 이하 경계를 적용한다", () => {
+  const where = buildReservationListDateWhere({
+    dateField: "checkOut",
+    ...HISTORICAL_RANGE,
+  });
+  assert.deepEqual(where, {
+    endDate: { gt: HISTORICAL_RANGE.from, lte: HISTORICAL_RANGE.toExclusive },
+  });
+  assert.equal(matchesReservationListDateWhere(where, {
+    startDate: utcDate("2026-07-30"),
+    endDate: utcDate("2026-08-03"),
+  }), true);
+  assert.equal(matchesReservationListDateWhere(where, {
+    startDate: utcDate("2026-07-30"),
+    endDate: HISTORICAL_RANGE.from,
+  }), false);
+  assert.equal(matchesReservationListDateWhere(where, {
+    startDate: utcDate("2026-08-20"),
+    endDate: HISTORICAL_RANGE.toExclusive,
+  }), true);
+});
+
+test("날짜 탐색 mode는 남아 있는 일반 날짜 필드보다 우선한다", () => {
+  assert.deepEqual(buildReservationListDateWhere({
+    dateMode: "checkin",
+    dateField: "checkOut",
+    ...HISTORICAL_RANGE,
+  }), {
+    startDate: { gte: HISTORICAL_RANGE.from, lt: HISTORICAL_RANGE.toExclusive },
+  });
+  assert.deepEqual(buildReservationListDateWhere({
+    dateMode: "checkout",
+    dateField: "checkIn",
+    ...HISTORICAL_RANGE,
+  }), {
+    endDate: { gt: HISTORICAL_RANGE.from, lte: HISTORICAL_RANGE.toExclusive },
+  });
 });
 
 test("날짜 이동은 날짜와 URL을 갱신하고 다른 필터를 유지한다", () => {
@@ -211,19 +317,34 @@ test("예약 상태와 빠른 필터 UI에는 운영 중인 예약 조건만 노
 test("목록과 결과 개수는 동일한 활성 예약 서버 조건을 사용한다", () => {
   const repository = readFileSync("src/features/reservations/reservation.repository.ts", "utf8");
   const activeWhere = readFileSync("src/features/reservations/active-reservation-where.ts", "utf8");
+  const listWhere = readFileSync("src/features/reservations/reservation-list-where.ts", "utf8");
   const operationalWhere = readFileSync("src/features/reservations/operational-reservation-where.ts", "utf8");
-  assert.match(repository, /const where = buildActiveReservationWhere\(filters\)/);
+  assert.match(repository, /const where = buildReservationListWhere\(filters\)/);
   assert.match(repository, /prisma\.reservation\.count\(\{ where \}\)/);
-  assert.match(activeWhere, /buildOperationalReservationWhere/);
+  assert.match(listWhere, /buildOperationalReservationWhere/);
+  assert.match(listWhere, /buildScopedReservationHistoryWhere/);
   assert.match(operationalWhere, /status: \{ in: \[\.\.\.ACTIVE_OTA_RESERVATION_STATUSES\] \}/);
   assert.match(activeWhere, /endDate: \{ gt: start \}/);
   assert.match(operationalWhere, /calendarSource: \{ is: \{ isActive: true \} \}/);
   assert.match(operationalWhere, /provider: \{ in: \[\.\.\.CALENDAR_PROVIDER_TYPES\] \}/);
   assert.match(operationalWhere, /room:[\s\S]*isActive: true,[\s\S]*property: \{ isActive: true, company: \{ isActive: true \} \}/);
-  assert.match(activeWhere, /\.\.\.\(filters\.propertyId \? \{ propertyId: filters\.propertyId \} : \{\}\)/);
-  assert.match(activeWhere, /\.\.\.\(filters\.roomId \? \{ roomId: filters\.roomId \} : \{\}\)/);
-  assert.match(activeWhere, /const endDateStart = laterDate\(businessDateStart, requestedEndDateStart\)/);
-  assert.doesNotMatch(activeWhere, /property: filters\.companyIds/);
+  assert.match(listWhere, /\.\.\.\(filters\.propertyId \? \{ propertyId: filters\.propertyId \} : \{\}\)/);
+  assert.match(listWhere, /\.\.\.\(filters\.roomId \? \{ roomId: filters\.roomId \} : \{\}\)/);
+  assert.doesNotMatch(listWhere, /businessDateStart|endDateStart|laterDate/);
+  assert.doesNotMatch(listWhere, /endDate: \{ gt: start \}/);
+  assert.doesNotMatch(listWhere, /property: filters\.companyIds/);
+});
+
+test("예약 이력 목록 정책은 대시보드·객실 현황·청소 운영 쿼리로 유입되지 않는다", () => {
+  for (const path of [
+    "src/features/room-overview/infrastructure/room-overview.repository.ts",
+    "src/features/room-status/room-status.repository.ts",
+    "src/features/cleaning/server/cleaning-task-query.ts",
+  ]) {
+    const source = readFileSync(path, "utf8");
+    assert.match(source, /buildOperationalReservationWhere/);
+    assert.doesNotMatch(source, /buildReservationListWhere/);
+  }
 });
 
 test("존재하지 않는 현재성 필드 대신 완전 파싱·관찰 UID로 source 예약을 reconciliation 한다", () => {

@@ -1,6 +1,9 @@
 import { getTranslations } from "next-intl/server";
+import Link from "next/link";
+import { BarChart3 } from "lucide-react";
 
 import { PageHeader } from "@/components/shared/page-header";
+import { buttonVariants } from "@/components/ui/button";
 import { AccessDenied, authorizeAccess, getCurrentAccessContext, hasPermission, PERMISSIONS } from "@/features/access-control";
 import { CleaningWorkspace } from "@/features/cleaning/components/cleaning-workspace";
 import type { CleaningFilters } from "@/features/cleaning/cleaning.types";
@@ -56,13 +59,16 @@ export default async function CleaningPage({ searchParams }: { searchParams: Pro
 
   return (
     <div className="space-y-5">
-      <PageHeader eyebrow={t("eyebrow")} title={t("title")} description={t("description")} />
+      <PageHeader eyebrow={t("eyebrow")} title={t("title")} description={t("description")} action={
+        <Link href="/cleaning/stats" className={buttonVariants({ variant: "outline" })}><BarChart3 />{t("stats.open")}</Link>
+      } />
       <CleaningWorkspace
         filters={{ ...filters, date: data.date }}
         data={data}
         currentUserId={context.userId}
         currentUserName={context.name ?? ""}
         role={context.role}
+        canManageWorkers={hasPermission(context.role, PERMISSIONS.CLEANING_WORKER_MANAGE)}
         canCompleteRoomNotes={hasPermission(context.role, PERMISSIONS.ROOM_NOTE_COMPLETE)}
       />
     </div>

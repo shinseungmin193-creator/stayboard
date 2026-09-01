@@ -9,6 +9,14 @@ export interface CleaningAssigneeAccount {
   role: UserRole;
 }
 
+export interface CleaningWorkerViewModel {
+  id: string;
+  companyId: string;
+  companyName: string;
+  name: string;
+  isActive: boolean;
+}
+
 export type CleaningSectionFilter = "all" | CleaningSection;
 export type CleaningStatusFilter = "UNASSIGNED" | "WAITING" | "IN_PROGRESS" | "COMPLETED";
 
@@ -60,6 +68,7 @@ export interface CleaningTaskViewModel {
   assignee: { userId: string | null; name: string; assignedAt: string | null; assignedById: string | null } | null;
   startedByName: string | null;
   completedBy: { userId: string | null; name: string } | null;
+  cleanerName: string | null;
   startedAt: string | null;
   completedAt: string | null;
   note: string | null;
@@ -90,4 +99,5 @@ export interface CleaningPageData {
   properties: Array<{ id: string; name: string; companyId: string }>;
   rooms: Array<{ id: string; name: string; propertyId: string }>;
   assignees: CleaningAssigneeAccount[];
+  workers: CleaningWorkerViewModel[];
 }

@@ -13,6 +13,7 @@ const reservation = (overrides: Partial<RoomOverviewReservation> = {}): RoomOver
 const status = (reservations: RoomOverviewReservation[], activeConflictCount = 0) => calculateRoomOverviewStatus({ reservations, activeConflictCount, todayStart, todayEnd });
 
 test("예약이 없거나 미래 예약만 있으면 VACANT다", () => { assert.equal(status([]), "VACANT"); assert.equal(status([reservation()]), "VACANT"); });
+test("과거 예약만 있으면 객실 운영 상태는 VACANT를 유지한다", () => assert.equal(status([reservation({ startDate: new Date("2026-07-01T00:00:00+09:00"), endDate: new Date("2026-07-05T00:00:00+09:00") })]), "VACANT"));
 test("오늘 체크인 상태를 계산한다", () => assert.equal(status([reservation({ startDate: todayStart })]), "CHECK_IN_TODAY"));
 test("현재 투숙 상태를 계산한다", () => assert.equal(status([reservation({ startDate: new Date("2026-07-23T00:00:00+09:00"), endDate: new Date("2026-07-26T00:00:00+09:00") })]), "OCCUPIED"));
 test("오늘 체크아웃 상태를 계산한다", () => assert.equal(status([reservation({ startDate: new Date("2026-07-22T00:00:00+09:00"), endDate: todayEnd })]), "CHECK_OUT_TODAY"));

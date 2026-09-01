@@ -126,6 +126,7 @@ model Company {
   memberships                 CompanyMembership[]
   invitationCodes             InvitationCode[]
   cleaningTasks               CleaningTask[]
+  cleaningWorkers             CleaningWorker[]
   roomNotes                   RoomNote[]
   developerRoleSessions       DeveloperRoleSession[]
   mobileNavigationPreferences MobileNavigationPreference[]
@@ -513,6 +514,7 @@ model CleaningTask {
   completedAt     DateTime?
   completedById   String?
   completedByName String?
+  cleanerName     String?
   note            String?
   createdAt       DateTime           @default(now())
   updatedAt       DateTime           @updatedAt
@@ -538,6 +540,21 @@ model CleaningTask {
   @@index([assignedById, assignedAt])
   @@index([startedById, startedAt])
   @@index([status, scheduledDate])
+  @@index([companyId, status, cleanerName, completedAt])
+}
+
+model CleaningWorker {
+  id             String   @id @default(cuid())
+  companyId      String
+  name           String
+  normalizedName String
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  company        Company  @relation(fields: [companyId], references: [id], onDelete: Restrict)
+
+  @@unique([companyId, normalizedName])
+  @@index([companyId, isActive, name])
 }
 
 model CleaningTaskLog {

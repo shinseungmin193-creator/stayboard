@@ -113,7 +113,7 @@ export async function assignCleaningTask(taskId: string, input: CleaningActor & 
 }
 
 export async function startCleaningTask(taskId: string, input: CleaningActor & {
-  workerName?: string | null;
+  workerName: string;
   claimAssigneeUserId?: string | null;
 }) {
   try {
@@ -125,7 +125,7 @@ export async function startCleaningTask(taskId: string, input: CleaningActor & {
       if (!task) throw new CleaningTaskStateError("NOT_ACTIONABLE");
       const snapshot = workflowSnapshot(task);
       const plan = planCleaningStart(snapshot, input.workerName);
-      const workerName = plan.workerName ?? snapshot.assigneeName ?? input.name;
+      const workerName = plan.workerName;
       const startedAt = new Date();
       const updated = await tx.cleaningTask.updateMany({
         where: { id: taskId, status: "PENDING", updatedAt: task.updatedAt },
@@ -133,7 +133,8 @@ export async function startCleaningTask(taskId: string, input: CleaningActor & {
           status: "IN_PROGRESS",
           startedAt,
           startedById: input.userId,
-          startedByName: workerName,
+          startedByName: input.name,
+          cleanerName: workerName,
           ...(plan.shouldAssign ? {
             assignedToId: input.claimAssigneeUserId ?? input.userId,
             assigneeName: workerName,
@@ -153,7 +154,7 @@ export async function startCleaningTask(taskId: string, input: CleaningActor & {
   }
 }
 
-export async function completeCleaningTask(taskId: string, input: CleaningActor & { workerName?: string | null }, completedAt = new Date()) {
+export async function completeCleaningTask(taskId: string, input: CleaningActor & { workerName: string }, completedAt = new Date()) {
   try {
     await prisma.$transaction(async (tx) => {
       const task = await tx.cleaningTask.findUnique({
@@ -190,7 +191,8 @@ export async function completeCleaningTask(taskId: string, input: CleaningActor 
           status: "COMPLETED",
           completedAt,
           completedById: input.userId,
-          completedByName: workerName,
+          completedByName: input.name,
+          cleanerName: workerName,
           ...(plan.shouldAssign ? {
             assignedToId: input.userId,
             assigneeName: workerName,

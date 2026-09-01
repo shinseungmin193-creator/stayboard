@@ -22,6 +22,7 @@ import { CleaningSummaryGrid } from "./cleaning-summary-grid";
 import { CleaningTaskDetailDialog } from "./cleaning-task-detail-dialog";
 import { CleaningRoomNotesDialog } from "./cleaning-room-notes-dialog";
 import { CleaningWorkflowDialog, type CleaningWorkflowMode } from "./cleaning-workflow-dialog";
+import { CleaningWorkerManager } from "./cleaning-worker-manager";
 
 export function CleaningWorkspace({
   filters,
@@ -29,6 +30,7 @@ export function CleaningWorkspace({
   currentUserId,
   currentUserName,
   role,
+  canManageWorkers,
   canCompleteRoomNotes,
 }: {
   filters: CleaningFilters;
@@ -36,6 +38,7 @@ export function CleaningWorkspace({
   currentUserId: string;
   currentUserName: string;
   role: UserRole;
+  canManageWorkers: boolean;
   canCompleteRoomNotes: boolean;
 }) {
   const t = useTranslations("cleaning");
@@ -119,7 +122,10 @@ export function CleaningWorkspace({
           </label>
           <Button type="button" variant="ghost" size="icon-sm" aria-label={t("date.next")} disabled={isNavigating} onClick={() => navigate({ date: shiftCleaningDate(filters.date, 1), page: 1 })}><ChevronRight /></Button>
         </div>
-        <CleaningFilterSheet filters={filters} data={data} onApply={(patch) => navigate(patch)} />
+        <div className="flex shrink-0 items-center gap-2">
+          {canManageWorkers && <CleaningWorkerManager companies={data.companies} initialWorkers={data.workers} onNotice={showNotice} />}
+          <CleaningFilterSheet filters={filters} data={data} onApply={(patch) => navigate(patch)} />
+        </div>
       </div>
       {filters.date !== today && <div className="-mt-2"><Button type="button" variant="link" size="xs" onClick={() => navigate({ date: today, page: 1 })}>{common("today")}</Button></div>}
 
@@ -137,7 +143,7 @@ export function CleaningWorkspace({
         <Button type="button" variant="outline" size="sm" disabled={selectedData.page >= selectedData.totalPages || isNavigating} onClick={() => navigate({ page: selectedData.page + 1 })}>{t("pagination.next")}</Button>
       </nav>}
 
-      {workflow && workflowTask && <CleaningWorkflowDialog key={`${workflow.taskId}-${workflow.mode}`} task={workflowTask} mode={workflow.mode} role={role} currentUserId={currentUserId} currentUserName={currentUserName} pending={pendingTaskId === workflow.taskId || isActionPending} onClose={() => setWorkflow(null)} onSubmit={runWorkflow} onUploadResult={handleResult} onPhotoUploaded={() => router.refresh()} onReviewRoomNotes={() => { setWorkflow(null); setRoomNotesTaskId(workflowTask.id); }} />}
+      {workflow && workflowTask && <CleaningWorkflowDialog key={`${workflow.taskId}-${workflow.mode}`} task={workflowTask} mode={workflow.mode} role={role} currentUserId={currentUserId} currentUserName={currentUserName} registeredWorkers={data.workers} canManageWorkers={canManageWorkers} pending={pendingTaskId === workflow.taskId || isActionPending} onClose={() => setWorkflow(null)} onSubmit={runWorkflow} onUploadResult={handleResult} onPhotoUploaded={() => router.refresh()} onReviewRoomNotes={() => { setWorkflow(null); setRoomNotesTaskId(workflowTask.id); }} />}
       {detail && detailTask && <CleaningTaskDetailDialog key={`${detail.taskId}-${detail.focus ?? "details"}`} task={detailTask} focus={detail.focus} role={role} currentUserId={currentUserId} locale={localeTag} timeZone={data.timeZone} pending={pendingTaskId === detail.taskId} onClose={() => setDetail(null)} onResult={handleResult} onRefresh={() => router.refresh()} />}
       {roomNotesTask && <CleaningRoomNotesDialog key={roomNotesTask.id} task={roomNotesTask} canComplete={canCompleteRoomNotes} onClose={() => setRoomNotesTaskId(null)} onCompleted={(message) => { showNotice(message); router.refresh(); }} />}
       {notice && <div className="fixed inset-x-4 bottom-[calc(5.25rem+env(safe-area-inset-bottom))] z-[70] mx-auto max-w-sm rounded-xl bg-foreground px-4 py-3 text-center text-sm font-medium text-background shadow-lg lg:bottom-6" role="status" aria-live="polite">{notice}</div>}

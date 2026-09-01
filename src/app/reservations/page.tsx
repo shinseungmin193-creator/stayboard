@@ -2,7 +2,7 @@
 import { listCalendarRoomOptions } from "@/features/calendar-sources";
 import { DEMO_PROPERTY_OPTIONS, DEMO_ROOM_OPTIONS, getDemoReservations } from "@/features/demo";
 import { listPropertyOptions } from "@/features/properties";
-import { hasScopedReservations, listReservations, toReservationViewModel } from "@/features/reservations";
+import { hasScopedReservationHistory, listReservations, toReservationViewModel } from "@/features/reservations";
 import { ReservationWorkspace } from "@/features/reservations/components/reservation-workspace";
 import { parseReservationFilters, serializeReservationFilters } from "@/features/reservations/reservation-filter-query";
 import { buildReservationRepositoryFilters, getReservationPage } from "@/features/reservations/reservation-filter-server";
@@ -49,7 +49,7 @@ export default async function ReservationsPage({ searchParams }: {searchParams: 
     accessScope: context?.scope
   });
   const result = context ? await listReservations(repositoryFilters) : getDemoReservations(repositoryFilters);
-  const hasAny = result.totalCount > 0 || (context ? await hasScopedReservations({ businessDate: repositoryFilters.businessDate, companyIds, accessScope: context.scope }) : true);
+  const hasAny = result.totalCount > 0 || (context ? await hasScopedReservationHistory({ companyIds, accessScope: context.scope }) : true);
 
   return (
     <div className="space-y-2 sm:space-y-4">

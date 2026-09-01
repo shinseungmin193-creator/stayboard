@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { useTranslations } from "next-intl";
 import { Camera, MessageSquareText, UserRound } from "lucide-react";
 
@@ -10,7 +10,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { UserRole } from "@/features/access-control";
 import type { CleaningActionResult } from "../cleaning.actions";
-import type { CleaningTaskViewModel } from "../cleaning.types";
+import { createCleaningWorkerAction } from "../cleaning-worker.actions";
+import type { CleaningTaskViewModel, CleaningWorkerViewModel } from "../cleaning.types";
+import { getInitialCleaningWorkflowWorkerName } from "../domain/cleaning-workflow";
 import { CleaningPhotoUploader, type CleaningPhotoUploadState } from "./cleaning-photo-uploader";
 
 export type CleaningWorkflowMode = "assign" | "reassign" | "start" | "complete";
@@ -21,6 +23,8 @@ export function CleaningWorkflowDialog({
   role,
   currentUserId,
   currentUserName,
+  registeredWorkers,
+  canManageWorkers,
   pending,
   onClose,
   onSubmit,
@@ -33,6 +37,8 @@ export function CleaningWorkflowDialog({
   role: UserRole;
   currentUserId: string;
   currentUserName: string;
+  registeredWorkers: CleaningWorkerViewModel[];
+  canManageWorkers: boolean;
   pending: boolean;
   onClose: () => void;
   onSubmit: (input: { task: CleaningTaskViewModel; mode: CleaningWorkflowMode; workerName: string; assigneeUserId?: string }) => void;
@@ -57,8 +63,14 @@ export function CleaningWorkflowDialog({
     ? defaultAssignee?.role === "STAFF"
       ? task?.assignee?.userId === defaultAssignee.id ? task.assignee.name : ""
       : defaultAssignee?.name ?? ""
-    : task?.assignee?.name || currentUserName;
+    : getInitialCleaningWorkflowWorkerName({
+        mode: mode === "complete" ? "complete" : "start",
+        cleanerName: task?.cleanerName,
+        assigneeName: task?.assignee?.name,
+      });
   const [workerName, setWorkerName] = useState(defaultName);
+  const [workers, setWorkers] = useState(registeredWorkers.filter((worker) => worker.companyId === task?.companyId && worker.isActive));
+  const [isRegistering, startRegisterTransition] = useTransition();
   const [selectedUserId, setSelectedUserId] = useState(defaultSelectedUserId);
   const initialPhotoCount = task?.photos.filter((photo) => photo.url && !photo.deletedAt).length ?? 0;
   const [photoState, setPhotoState] = useState<CleaningPhotoUploadState>({
@@ -103,6 +115,21 @@ export function CleaningWorkflowDialog({
               </select>
             </label>}
             {showWorkerNameInput && <div className="space-y-1.5">
+              <label className="block space-y-1.5 text-sm font-medium">
+                <span>{t("registeredWorker")}</span>
+                <select
+                  defaultValue=""
+                  onChange={(event) => {
+                    const selected = workers.find((worker) => worker.id === event.target.value);
+                    if (selected) setWorkerName(selected.name);
+                  }}
+                  className="h-11 w-full rounded-lg border border-input bg-background px-3 text-sm text-foreground"
+                >
+                  <option value="">{t("registeredWorkerPlaceholder")}</option>
+                  {workers.map((worker) => <option key={worker.id} value={worker.id}>{worker.name}</option>)}
+                </select>
+              </label>
+              <div className="relative py-1 text-center text-xs text-muted-foreground before:absolute before:inset-x-0 before:top-1/2 before:border-t"><span className="relative bg-popover px-2">{t("orDirect")}</span></div>
               <div className="flex items-center justify-between gap-3">
                 <Label htmlFor="cleaning-worker-name">{t("workerName")}</Label>
                 {!assignmentMode && <Button type="button" variant="ghost" size="xs" onClick={() => setWorkerName(currentUserName)} disabled={!currentUserName}>
@@ -111,7 +138,14 @@ export function CleaningWorkflowDialog({
               </div>
               {assignmentMode && <p className="text-xs text-muted-foreground">{t("workerNameDescription")}</p>}
               <Input id="cleaning-worker-name" value={workerName} onChange={(event) => setWorkerName(event.target.value)} maxLength={30} autoComplete="name" placeholder={t("namePlaceholder")} />
-              <div className="flex justify-end text-xs text-muted-foreground"><span>{normalizedName.length}/30</span></div>
+              <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+                {canManageWorkers && <Button type="button" variant="ghost" size="xs" disabled={pending || isRegistering || !validName} onClick={() => startRegisterTransition(async () => {
+                  const result = await createCleaningWorkerAction({ companyId: task.companyId, name: normalizedName });
+                  onUploadResult({ success: result.success, message: result.message ?? "", code: result.success ? undefined : result.errorCode });
+                  if (result.success && result.data) setWorkers((current) => [...current, result.data!].sort((left, right) => left.name.localeCompare(right.name, "ko")));
+                })}>{isRegistering ? t("registering") : t("registerName")}</Button>}
+                <span className="ml-auto">{normalizedName.length}/30</span>
+              </div>
             </div>}
             {mode === "complete" && <section className="space-y-3 rounded-xl border p-3">
               <h3 className="flex items-center gap-2 text-sm font-semibold"><Camera className="size-4" />{t("completionPhotos")}</h3>

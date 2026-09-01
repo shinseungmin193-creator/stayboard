@@ -58,10 +58,10 @@ function revalidateCleaning() {
   revalidatePath("/");
 }
 
-function actor(context: AccessContext, workerName?: string) {
+function actor(context: AccessContext) {
   return {
     userId: context.userId,
-    name: context.name?.trim() || workerName?.trim() || "",
+    name: context.name?.trim() || "",
     auditMetadata: context.isRoleSwitchActive && context.developerRoleSessionId
       ? { actualRole: context.actualRole, effectiveRole: context.effectiveRole, developerRoleSessionId: context.developerRoleSessionId }
       : undefined,
@@ -109,7 +109,7 @@ export async function assignCleaningTaskAction(input: {
     });
 
     await assignCleaningTask(parsed.data.taskId, {
-      ...actor(context, workerName),
+      ...actor(context),
       workerName,
       assigneeUserId: assignee.id,
       replaceExisting,
@@ -121,14 +121,14 @@ export async function assignCleaningTaskAction(input: {
   }
 }
 
-export async function startCleaningTaskAction(input: { taskId: string; workerName?: string }): Promise<CleaningActionResult> {
+export async function startCleaningTaskAction(input: { taskId: string; workerName: string }): Promise<CleaningActionResult> {
   const parsed = cleaningTaskStartSchema.safeParse(input);
   const t = await getTranslations("cleaning.messages");
   if (!parsed.success) return { success: false, message: t("invalidName"), code: "INVALID_NAME" };
   try {
     const { context } = await requireCleaningTaskAccess(parsed.data.taskId, PERMISSIONS.CLEANING_MANAGE);
     await startCleaningTask(parsed.data.taskId, {
-      ...actor(context, parsed.data.workerName),
+      ...actor(context),
       workerName: parsed.data.workerName,
       claimAssigneeUserId: context.userId,
     });
@@ -139,7 +139,7 @@ export async function startCleaningTaskAction(input: { taskId: string; workerNam
   }
 }
 
-export async function completeCleaningTaskAction(input: { taskId: string; workerName?: string }): Promise<CleaningActionResult> {
+export async function completeCleaningTaskAction(input: { taskId: string; workerName: string }): Promise<CleaningActionResult> {
   const parsed = cleaningTaskCompletionSchema.safeParse(input);
   const t = await getTranslations("cleaning.messages");
   if (!parsed.success) return { success: false, message: t("invalidName"), code: "INVALID_NAME" };
@@ -152,7 +152,7 @@ export async function completeCleaningTaskAction(input: { taskId: string; worker
       assigneeName: task.assigneeName,
       assignedById: task.assignedById,
     })) throw new CleaningTaskStateError("ASSIGNEE_REQUIRED");
-    await completeCleaningTask(parsed.data.taskId, { ...actor(context, parsed.data.workerName), workerName: parsed.data.workerName });
+    await completeCleaningTask(parsed.data.taskId, { ...actor(context), workerName: parsed.data.workerName });
     revalidateCleaning();
     return { success: true, message: t("completed") };
   } catch (error) {

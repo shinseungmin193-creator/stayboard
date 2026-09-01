@@ -7,6 +7,15 @@ export interface CleaningWorkflowSnapshot {
   assignedByUserId: string | null;
 }
 
+export function getInitialCleaningWorkflowWorkerName(input: {
+  mode: "start" | "complete";
+  cleanerName?: string | null;
+  assigneeName?: string | null;
+}) {
+  if (input.mode === "start") return "";
+  return input.cleanerName?.trim() || input.assigneeName?.trim() || "";
+}
+
 export type CleaningWorkflowErrorCode =
   | "NOT_ACTIONABLE"
   | "NAME_REQUIRED"
@@ -50,12 +59,12 @@ export function planCleaningAssignment(task: CleaningWorkflowSnapshot, workerNam
 
 export function planCleaningStart(task: CleaningWorkflowSnapshot, workerName?: string | null) {
   if (task.status !== "PENDING") throw new CleaningWorkflowError("NOT_ACTIONABLE");
-  if (!hasCleaningAssignee(task)) return { shouldAssign: true, workerName: normalizeCleaningWorkerName(workerName) };
-  return { shouldAssign: false, workerName: workerName?.trim() || task.assigneeName };
+  const normalizedWorkerName = normalizeCleaningWorkerName(workerName);
+  return { shouldAssign: !hasCleaningAssignee(task), workerName: normalizedWorkerName };
 }
 
 export function planCleaningCompletion(task: CleaningWorkflowSnapshot, workerName?: string | null) {
   assertCleaningTaskActionable(task.status);
-  if (!hasCleaningAssignee(task)) return { shouldAssign: true, workerName: normalizeCleaningWorkerName(workerName) };
-  return { shouldAssign: false, workerName: normalizeCleaningWorkerName(workerName || task.assigneeName) };
+  const normalizedWorkerName = normalizeCleaningWorkerName(workerName);
+  return { shouldAssign: !hasCleaningAssignee(task), workerName: normalizedWorkerName };
 }

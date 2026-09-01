@@ -4,12 +4,12 @@ import { RESERVATION_CONFLICT_DETAILS_PAGE_LIMIT, RESERVATION_PAGE_SIZE } from "
 import type { ReservationFilters, ReservationListItem } from "./reservation.types";
 import { formatRoomDisplayName } from "@/features/rooms/room-display";
 import type { Prisma } from "@/lib/generated/prisma/client";
-import { buildActiveReservationWhere, buildScopedActiveReservationWhere } from "./active-reservation-where";
 import { buildOperationalReservationWhere } from "./operational-reservation-where";
+import { buildReservationListWhere, buildScopedReservationHistoryWhere } from "./reservation-list-where";
 import { RESERVATION_DEFAULT_ORDER_BY } from "./reservation-order";
 
 export async function listReservations(filters: ReservationFilters): Promise<{ items: ReservationListItem[]; totalCount: number; totalPages: number; page: number }> {
-  const where = buildActiveReservationWhere(filters);
+  const where = buildReservationListWhere(filters);
   const [rows, totalCount] = await Promise.all([
     prisma.reservation.findMany({
       where,
@@ -74,9 +74,9 @@ export async function listReservations(filters: ReservationFilters): Promise<{ i
   };
 }
 
-export async function hasScopedReservations(input: { businessDate: Date; companyIds?: readonly string[]; accessScope?: ReservationFilters["accessScope"] }): Promise<boolean> {
+export async function hasScopedReservationHistory(input: { companyIds?: readonly string[]; accessScope?: ReservationFilters["accessScope"] }): Promise<boolean> {
   const reservation = await prisma.reservation.findFirst({
-    where: buildScopedActiveReservationWhere(input),
+    where: buildScopedReservationHistoryWhere(input),
     select: { id: true },
   });
   return Boolean(reservation);

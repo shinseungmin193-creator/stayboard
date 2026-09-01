@@ -17,6 +17,7 @@ import { classifyCleaningPriority } from "../domain/cleaning-priority";
 import { getCleaningPhotoStorage } from "../storage/local-file-storage-provider";
 import { buildOperationalReservationWhere } from "@/features/reservations/operational-reservation-where";
 import { listOpenRoomNotesForRooms } from "@/features/room-notes";
+import { listCleaningWorkers } from "./cleaning-worker.repository";
 import {
   buildCheckoutCleaningTaskWhere,
   DASHBOARD_CLEANING_TASK_STATUSES,
@@ -111,7 +112,7 @@ export async function listCleaningPage(context: AccessContext, filters: Cleaning
   });
   const summaryBase = { AND: sharedAnd } satisfies Prisma.CleaningTaskWhereInput;
 
-  const [companies, rooms, memberships, summaryTasks] = await Promise.all([
+  const [companies, rooms, memberships, summaryTasks, workers] = await Promise.all([
     prisma.company.findMany({
       where: { isActive: true, ...(companyIds ? { id: { in: [...companyIds] } } : {}) },
       select: { id: true, name: true },
@@ -147,6 +148,7 @@ export async function listCleaningPage(context: AccessContext, filters: Cleaning
         room: { select: { reservations: { where: sameDayCheckIn, select: { startDate: true } } } },
       },
     }),
+    listCleaningWorkers(context, { includeInactive: true }),
   ]);
 
   let urgentCount = 0;
@@ -181,9 +183,11 @@ export async function listCleaningPage(context: AccessContext, filters: Cleaning
     assignedById: true,
     assignedAt: true,
     startedByName: true,
+    startedBy: { select: { name: true } },
     startedAt: true,
     completedById: true,
     completedByName: true,
+    cleanerName: true,
     completedAt: true,
     note: true,
     company: { select: { name: true } },
@@ -251,7 +255,13 @@ export async function listCleaningPage(context: AccessContext, filters: Cleaning
         role: membership.role,
       } satisfies CleaningAssigneeAccount));
     const assigneeName = task.assigneeName ?? task.assignedTo?.name ?? null;
-    const completedByName = task.completedByName ?? task.completedBy?.name ?? null;
+    const legacyWithoutCleanerSnapshot = task.cleanerName === null;
+    const startedByName = (legacyWithoutCleanerSnapshot
+      ? task.startedBy?.name ?? task.startedByName
+      : task.startedByName ?? task.startedBy?.name) ?? null;
+    const completedByName = (legacyWithoutCleanerSnapshot
+      ? task.completedBy?.name ?? task.completedByName
+      : task.completedByName ?? task.completedBy?.name) ?? null;
     return {
       id: task.id,
       companyId: task.companyId,
@@ -264,8 +274,9 @@ export async function listCleaningPage(context: AccessContext, filters: Cleaning
       status: task.status,
       priority: classifyCleaningPriority(task.scheduledDate, checkInDates, start, end) ?? "flexible",
       assignee: assigneeName ? { userId: task.assignedToId, name: assigneeName, assignedAt: task.assignedAt?.toISOString() ?? null, assignedById: task.assignedById } : null,
-      startedByName: task.startedByName,
+      startedByName,
       completedBy: completedByName ? { userId: task.completedById, name: completedByName } : null,
+      cleanerName: task.cleanerName,
       startedAt: task.startedAt?.toISOString() ?? null,
       completedAt: task.completedAt?.toISOString() ?? null,
       note: task.note,
@@ -324,5 +335,6 @@ export async function listCleaningPage(context: AccessContext, filters: Cleaning
     properties: [...propertyMap.values()],
     rooms: rooms.map(({ id, name, propertyId }) => ({ id, name, propertyId })),
     assignees: [...assigneeMap.values()],
+    workers,
   };
 }

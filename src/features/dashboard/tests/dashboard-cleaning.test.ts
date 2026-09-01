@@ -43,6 +43,17 @@ test("정상 체크아웃 Reservation 13개를 roomId distinct 없이 13건으�
   assert.equal(buildRoomOperationalSchedule(checkouts, start, end, new Date("2026-08-01T15:00:00Z")).todayCheckOuts.length, 13);
 });
 
+test("과거 예약은 대시보드 오늘 체크아웃에 포함하지 않는다", () => {
+  const past = reservation("CONFIRMED", "2026-08-01T00:00:00Z", "2026-08-05T00:00:00Z");
+  const schedule = buildRoomOperationalSchedule(
+    [past],
+    new Date("2026-08-27T15:00:00Z"),
+    new Date("2026-08-28T15:00:00Z"),
+    new Date("2026-09-04T15:00:00Z"),
+  );
+  assert.deepEqual(schedule.todayCheckOuts, []);
+});
+
 test("오늘 체크아웃 후 당일 체크인이 있으면 객실을 우선 청소로 센다", () => {
   const result = summarizeDashboardCleaning([room(
     reservation("CONFIRMED", "2026-07-22T06:00:00Z", "2026-07-25T01:00:00Z"),

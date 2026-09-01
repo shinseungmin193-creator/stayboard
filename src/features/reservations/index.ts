@@ -1,4 +1,4 @@
-export { hasScopedReservations, listReservations } from "./reservation.repository";
+export { hasScopedReservationHistory, listReservations } from "./reservation.repository";
 export { getReservationDisplayLabel, getReservationDisplayName } from "./reservation-display";
 export type { ReservationDateField, ReservationFilters, ReservationListItem } from "./reservation.types";
 export type { ReservationViewModel } from "./reservation-view-model";
