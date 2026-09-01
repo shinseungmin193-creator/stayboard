@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import type { UserRole } from "@/features/access-control";
 import type { CleaningActionResult } from "../cleaning.actions";
 import type { CleaningTaskViewModel, CleaningWorkerViewModel } from "../cleaning.types";
-import { getCleaningWorkerSelection, getSelectableCleaningWorkers } from "../domain/cleaning-worker";
+import { findSelectedCleaningWorker, getCleaningWorkerSelection, getSelectableCleaningWorkers } from "../domain/cleaning-worker";
 import { getInitialCleaningWorkflowWorkerName } from "../domain/cleaning-workflow";
 import { CleaningPhotoUploader, type CleaningPhotoUploadState } from "./cleaning-photo-uploader";
 import { CleaningWorkerRegistrationDialog } from "./cleaning-worker-registration-dialog";
@@ -80,6 +80,10 @@ export function CleaningWorkflowDialog({
     [registeredWorkers, task?.companyId],
   );
   const [selectedWorkerId, setSelectedWorkerId] = useState<string | null>(null);
+  const selectedWorker = useMemo(
+    () => findSelectedCleaningWorker(workers, selectedWorkerId),
+    [selectedWorkerId, workers],
+  );
   const [registrationOpen, setRegistrationOpen] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState(defaultSelectedUserId);
   const initialPhotoCount = task?.photos.filter((photo) => photo.url && !photo.deletedAt).length ?? 0;
@@ -145,7 +149,7 @@ export function CleaningWorkflowDialog({
                   }}
                 >
                   <SelectTrigger id="cleaning-registered-worker" className="h-11 w-full min-w-0 bg-background">
-                    <SelectValue placeholder={t("registeredWorkerPlaceholder")} />
+                    <SelectValue>{selectedWorker?.name ?? t("registeredWorkerPlaceholder")}</SelectValue>
                   </SelectTrigger>
                   <SelectContent align="start" alignItemWithTrigger={false} className="max-w-[calc(100vw-2rem)]">
                     {workers.map((worker) => <SelectItem key={worker.id} value={worker.id} className="min-w-0">{worker.name}</SelectItem>)}

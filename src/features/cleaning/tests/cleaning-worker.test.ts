@@ -4,6 +4,7 @@ import test from "node:test";
 
 import { hasPermission, PERMISSIONS } from "../../access-control/domain/access-control";
 import {
+  findSelectedCleaningWorker,
   getCleaningWorkerSelection,
   getCleaningWorkerNormalizedName,
   getSelectableCleaningWorkers,
@@ -72,6 +73,28 @@ test("등록 성공 직후 공유 목록에 추가되고 방금 등록한 직원
   assert.match(registrationDialog, /onCreated\(result\.data\);[\s\S]*onOpenChange\(false\)/);
   assert.match(dialog, /onWorkerCreated\(worker\);[\s\S]*selectWorker\(worker\)/);
   assert.match(workspace, /registeredWorkers=\{workers\}/);
+});
+
+test("dropdown은 내부 worker id를 value로 유지하면서 worker name만 표시한다", () => {
+  const workers = [
+    { id: "cmtj1cjxx0000bgzfd13dii5a", companyId: "company-a", companyName: "A", name: "병진", isActive: true },
+    { id: "worker-b", companyId: "company-a", companyName: "A", name: "민수", isActive: true },
+  ];
+  const selection = getCleaningWorkerSelection(workers[0]);
+
+  assert.deepEqual(selection, {
+    selectedWorkerId: "cmtj1cjxx0000bgzfd13dii5a",
+    cleanerName: "병진",
+  });
+  assert.equal(findSelectedCleaningWorker(workers, selection.selectedWorkerId)?.name, "병진");
+  assert.equal(findSelectedCleaningWorker(workers, "worker-b")?.name, "민수");
+  assert.equal(findSelectedCleaningWorker(workers, null), null);
+
+  const dialog = read("src/features/cleaning/components/cleaning-workflow-dialog.tsx");
+  assert.match(dialog, /const selectedWorker = useMemo\([\s\S]*findSelectedCleaningWorker\(workers, selectedWorkerId\)/);
+  assert.match(dialog, /<SelectValue>\{selectedWorker\?\.name \?\? t\("registeredWorkerPlaceholder"\)\}<\/SelectValue>/);
+  assert.match(dialog, /<SelectItem key=\{worker\.id\} value=\{worker\.id\}[^>]*>\{worker\.name\}<\/SelectItem>/);
+  assert.doesNotMatch(dialog, /<SelectValue[^>]*>\{selectedWorkerId\}<\/SelectValue>/);
 });
 
 test("활성 직원만 같은 회사 dropdown에 노출되고 비활성 직원은 제외된다", () => {

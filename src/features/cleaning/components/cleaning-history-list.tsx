@@ -6,18 +6,23 @@ import { useTranslations } from "next-intl";
 import { Camera, Clock3, FileClock, UserRound } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { DEFAULT_TIMEZONE } from "@/lib/constants";
+import { getZonedMidnight } from "@/lib/zoned-date";
 import type { CleaningSectionData, CleaningTaskViewModel } from "../cleaning.types";
+import { groupCompletedCleaningHistory } from "../domain/cleaning-history";
 import { CleaningTaskStatusBadge } from "./cleaning-task-status-badge";
 
 export function CleaningHistoryList({
   data,
   locale,
   timeZone,
+  referenceAt,
   onOpenDetails,
 }: {
   data: CleaningSectionData;
   locale: string;
   timeZone: string;
+  referenceAt: string;
   onOpenDetails: (task: CleaningTaskViewModel, focus?: "photos" | "note" | "logs") => void;
 }) {
   const t = useTranslations("cleaning");
@@ -28,6 +33,14 @@ export function CleaningHistoryList({
   const dateTime = useMemo(
     () => new Intl.DateTimeFormat(locale, { timeZone, year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }),
     [locale, timeZone],
+  );
+  const completionDay = useMemo(
+    () => new Intl.DateTimeFormat(locale, { timeZone: DEFAULT_TIMEZONE, year: "numeric", month: "long", day: "numeric" }),
+    [locale],
+  );
+  const groups = useMemo(
+    () => groupCompletedCleaningHistory(data.items, new Date(referenceAt)),
+    [data.items, referenceAt],
   );
 
   if (!data.items.length) {
@@ -42,8 +55,19 @@ export function CleaningHistoryList({
       </div>
       <span className="shrink-0 text-sm font-medium text-muted-foreground">{t("resultCount", { count: data.totalCount })}</span>
     </div>
-    <div className="space-y-3">
-      {data.items.map((task) => {
+    {data.totalPages > 1 && <p className="rounded-xl bg-muted/40 px-3 py-2 text-xs text-muted-foreground">{t("history.paginationHint", { page: data.page, total: data.totalPages })}</p>}
+    <div className="space-y-6">
+      {groups.map((group) => <section key={group.dateKey ?? "unknown"} data-cleaning-history-date={group.dateKey ?? "unknown"} className="space-y-3" aria-labelledby={`cleaning-history-date-${group.dateKey ?? "unknown"}`}>
+        <div className="flex items-baseline gap-1.5 border-b pb-2">
+          <h3 id={`cleaning-history-date-${group.dateKey ?? "unknown"}`} className="text-base font-bold">
+            {group.kind === "date" && group.dateKey
+              ? completionDay.format(getZonedMidnight(group.dateKey, DEFAULT_TIMEZONE))
+              : t(`history.groups.${group.kind}`)}
+          </h3>
+          <span className="text-sm font-semibold text-muted-foreground">· {t("history.groups.count", { count: group.items.length })}</span>
+        </div>
+        <div className="space-y-3">
+      {group.items.map((task) => {
         const activePhotos = task.photos.filter((photo) => photo.url && !photo.deletedAt);
         const workerName = task.cleanerName ?? task.assignee?.name ?? task.completedBy?.name ?? t("none");
         return <article key={task.id} data-cleaning-history-task-id={task.id} className="rounded-2xl border bg-card p-4 shadow-sm">
@@ -76,6 +100,8 @@ export function CleaningHistoryList({
           </div>
         </article>;
       })}
+        </div>
+      </section>)}
     </div>
   </section>;
 }

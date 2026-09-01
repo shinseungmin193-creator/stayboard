@@ -597,7 +597,15 @@
     "history": {
       "title": "完了した清掃履歴",
       "description": "完了済みの作業は、予約状態や写真の保管期間に関係なく引き続き確認できます。",
-      "emptyDescription": "宿泊施設、客室、または担当者のフィルターを変更してください。"
+      "emptyDescription": "宿泊施設、客室、または担当者のフィルターを変更してください。",
+      "paginationHint": "現在{page}/{total}ページです。さらに前の完了履歴は下のページ移動から確認できます。",
+      "groups": {
+        "today": "今日",
+        "yesterday": "昨日",
+        "date": "完了日",
+        "unknown": "完了時刻未入力",
+        "count": "{count}件"
+      }
     },
     "pagination": { "label": "清掃一覧ページ", "previous": "前へ", "next": "次へ", "current": "{page} / {total}" },
     "details": {

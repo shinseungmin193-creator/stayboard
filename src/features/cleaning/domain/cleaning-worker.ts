@@ -58,3 +58,11 @@ export function getCleaningWorkerSelection(worker: Pick<CleaningWorkerListItem, 
     cleanerName: worker.name,
   };
 }
+
+export function findSelectedCleaningWorker<T extends Pick<CleaningWorkerListItem, "id">>(
+  workers: readonly T[],
+  selectedWorkerId: string | null,
+): T | null {
+  if (!selectedWorkerId) return null;
+  return workers.find((worker) => worker.id === selectedWorkerId) ?? null;
+}

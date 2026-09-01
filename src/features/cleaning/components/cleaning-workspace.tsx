@@ -178,7 +178,7 @@ export function CleaningWorkspace({
 
       {filters.tab === "ongoing" ? <div className="space-y-5">
         {sections.map((section) => <CleaningSection key={section} section={section} data={data.sections[section]} selected={filters.section === section} role={role} currentUserId={currentUserId} referenceAt={data.referenceAt} timeZone={data.timeZone} locale={localeTag} pendingTaskId={pendingTaskId} onViewAll={(nextSection) => navigate({ section: nextSection, page: 1 })} onOpenDetails={(task, focus) => setDetail({ taskId: task.id, focus: focus ?? null })} onOpenRoomNotes={(task) => setRoomNotesTaskId(task.id)} onCancelStart={(task) => setStartCancellationTaskId(task.id)} onWorkflow={(task, mode) => setWorkflow({ taskId: task.id, mode })} />)}
-      </div> : <CleaningHistoryList data={data.history} locale={localeTag} timeZone={data.timeZone} onOpenDetails={(task, focus) => setDetail({ taskId: task.id, focus: focus ?? null })} />}
+      </div> : <CleaningHistoryList data={data.history} locale={localeTag} timeZone={data.timeZone} referenceAt={data.referenceAt} onOpenDetails={(task, focus) => setDetail({ taskId: task.id, focus: focus ?? null })} />}
 
       {paginationData && paginationData.totalPages > 1 && <nav className="flex items-center justify-center gap-2" aria-label={t("pagination.label")}>
         <Button type="button" variant="outline" size="sm" disabled={paginationData.page <= 1 || isNavigating} onClick={() => navigate({ page: paginationData.page - 1 })}>{t("pagination.previous")}</Button>
