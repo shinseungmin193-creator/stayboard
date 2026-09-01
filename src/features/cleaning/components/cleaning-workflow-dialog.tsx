@@ -8,10 +8,11 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { UserRole } from "@/features/access-control";
 import type { CleaningActionResult } from "../cleaning.actions";
 import type { CleaningTaskViewModel, CleaningWorkerViewModel } from "../cleaning.types";
-import { getSelectableCleaningWorkers } from "../domain/cleaning-worker";
+import { getCleaningWorkerSelection, getSelectableCleaningWorkers } from "../domain/cleaning-worker";
 import { getInitialCleaningWorkflowWorkerName } from "../domain/cleaning-workflow";
 import { CleaningPhotoUploader, type CleaningPhotoUploadState } from "./cleaning-photo-uploader";
 import { CleaningWorkerRegistrationDialog } from "./cleaning-worker-registration-dialog";
@@ -25,7 +26,7 @@ export function CleaningWorkflowDialog({
   currentUserId,
   currentUserName,
   registeredWorkers,
-  canManageWorkers,
+  canCreateWorkers,
   pending,
   onClose,
   onSubmit,
@@ -41,7 +42,7 @@ export function CleaningWorkflowDialog({
   currentUserId: string;
   currentUserName: string;
   registeredWorkers: CleaningWorkerViewModel[];
-  canManageWorkers: boolean;
+  canCreateWorkers: boolean;
   pending: boolean;
   onClose: () => void;
   onSubmit: (input: { task: CleaningTaskViewModel; mode: CleaningWorkflowMode; workerName: string; assigneeUserId?: string }) => void;
@@ -78,7 +79,7 @@ export function CleaningWorkflowDialog({
     () => getSelectableCleaningWorkers(registeredWorkers, task?.companyId ?? ""),
     [registeredWorkers, task?.companyId],
   );
-  const [selectedWorkerId, setSelectedWorkerId] = useState("");
+  const [selectedWorkerId, setSelectedWorkerId] = useState<string | null>(null);
   const [registrationOpen, setRegistrationOpen] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState(defaultSelectedUserId);
   const initialPhotoCount = task?.photos.filter((photo) => photo.url && !photo.deletedAt).length ?? 0;
@@ -96,6 +97,11 @@ export function CleaningWorkflowDialog({
   const identityValid = assignmentMode ? Boolean(selectedAssignee) && (!showWorkerNameInput || validName) : validName;
   const valid = identityValid && (mode !== "complete" || photoState.readyForCompletion);
   const openRoomNoteCount = mode === "complete" ? task?.openRoomNotes.length ?? 0 : 0;
+  const selectWorker = (worker: Pick<CleaningWorkerViewModel, "id" | "name">) => {
+    const selection = getCleaningWorkerSelection(worker);
+    setSelectedWorkerId(selection.selectedWorkerId);
+    setWorkerName(selection.cleanerName);
+  };
 
   return <>
     <Dialog open={Boolean(task && mode)} onOpenChange={(open) => { if (!open && !registrationOpen) onClose(); }}>
@@ -125,35 +131,36 @@ export function CleaningWorkflowDialog({
             </label>}
             {showWorkerNameInput && <div className="space-y-1.5">
               <div className="space-y-1.5">
-                <div className="flex items-center justify-between gap-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
                   <Label htmlFor="cleaning-registered-worker">{t("registeredWorker")}</Label>
-                  {canManageWorkers && mode === "start" && <Button type="button" variant="ghost" size="xs" disabled={pending} onClick={() => setRegistrationOpen(true)}>
+                  {canCreateWorkers && mode === "start" && <Button type="button" variant="ghost" size="xs" className="shrink-0" disabled={pending} onClick={() => setRegistrationOpen(true)}>
                     <Plus />{t("registerName")}
                   </Button>}
                 </div>
-                <select
-                  id="cleaning-registered-worker"
+                {workers.length > 0 ? <Select
                   value={selectedWorkerId}
-                  onChange={(event) => {
-                    setSelectedWorkerId(event.target.value);
-                    const selected = workers.find((worker) => worker.id === event.target.value);
-                    if (selected) setWorkerName(selected.name);
+                  onValueChange={(workerId) => {
+                    const selected = workers.find((worker) => worker.id === workerId);
+                    if (selected) selectWorker(selected);
                   }}
-                  className="h-11 w-full rounded-lg border border-input bg-background px-3 text-sm text-foreground"
                 >
-                  <option value="">{t("registeredWorkerPlaceholder")}</option>
-                  {workers.map((worker) => <option key={worker.id} value={worker.id}>{worker.name}</option>)}
-                </select>
+                  <SelectTrigger id="cleaning-registered-worker" className="h-11 w-full min-w-0 bg-background">
+                    <SelectValue placeholder={t("registeredWorkerPlaceholder")} />
+                  </SelectTrigger>
+                  <SelectContent align="start" alignItemWithTrigger={false} className="max-w-[calc(100vw-2rem)]">
+                    {workers.map((worker) => <SelectItem key={worker.id} value={worker.id} className="min-w-0">{worker.name}</SelectItem>)}
+                  </SelectContent>
+                </Select> : <p className="rounded-lg border border-dashed bg-muted/30 px-3 py-2.5 text-sm text-muted-foreground">{t("registeredWorkerEmpty")}</p>}
               </div>
               <div className="relative py-1 text-center text-xs text-muted-foreground before:absolute before:inset-x-0 before:top-1/2 before:border-t"><span className="relative bg-popover px-2">{t("orDirect")}</span></div>
               <div className="flex items-center justify-between gap-3">
                 <Label htmlFor="cleaning-worker-name">{t("workerName")}</Label>
-                {!assignmentMode && <Button type="button" variant="ghost" size="xs" onClick={() => { setSelectedWorkerId(""); setWorkerName(currentUserName); }} disabled={!currentUserName}>
+                {!assignmentMode && <Button type="button" variant="ghost" size="xs" onClick={() => { setSelectedWorkerId(null); setWorkerName(currentUserName); }} disabled={!currentUserName}>
                   <UserRound />{t("useMyName")}
                 </Button>}
               </div>
               {assignmentMode && <p className="text-xs text-muted-foreground">{t("workerNameDescription")}</p>}
-              <Input id="cleaning-worker-name" value={workerName} onChange={(event) => { setSelectedWorkerId(""); setWorkerName(event.target.value); }} maxLength={30} autoComplete="name" placeholder={t("namePlaceholder")} />
+              <Input id="cleaning-worker-name" value={workerName} onChange={(event) => { setSelectedWorkerId(null); setWorkerName(event.target.value); }} maxLength={30} autoComplete="name" placeholder={t("namePlaceholder")} />
               <div className="text-right text-xs text-muted-foreground">{normalizedName.length}/30</div>
             </div>}
             {mode === "complete" && <section className="space-y-3 rounded-xl border p-3">
@@ -201,8 +208,7 @@ export function CleaningWorkflowDialog({
       onOpenChange={setRegistrationOpen}
       onCreated={(worker) => {
         onWorkerCreated(worker);
-        setSelectedWorkerId(worker.id);
-        setWorkerName(worker.name);
+        selectWorker(worker);
       }}
       onNotice={onNotice}
     />}

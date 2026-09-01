@@ -19,8 +19,10 @@ export interface CleaningWorkerViewModel {
 
 export type CleaningSectionFilter = "all" | CleaningSection;
 export type CleaningStatusFilter = "UNASSIGNED" | "WAITING" | "IN_PROGRESS" | "COMPLETED";
+export type CleaningTab = "ongoing" | "history";
 
 export interface CleaningFilters {
+  tab: CleaningTab;
   date: string;
   companyId: string | null;
   propertyId: string | null;
@@ -76,6 +78,7 @@ export interface CleaningTaskViewModel {
   targetAt: string | null;
   nextCheckInAt: string | null;
   photoCount: number;
+  photoRetentionExpired: boolean;
   photos: CleaningPhotoViewModel[];
   logs: CleaningTaskLogViewModel[];
   eligibleAssignees: CleaningAssigneeAccount[];
@@ -91,6 +94,7 @@ export interface CleaningSectionData {
 
 export interface CleaningPageData {
   sections: Record<CleaningSection, CleaningSectionData>;
+  history: CleaningSectionData;
   summary: { urgent: number; flexible: number; unassigned: number; completed: number };
   referenceAt: string;
   timeZone: string;

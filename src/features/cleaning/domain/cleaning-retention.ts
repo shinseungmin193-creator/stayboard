@@ -7,3 +7,7 @@ export const CLEANING_PHOTO_DELETE_BATCH_SIZE = 100;
 export function getCleaningPhotoDeleteAfter(completedAt: Date) {
   return new Date(completedAt.getTime() + CLEANING_PHOTO_RETENTION_DAYS * 24 * 60 * 60 * 1000);
 }
+
+export function isCleaningPhotoRetentionExpired(completedAt: Date | null, referenceAt: Date) {
+  return completedAt !== null && getCleaningPhotoDeleteAfter(completedAt).getTime() <= referenceAt.getTime();
+}

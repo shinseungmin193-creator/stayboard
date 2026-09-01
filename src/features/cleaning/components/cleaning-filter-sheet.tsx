@@ -21,14 +21,17 @@ function SelectField({ label, value, onChange, children }: { label: string; valu
 }
 
 export function getCleaningActiveFilterCount(filters: CleaningFilters) {
-  return [
+  const shared = [
     filters.companyId,
     filters.propertyId,
     filters.roomId,
     filters.unassignedOnly ? null : filters.assigneeId,
-    filters.status,
-    filters.priority,
-    filters.unassignedOnly,
+  ];
+  return [
+    ...shared,
+    filters.tab === "ongoing" ? filters.status : null,
+    filters.tab === "ongoing" ? filters.priority : null,
+    filters.tab === "ongoing" ? filters.unassignedOnly : null,
   ].filter(Boolean).length;
 }
 
@@ -63,19 +66,21 @@ export function CleaningFilterSheet({ filters, data, onApply }: { filters: Clean
           <SelectField label={common("room")} value={draft.roomId ?? ""} onChange={(roomId) => setDraft({ ...draft, roomId: roomId || null })}>
             <option value="">{t("allRooms")}</option>{rooms.map((room) => <option key={room.id} value={room.id}>{room.name}</option>)}
           </SelectField>
-          <SelectField label={t("assignee")} value={draft.assigneeId ?? ""} onChange={(assigneeId) => setDraft({ ...draft, assigneeId: assigneeId || null, unassignedOnly: assigneeId === "unassigned" })}>
-            <option value="">{t("allAssignees")}</option><option value="unassigned">{t("unassigned")}</option>{data.assignees.map((assignee) => <option key={assignee.id} value={assignee.id}>{assignee.name}</option>)}
+          <SelectField label={t("assignee")} value={draft.assigneeId ?? ""} onChange={(assigneeId) => setDraft({ ...draft, assigneeId: assigneeId || null, unassignedOnly: draft.tab === "ongoing" && assigneeId === "unassigned" })}>
+            <option value="">{t("allAssignees")}</option>{draft.tab === "ongoing" && <option value="unassigned">{t("unassigned")}</option>}{data.assignees.map((assignee) => <option key={assignee.id} value={assignee.id}>{assignee.name}</option>)}
           </SelectField>
-          <SelectField label={common("status")} value={draft.status ?? ""} onChange={(status) => setDraft({ ...draft, status: status ? status as CleaningFilters["status"] : null })}>
-            <option value="">{t("allStatuses")}</option><option value="UNASSIGNED">{t("statusUnassigned")}</option><option value="WAITING">{t("statusWaiting")}</option><option value="IN_PROGRESS">{t("statusInProgress")}</option><option value="COMPLETED">{t("statusCompleted")}</option>
-          </SelectField>
-          <SelectField label={t("priority")} value={draft.priority ?? ""} onChange={(priority) => setDraft({ ...draft, priority: priority ? priority as CleaningFilters["priority"] : null })}>
-            <option value="">{t("allPriorities")}</option><option value="urgent">{t("urgent")}</option><option value="flexible">{t("flexible")}</option>
-          </SelectField>
-          <label className="flex min-h-11 items-center justify-between gap-4 rounded-lg border bg-muted/30 px-3 text-sm font-medium sm:col-span-2">
-            <span>{t("unassignedOnly")}</span>
-            <input type="checkbox" checked={draft.unassignedOnly} onChange={(event) => setDraft({ ...draft, unassignedOnly: event.target.checked, assigneeId: event.target.checked ? "unassigned" : draft.assigneeId === "unassigned" ? null : draft.assigneeId })} className="size-4 accent-primary" />
-          </label>
+          {draft.tab === "ongoing" && <>
+            <SelectField label={common("status")} value={draft.status ?? ""} onChange={(status) => setDraft({ ...draft, status: status ? status as CleaningFilters["status"] : null })}>
+              <option value="">{t("allStatuses")}</option><option value="UNASSIGNED">{t("statusUnassigned")}</option><option value="WAITING">{t("statusWaiting")}</option><option value="IN_PROGRESS">{t("statusInProgress")}</option>
+            </SelectField>
+            <SelectField label={t("priority")} value={draft.priority ?? ""} onChange={(priority) => setDraft({ ...draft, priority: priority ? priority as CleaningFilters["priority"] : null })}>
+              <option value="">{t("allPriorities")}</option><option value="urgent">{t("urgent")}</option><option value="flexible">{t("flexible")}</option>
+            </SelectField>
+            <label className="flex min-h-11 items-center justify-between gap-4 rounded-lg border bg-muted/30 px-3 text-sm font-medium sm:col-span-2">
+              <span>{t("unassignedOnly")}</span>
+              <input type="checkbox" checked={draft.unassignedOnly} onChange={(event) => setDraft({ ...draft, unassignedOnly: event.target.checked, assigneeId: event.target.checked ? "unassigned" : draft.assigneeId === "unassigned" ? null : draft.assigneeId })} className="size-4 accent-primary" />
+            </label>
+          </>}
         </div>
         <SheetFooter className="grid grid-cols-2 border-t sm:flex sm:flex-row sm:justify-end">
           <Button type="button" variant="outline" onClick={reset}>{t("reset")}</Button>

@@ -42,6 +42,7 @@ export function CleaningTaskDetailDialog({
   const dateTime = useMemo(() => new Intl.DateTimeFormat(locale, { timeZone, year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }), [locale, timeZone]);
   const actionable = task?.status === "PENDING" || task?.status === "IN_PROGRESS";
   const canWork = Boolean(task && (role !== "STAFF" || !task.assignee || task.assignee.userId === currentUserId || (task.assignee.userId === null && task.assignee.assignedById === currentUserId)));
+  const activePhotoCount = task?.photos.filter((photo) => photo.url && !photo.deletedAt).length ?? 0;
 
   return (
     <Dialog open={Boolean(task)} onOpenChange={(open) => { if (!open) onClose(); }}>
@@ -68,9 +69,9 @@ export function CleaningTaskDetailDialog({
               <h3 className="flex items-center gap-2 font-semibold"><Camera className="size-4" />{t("photos.title")}</h3>
               {actionable
                 ? <CleaningPhotoUploader taskId={task.id} initialPhotos={task.photos} disabled={pending} onResult={onResult} onUploaded={onRefresh} />
-                : task.photos.length > 0
+                : activePhotoCount > 0
                   ? <CleaningPhotoUploader taskId={task.id} initialPhotos={task.photos} readOnly onResult={onResult} />
-                  : <p className="rounded-xl bg-muted/50 px-3 py-6 text-center text-sm text-muted-foreground">{t("photos.required")}</p>}
+                  : <p className="rounded-xl bg-muted/50 px-3 py-6 text-center text-sm text-muted-foreground">{task.photoRetentionExpired ? t("photos.retentionExpired") : t("photos.none")}</p>}
             </section>
           </div>
           <section className="space-y-3 rounded-2xl border p-4">

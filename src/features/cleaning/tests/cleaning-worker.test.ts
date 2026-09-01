@@ -4,6 +4,7 @@ import test from "node:test";
 
 import { hasPermission, PERMISSIONS } from "../../access-control/domain/access-control";
 import {
+  getCleaningWorkerSelection,
   getCleaningWorkerNormalizedName,
   getSelectableCleaningWorkers,
   normalizeCleaningWorkerDisplayName,
@@ -32,22 +33,33 @@ test("다른 회사에는 같은 정규화 이름을 등록할 수 있다", () =
 });
 
 test("ADMIN은 청소 직원을 등록·수정·비활성화할 수 있다", () => {
+  assert.equal(hasPermission("ADMIN", PERMISSIONS.CLEANING_WORKER_CREATE), true);
   assert.equal(hasPermission("ADMIN", PERMISSIONS.CLEANING_WORKER_MANAGE), true);
 });
 
 test("DEVELOPER는 청소 직원을 등록·수정·비활성화할 수 있다", () => {
+  assert.equal(hasPermission("DEVELOPER", PERMISSIONS.CLEANING_WORKER_CREATE), true);
   assert.equal(hasPermission("DEVELOPER", PERMISSIONS.CLEANING_WORKER_MANAGE), true);
 });
 
-test("STAFF는 선택과 직접 입력만 가능하고 서버 등록 권한도 없다", () => {
+test("STAFF는 청소 시작 팝업에서 직원을 등록할 수 있지만 수정·비활성화는 할 수 없다", () => {
+  assert.equal(hasPermission("STAFF", PERMISSIONS.CLEANING_WORKER_CREATE), true);
   assert.equal(hasPermission("STAFF", PERMISSIONS.CLEANING_WORKER_MANAGE), false);
   assert.equal(hasPermission("STAFF", PERMISSIONS.CLEANING_WORKER_READ), true);
   const actions = read("src/features/cleaning/cleaning-worker.actions.ts");
   const repository = read("src/features/cleaning/server/cleaning-worker.repository.ts");
-  assert.match(actions, /requireCompanyAccess\(parsed\.data\.companyId, PERMISSIONS\.CLEANING_WORKER_MANAGE\)/);
+  const page = read("src/app/cleaning/page.tsx");
+  const workspace = read("src/features/cleaning/components/cleaning-workspace.tsx");
+  const dialog = read("src/features/cleaning/components/cleaning-workflow-dialog.tsx");
+  assert.match(actions, /requireCompanyAccess\(parsed\.data\.companyId, PERMISSIONS\.CLEANING_WORKER_CREATE\)/);
   assert.match(actions, /requirePermission\(PERMISSIONS\.CLEANING_WORKER_MANAGE\)/);
+  assert.match(repository, /hasPermission\(context\.role, PERMISSIONS\.CLEANING_WORKER_CREATE\)/);
+  assert.match(repository, /canAccessCompany\(context, input\.companyId\)/);
   assert.match(repository, /findCleaningWorker\(context: AccessContext/);
   assert.match(repository, /options\.includeInactive && canManage/);
+  assert.match(page, /canCreateWorkers=\{hasPermission\(context\.role, PERMISSIONS\.CLEANING_WORKER_CREATE\)\}/);
+  assert.match(workspace, /canCreateWorkers=\{canCreateWorkers\}/);
+  assert.match(dialog, /canCreateWorkers && mode === "start"/);
 });
 
 test("등록 성공 직후 공유 목록에 추가되고 방금 등록한 직원이 선택된다", () => {
@@ -56,8 +68,9 @@ test("등록 성공 직후 공유 목록에 추가되고 방금 등록한 직원
   const registrationDialog = read("src/features/cleaning/components/cleaning-worker-registration-dialog.tsx");
   const worker = { id: "worker-a", companyId: "company-a", companyName: "A", name: "김민수", isActive: true };
   assert.deepEqual(upsertCleaningWorkerList([], worker), [worker]);
+  assert.deepEqual(getCleaningWorkerSelection(worker), { selectedWorkerId: "worker-a", cleanerName: "김민수" });
   assert.match(registrationDialog, /onCreated\(result\.data\);[\s\S]*onOpenChange\(false\)/);
-  assert.match(dialog, /onWorkerCreated\(worker\);[\s\S]*setSelectedWorkerId\(worker\.id\);[\s\S]*setWorkerName\(worker\.name\)/);
+  assert.match(dialog, /onWorkerCreated\(worker\);[\s\S]*selectWorker\(worker\)/);
   assert.match(workspace, /registeredWorkers=\{workers\}/);
 });
 
@@ -73,8 +86,17 @@ test("활성 직원만 같은 회사 dropdown에 노출되고 비활성 직원�
 
 test("등록 직원 선택은 cleanerName 입력값을 채우고 직접 수정하면 등록 선택을 해제한다", () => {
   const dialog = read("src/features/cleaning/components/cleaning-workflow-dialog.tsx");
-  assert.match(dialog, /setWorkerName\(selected\.name\)/);
-  assert.match(dialog, /setSelectedWorkerId\(""\); setWorkerName\(event\.target\.value\)/);
+  assert.match(dialog, /if \(selected\) selectWorker\(selected\)/);
+  assert.match(dialog, /setSelectedWorkerId\(null\); setWorkerName\(event\.target\.value\)/);
+});
+
+test("등록 직원 dropdown은 모바일 폭을 제한하는 앱 Select를 사용한다", () => {
+  const dialog = read("src/features/cleaning/components/cleaning-workflow-dialog.tsx");
+  assert.match(dialog, /from "@\/components\/ui\/select"/);
+  assert.match(dialog, /<SelectTrigger id="cleaning-registered-worker" className="h-11 w-full min-w-0 bg-background">/);
+  assert.match(dialog, /<SelectContent[^>]*max-w-\[calc\(100vw-2rem\)\]/);
+  assert.doesNotMatch(dialog, /<select\s+id="cleaning-registered-worker"/);
+  assert.match(dialog, /registeredWorkerEmpty/);
 });
 
 test("직접 입력한 이름은 CleaningWorker로 자동 등록하지 않는다", () => {
@@ -87,7 +109,8 @@ test("청소 시작 Dialog는 로그인 사용자 이름을 자동 입력하지 
   const workflow = read("src/features/cleaning/domain/cleaning-workflow.ts");
   assert.match(workflow, /if \(input\.mode === "start"\) return ""/);
   const dialog = read("src/features/cleaning/components/cleaning-workflow-dialog.tsx");
-  assert.match(dialog, /setSelectedWorkerId\(""\); setWorkerName\(currentUserName\)/);
+  assert.match(dialog, /useState<string \| null>\(null\)/);
+  assert.match(dialog, /setSelectedWorkerId\(null\); setWorkerName\(currentUserName\)/);
 });
 
 test("비활성화는 dropdown에서만 제외하며 과거 CleaningTask와 통계는 유지한다", () => {

@@ -23,24 +23,27 @@ test("cleaning section and priority metadata share the same tones", () => {
   assert.equal(getCleaningPriorityMeta("flexible"), getCleaningSectionTone("flexible"));
 });
 
-test("completed tasks stay in the two priority sections", () => {
+test("completed tasks are separated from the two operational priority sections", () => {
   assert.deepEqual(CLEANING_SECTIONS, ["urgent", "flexible"]);
-  assert.deepEqual(CLEANING_LIST_STATUSES, ["PENDING", "IN_PROGRESS", "COMPLETED"]);
+  assert.deepEqual(CLEANING_LIST_STATUSES, ["PENDING", "IN_PROGRESS"]);
   assert.equal(isCleaningSection("completed"), false);
 });
 
-test("the cleaning repository preserves section and card order after completion", () => {
+test("the cleaning repository keeps the operational queue separate from completed history", () => {
   const repository = readFileSync("src/features/cleaning/server/cleaning.repository.ts", "utf8");
   assert.match(repository, /status: \{ in: \[\.\.\.CLEANING_LIST_STATUSES\] \}/);
   assert.match(repository, /orderBy: \[\{ scheduledDate: "asc" \}, \{ id: "asc" \}\]/);
-  assert.doesNotMatch(repository, /sectionWhere\("completed"\)|section === "completed"|completedAt: "desc"/);
+  assert.match(repository, /buildCompletedCleaningHistoryWhere/);
+  assert.match(repository, /orderBy: \[\{ completedAt: "desc" \}, \{ scheduledDate: "desc" \}, \{ id: "desc" \}\]/);
 });
 
-test("completed section messages are removed while summary and status labels remain", () => {
+test("completed history messages remain available outside priority sections", () => {
   for (const locale of ["ko", "ja"]) {
     const messages = JSON.parse(readFileSync(`src/messages/${locale}.json`, "utf8"));
     assert.equal(messages.cleaning.sections.completed, undefined);
     assert.equal(messages.cleaning.sections.empty.completed, undefined);
+    assert.equal(typeof messages.cleaning.tabs.history, "string");
+    assert.equal(typeof messages.cleaning.history.title, "string");
     assert.equal(typeof messages.cleaning.summary.completed, "string");
     assert.equal(typeof messages.cleaning.status.completed, "string");
   }

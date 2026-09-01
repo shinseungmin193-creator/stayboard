@@ -28,7 +28,9 @@ test("현재 화면의 모든 roomId를 공통 RoomNote 저장소에 한 번만 
   const cleaningRepository = read("src/features/cleaning/server/cleaning.repository.ts");
   const roomNoteRepository = read("src/features/room-notes/server/room-note.repository.ts");
   assert.equal((cleaningRepository.match(/listOpenRoomNotesForRooms\(/g) ?? []).length, 1);
-  assert.match(cleaningRepository, /visibleRoomIds = sectionRows\.flatMap/);
+  assert.match(cleaningRepository, /visibleRoomIds = \[/);
+  assert.match(cleaningRepository, /sectionRows\.flatMap/);
+  assert.match(cleaningRepository, /historyRows\.map/);
   assert.match(roomNoteRepository, /roomId: \{ in: uniqueRoomIds \}/);
   assert.match(roomNoteRepository, /status: OPEN_ROOM_NOTE_STATUS/);
 });

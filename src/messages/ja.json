@@ -539,6 +539,10 @@
     },
     "fields": {
       "company": "会社",
+      "property": "宿泊施設",
+      "room": "客室",
+      "cleaningDate": "清掃日",
+      "status": "ステータス",
       "checkout": "チェックアウト",
       "nextCheckIn": "次のチェックイン",
       "priority": "優先度",
@@ -590,6 +594,11 @@
     "emptyOngoing": "進行する清掃タスクはありません。",
     "emptyHistory": "完了した清掃履歴はありません。",
     "emptyDescription": "日付またはフィルター条件を変更してください。",
+    "history": {
+      "title": "完了した清掃履歴",
+      "description": "完了済みの作業は、予約状態や写真の保管期間に関係なく引き続き確認できます。",
+      "emptyDescription": "宿泊施設、客室、または担当者のフィルターを変更してください。"
+    },
     "pagination": { "label": "清掃一覧ページ", "previous": "前へ", "next": "次へ", "current": "{page} / {total}" },
     "details": {
       "title": "{room} 清掃詳細",
@@ -607,6 +616,8 @@
       "count": "{count}枚",
       "alt": "清掃完了写真",
       "deleted": "保管期限切れのため削除済み",
+      "retentionExpired": "保管期間を過ぎた写真です。",
+      "none": "登録された清掃写真はありません。",
       "required": "完了前に清掃写真を1枚以上アップロードしてください。",
       "retention": "写真保管予定: {date}まで",
       "retentionPending": "写真の削除予定日を確認しています。",
@@ -667,6 +678,7 @@
       "workerNameDescription": "今回の作業を実際に行うスタッフ名を入力してください。",
       "registeredWorker": "登録済みスタッフを選択",
       "registeredWorkerPlaceholder": "スタッフを選択してください",
+      "registeredWorkerEmpty": "登録済みの清掃スタッフはいません。",
       "orDirect": "または直接入力",
       "registerName": "スタッフ登録",
       "useMyName": "自分の名前を使用",

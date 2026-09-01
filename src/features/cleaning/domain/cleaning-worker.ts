@@ -51,3 +51,10 @@ export function getSelectableCleaningWorkers<T extends CleaningWorkerListItem>(
     .filter((worker) => worker.companyId === companyId && worker.isActive)
     .sort((left, right) => left.name.localeCompare(right.name, "ko") || left.id.localeCompare(right.id));
 }
+
+export function getCleaningWorkerSelection(worker: Pick<CleaningWorkerListItem, "id" | "name">) {
+  return {
+    selectedWorkerId: worker.id,
+    cleanerName: worker.name,
+  };
+}

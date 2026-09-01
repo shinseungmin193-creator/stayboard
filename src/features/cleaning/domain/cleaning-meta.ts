@@ -1,7 +1,7 @@
 import type { CleaningPriority } from "./cleaning-priority";
 
 export const CLEANING_SECTIONS = ["urgent", "flexible"] as const;
-export const CLEANING_LIST_STATUSES = ["PENDING", "IN_PROGRESS", "COMPLETED"] as const;
+export const CLEANING_LIST_STATUSES = ["PENDING", "IN_PROGRESS"] as const;
 
 export type CleaningSection = (typeof CLEANING_SECTIONS)[number];
 export type CleaningDisplayStatus = "unassigned" | "waiting" | "inProgress" | "completed" | "cancelled";

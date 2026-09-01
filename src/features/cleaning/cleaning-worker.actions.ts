@@ -38,7 +38,7 @@ export async function createCleaningWorkerAction(input: unknown): Promise<Action
   const parsed = cleaningWorkerCreateSchema.safeParse(input);
   if (!parsed.success) return { success: false, status: 422, errorCode: "VALIDATION_ERROR", message: t("invalid") };
   try {
-    const context = await requireCompanyAccess(parsed.data.companyId, PERMISSIONS.CLEANING_WORKER_MANAGE);
+    const context = await requireCompanyAccess(parsed.data.companyId, PERMISSIONS.CLEANING_WORKER_CREATE);
     const worker = await createCleaningWorker(context, parsed.data);
     revalidateCleaningWorkers();
     return { success: true, data: worker, message: t("created") };

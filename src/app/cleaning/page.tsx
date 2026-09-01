@@ -22,20 +22,21 @@ function value(params: Record<string, string | string[] | undefined>, key: strin
 }
 
 function parseFilters(params: Record<string, string | string[] | undefined>): CleaningFilters {
+  const tab = value(params, "tab") === "history" ? "history" : "ongoing";
   const requestedStatus = value(params, "status");
   const requestedPriority = value(params, "priority");
   const requestedSection = value(params, "section");
   const requestedPage = Number(value(params, "page") ?? "1");
   return {
+    tab,
     date: value(params, "date") ?? "",
     companyId: value(params, "companyId") ?? null,
     propertyId: value(params, "propertyId") ?? null,
     roomId: value(params, "roomId") ?? null,
     assigneeId: value(params, "assigneeId") ?? null,
-    status: requestedStatus === "UNASSIGNED"
+    status: tab === "ongoing" && (requestedStatus === "UNASSIGNED"
       || requestedStatus === "WAITING"
-      || requestedStatus === "IN_PROGRESS"
-      || requestedStatus === "COMPLETED"
+      || requestedStatus === "IN_PROGRESS")
       ? requestedStatus
       : null,
     priority: requestedPriority === "urgent" || requestedPriority === "flexible" ? requestedPriority : null,
@@ -68,6 +69,7 @@ export default async function CleaningPage({ searchParams }: { searchParams: Pro
         currentUserId={context.userId}
         currentUserName={context.name ?? ""}
         role={context.role}
+        canCreateWorkers={hasPermission(context.role, PERMISSIONS.CLEANING_WORKER_CREATE)}
         canManageWorkers={hasPermission(context.role, PERMISSIONS.CLEANING_WORKER_MANAGE)}
         canCompleteRoomNotes={hasPermission(context.role, PERMISSIONS.ROOM_NOTE_COMPLETE)}
       />

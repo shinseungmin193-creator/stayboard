@@ -1,6 +1,7 @@
 import "server-only";
 
 import {
+  canAccessCompany,
   companyScopeIds,
   hasPermission,
   PERMISSIONS,
@@ -45,6 +46,10 @@ export async function createCleaningWorker(
   context: AccessContext,
   input: { companyId: string; name: string },
 ) {
+  if (
+    !hasPermission(context.role, PERMISSIONS.CLEANING_WORKER_CREATE)
+    || !canAccessCompany(context, input.companyId)
+  ) throw new PermissionDeniedError();
   const name = normalizeCleaningWorkerDisplayName(input.name);
   return prisma.$transaction(async (tx) => {
     const worker = await tx.cleaningWorker.create({

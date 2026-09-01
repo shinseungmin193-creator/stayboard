@@ -12,15 +12,17 @@ import type {
   CleaningTaskViewModel,
 } from "../cleaning.types";
 import { parseCleaningDate } from "../domain/cleaning-date";
+import { buildCompletedCleaningHistoryWhere } from "../domain/cleaning-history";
 import { CLEANING_LIST_STATUSES, CLEANING_SECTIONS, type CleaningSection } from "../domain/cleaning-meta";
 import { classifyCleaningPriority } from "../domain/cleaning-priority";
+import { isCleaningPhotoRetentionExpired } from "../domain/cleaning-retention";
 import { getCleaningPhotoStorage } from "../storage/local-file-storage-provider";
 import { buildOperationalReservationWhere } from "@/features/reservations/operational-reservation-where";
 import { listOpenRoomNotesForRooms } from "@/features/room-notes";
 import { listCleaningWorkers } from "./cleaning-worker.repository";
 import {
   buildCheckoutCleaningTaskWhere,
-  DASHBOARD_CLEANING_TASK_STATUSES,
+  ACTIVE_CLEANING_TASK_STATUSES,
   isCleaningTaskAlignedWithReservation,
 } from "./cleaning-task-query";
 
@@ -71,8 +73,9 @@ function statusWhere(status: CleaningStatusFilter | null): Prisma.CleaningTaskWh
 export async function listCleaningPage(context: AccessContext, filters: CleaningFilters): Promise<CleaningPageData> {
   const companyIds = companyScopeIds(context);
   const scopeRoomWhere = roomScopeWhere(context.scope);
+  const referenceAt = new Date();
   const timeZone = await resolveCleaningTimeZone(context, filters);
-  const { dateInput, start, end } = parseCleaningDate(filters.date, new Date(), timeZone);
+  const { dateInput, start, end } = parseCleaningDate(filters.date, referenceAt, timeZone);
   const sameDayCheckIn: Prisma.ReservationWhereInput = {
     ...buildOperationalReservationWhere(),
     startDate: { gte: start, lt: end },
@@ -98,7 +101,7 @@ export async function listCleaningPage(context: AccessContext, filters: Cleaning
     start,
     end,
     roomWhere: scopeRoomWhere,
-    statuses: DASHBOARD_CLEANING_TASK_STATUSES,
+    statuses: ACTIVE_CLEANING_TASK_STATUSES,
   });
   const sectionWhere = (section: CleaningSection): Prisma.CleaningTaskWhereInput => ({
     AND: [
@@ -111,8 +114,15 @@ export async function listCleaningPage(context: AccessContext, filters: Cleaning
     ],
   });
   const summaryBase = { AND: sharedAnd } satisfies Prisma.CleaningTaskWhereInput;
+  const historyWhere = buildCompletedCleaningHistoryWhere({
+    roomWhere: scopeRoomWhere,
+    companyId: filters.companyId,
+    propertyId: filters.propertyId,
+    roomId: filters.roomId,
+    assigneeId: filters.assigneeId,
+  });
 
-  const [companies, rooms, memberships, summaryTasks, workers] = await Promise.all([
+  const [companies, rooms, memberships, summaryTasks, completedCount, workers] = await Promise.all([
     prisma.company.findMany({
       where: { isActive: true, ...(companyIds ? { id: { in: [...companyIds] } } : {}) },
       select: { id: true, name: true },
@@ -148,18 +158,14 @@ export async function listCleaningPage(context: AccessContext, filters: Cleaning
         room: { select: { reservations: { where: sameDayCheckIn, select: { startDate: true } } } },
       },
     }),
+    prisma.cleaningTask.count({ where: { AND: [summaryBase, { status: "COMPLETED" }] } }),
     listCleaningWorkers(context, { includeInactive: true }),
   ]);
 
   let urgentCount = 0;
   let flexibleCount = 0;
   let unassignedCount = 0;
-  let completedCount = 0;
   for (const task of summaryTasks.filter(isCleaningTaskAlignedWithReservation)) {
-    if (task.status === "COMPLETED") {
-      completedCount += 1;
-      continue;
-    }
     const priority = classifyCleaningPriority(
       task.scheduledDate,
       task.room.reservations.map((reservation) => reservation.startDate),
@@ -214,12 +220,14 @@ export async function listCleaningPage(context: AccessContext, filters: Cleaning
     _count: { select: { photos: { where: { storageKey: { not: null }, deletedAt: null } } } },
   } satisfies Prisma.CleaningTaskSelect;
 
-  const [visibleUrgentCount, visibleFlexibleCount] = await Promise.all([
+  const [visibleUrgentCount, visibleFlexibleCount, historyTotalCount] = await Promise.all([
     prisma.cleaningTask.count({ where: sectionWhere("urgent") }),
     prisma.cleaningTask.count({ where: sectionWhere("flexible") }),
+    prisma.cleaningTask.count({ where: historyWhere }),
   ]);
   const counts = { urgent: visibleUrgentCount, flexible: visibleFlexibleCount } satisfies Record<CleaningSection, number>;
   const sectionRows = await Promise.all(CLEANING_SECTIONS.map(async (section) => {
+    if (filters.tab === "history") return [];
     if (filters.section !== "all" && filters.section !== section) return [];
     const page = filters.section === section ? Math.min(filters.page, Math.max(1, Math.ceil(counts[section] / SECTION_PAGE_SIZE))) : 1;
     return prisma.cleaningTask.findMany({
@@ -230,8 +238,22 @@ export async function listCleaningPage(context: AccessContext, filters: Cleaning
       take: filters.section === section ? SECTION_PAGE_SIZE : SECTION_PREVIEW_SIZE,
     });
   }));
+  const historyTotalPages = Math.max(1, Math.ceil(historyTotalCount / SECTION_PAGE_SIZE));
+  const historyPage = Math.min(filters.page, historyTotalPages);
+  const historyRows = filters.tab === "history"
+    ? await prisma.cleaningTask.findMany({
+        where: historyWhere,
+        select: taskSelect,
+        orderBy: [{ completedAt: "desc" }, { scheduledDate: "desc" }, { id: "desc" }],
+        skip: (historyPage - 1) * SECTION_PAGE_SIZE,
+        take: SECTION_PAGE_SIZE,
+      })
+    : [];
 
-  const visibleRoomIds = sectionRows.flatMap((rows) => rows.map((task) => task.roomId));
+  const visibleRoomIds = [
+    ...sectionRows.flatMap((rows) => rows.map((task) => task.roomId)),
+    ...historyRows.map((task) => task.roomId),
+  ];
   const openRoomNotes = await listOpenRoomNotesForRooms(context, visibleRoomIds);
   const openRoomNotesByRoomId = new Map<string, typeof openRoomNotes>();
   for (const note of openRoomNotes) {
@@ -289,6 +311,7 @@ export async function listCleaningPage(context: AccessContext, filters: Cleaning
       targetAt: checkInDates[0]?.toISOString() ?? null,
       nextCheckInAt: checkInDates[0]?.toISOString() ?? null,
       photoCount: task._count.photos,
+      photoRetentionExpired: isCleaningPhotoRetentionExpired(task.completedAt, referenceAt),
       photos: task.photos.map((photo) => ({
         id: photo.id,
         url: photo.storageKey && !photo.deletedAt ? storage.getUrl(photo.id) : null,
@@ -318,6 +341,12 @@ export async function listCleaningPage(context: AccessContext, filters: Cleaning
     const page = filters.section === section ? Math.min(filters.page, totalPages) : 1;
     return [section, { items: sectionRows[index].map(toViewModel), totalCount, totalPages, page } satisfies CleaningSectionData];
   })) as Record<CleaningSection, CleaningSectionData>;
+  const history = {
+    items: historyRows.map(toViewModel),
+    totalCount: historyTotalCount,
+    totalPages: historyTotalPages,
+    page: historyPage,
+  } satisfies CleaningSectionData;
 
   const propertyMap = new Map(rooms.map((room) => [room.property.id, room.property]));
   const assigneeMap = new Map(memberships.map((membership) => [membership.user.id, {
@@ -327,8 +356,9 @@ export async function listCleaningPage(context: AccessContext, filters: Cleaning
   } satisfies CleaningAssigneeAccount]));
   return {
     sections: sectionData,
+    history,
     summary: { urgent: urgentCount, flexible: flexibleCount, unassigned: unassignedCount, completed: completedCount },
-    referenceAt: new Date().toISOString(),
+    referenceAt: referenceAt.toISOString(),
     timeZone,
     date: dateInput,
     companies,
