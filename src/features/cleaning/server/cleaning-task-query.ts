@@ -6,6 +6,8 @@ import type { Prisma } from "@/lib/generated/prisma/client";
 export const ACTIVE_CLEANING_TASK_STATUSES = ["PENDING", "IN_PROGRESS"] as const;
 export const DASHBOARD_CLEANING_TASK_STATUSES = ["PENDING", "IN_PROGRESS", "COMPLETED"] as const;
 
+type CleaningListTaskStatus = (typeof DASHBOARD_CLEANING_TASK_STATUSES)[number];
+
 export function buildCheckoutCleaningTaskWhere(input: {
   start: Date;
   end: Date;
@@ -44,6 +46,34 @@ export function buildOperationalCleaningTaskWhere(input: {
   roomWhere?: Prisma.RoomWhereInput;
 }): Prisma.CleaningTaskWhereInput {
   return buildCheckoutCleaningTaskWhere({ ...input, statuses: ACTIVE_CLEANING_TASK_STATUSES });
+}
+
+export function buildSelectedDateCleaningTaskWhere(input: {
+  start: Date;
+  end: Date;
+  roomWhere?: Prisma.RoomWhereInput;
+  statuses: readonly CleaningListTaskStatus[];
+}): Prisma.CleaningTaskWhereInput {
+  const operationalWhere = buildOperationalCleaningTaskWhere(input);
+  const includeCompleted = input.statuses.includes("COMPLETED");
+
+  return {
+    AND: [
+      { status: { in: [...input.statuses] } },
+      includeCompleted
+        ? {
+            OR: [
+              operationalWhere,
+              {
+                status: "COMPLETED",
+                scheduledDate: { gt: input.start, lte: input.end },
+                room: { is: input.roomWhere ?? {} },
+              },
+            ],
+          }
+        : operationalWhere,
+    ],
+  };
 }
 
 export function isCleaningTaskAlignedWithReservation(input: {

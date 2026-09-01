@@ -2,9 +2,15 @@ import type { CleaningPriority } from "./cleaning-priority";
 
 export const CLEANING_SECTIONS = ["urgent", "flexible"] as const;
 export const CLEANING_LIST_STATUSES = ["PENDING", "IN_PROGRESS"] as const;
+export const PAST_CLEANING_LIST_STATUSES = [...CLEANING_LIST_STATUSES, "COMPLETED"] as const;
 
 export type CleaningSection = (typeof CLEANING_SECTIONS)[number];
+export type CleaningListStatus = (typeof PAST_CLEANING_LIST_STATUSES)[number];
 export type CleaningDisplayStatus = "unassigned" | "waiting" | "inProgress" | "completed" | "cancelled";
+
+export function getCleaningListStatusesForDate(selectedDate: string, todayDate: string): readonly CleaningListStatus[] {
+  return selectedDate < todayDate ? PAST_CLEANING_LIST_STATUSES : CLEANING_LIST_STATUSES;
+}
 
 export function isCleaningSection(value: string | undefined): value is CleaningSection {
   return CLEANING_SECTIONS.includes(value as CleaningSection);

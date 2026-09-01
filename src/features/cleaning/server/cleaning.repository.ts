@@ -11,9 +11,9 @@ import type {
   CleaningStatusFilter,
   CleaningTaskViewModel,
 } from "../cleaning.types";
-import { parseCleaningDate } from "../domain/cleaning-date";
+import { getCleaningDateInput, parseCleaningDate } from "../domain/cleaning-date";
 import { buildCompletedCleaningHistoryWhere } from "../domain/cleaning-history";
-import { CLEANING_LIST_STATUSES, CLEANING_SECTIONS, type CleaningSection } from "../domain/cleaning-meta";
+import { CLEANING_SECTIONS, getCleaningListStatusesForDate, type CleaningSection } from "../domain/cleaning-meta";
 import { classifyCleaningPriority } from "../domain/cleaning-priority";
 import { isCleaningPhotoRetentionExpired } from "../domain/cleaning-retention";
 import { getCleaningPhotoStorage } from "../storage/local-file-storage-provider";
@@ -21,8 +21,7 @@ import { buildOperationalReservationWhere } from "@/features/reservations/operat
 import { listOpenRoomNotesForRooms } from "@/features/room-notes";
 import { listCleaningWorkers } from "./cleaning-worker.repository";
 import {
-  buildCheckoutCleaningTaskWhere,
-  ACTIVE_CLEANING_TASK_STATUSES,
+  buildSelectedDateCleaningTaskWhere,
   isCleaningTaskAlignedWithReservation,
 } from "./cleaning-task-query";
 
@@ -76,6 +75,7 @@ export async function listCleaningPage(context: AccessContext, filters: Cleaning
   const referenceAt = new Date();
   const timeZone = await resolveCleaningTimeZone(context, filters);
   const { dateInput, start, end } = parseCleaningDate(filters.date, referenceAt, timeZone);
+  const listStatuses = getCleaningListStatusesForDate(dateInput, getCleaningDateInput(referenceAt, timeZone));
   const sameDayCheckIn: Prisma.ReservationWhereInput = {
     ...buildOperationalReservationWhere(),
     startDate: { gte: start, lt: end },
@@ -97,18 +97,17 @@ export async function listCleaningPage(context: AccessContext, filters: Cleaning
     room: { is: { reservations: priority === "urgent" ? { some: sameDayCheckIn } : { none: sameDayCheckIn } } },
   });
   const visibleStatus = statusWhere(filters.status);
-  const checkoutCleaningTasks = buildCheckoutCleaningTaskWhere({
+  const selectedDateCleaningTasks = buildSelectedDateCleaningTaskWhere({
     start,
     end,
     roomWhere: scopeRoomWhere,
-    statuses: ACTIVE_CLEANING_TASK_STATUSES,
+    statuses: listStatuses,
   });
   const sectionWhere = (section: CleaningSection): Prisma.CleaningTaskWhereInput => ({
     AND: [
       ...sharedAnd,
       visibleStatus,
-      { status: { in: [...CLEANING_LIST_STATUSES] } },
-      checkoutCleaningTasks,
+      selectedDateCleaningTasks,
       priorityWhere(section),
       filters.priority && filters.priority !== section ? { id: "__hidden_section__" } : {},
     ],
@@ -148,7 +147,7 @@ export async function listCleaningPage(context: AccessContext, filters: Cleaning
       orderBy: { user: { name: "asc" } },
     }),
     prisma.cleaningTask.findMany({
-      where: { AND: [summaryBase, checkoutCleaningTasks] },
+      where: { AND: [summaryBase, selectedDateCleaningTasks] },
       select: {
         scheduledDate: true,
         status: true,
@@ -165,7 +164,8 @@ export async function listCleaningPage(context: AccessContext, filters: Cleaning
   let urgentCount = 0;
   let flexibleCount = 0;
   let unassignedCount = 0;
-  for (const task of summaryTasks.filter(isCleaningTaskAlignedWithReservation)) {
+  for (const task of summaryTasks) {
+    if (task.status !== "COMPLETED" && !isCleaningTaskAlignedWithReservation(task)) continue;
     const priority = classifyCleaningPriority(
       task.scheduledDate,
       task.room.reservations.map((reservation) => reservation.startDate),
