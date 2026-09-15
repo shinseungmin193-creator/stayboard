@@ -1,7 +1,7 @@
 import "server-only";
 
 import { assertSafePublicHttpsUrl, NetworkSafetyError } from "@/lib/network-safety";
-import { isAllowedListingHostname, validateListingUrl, type ReviewProviderType } from "../domain/listing-provider";
+import { isAllowedListingHostname, isAllowedListingPathname, validateListingUrl, type ReviewProviderType } from "../domain/listing-provider";
 import { parseStructuredReviewData } from "../domain/structured-review-data";
 import type { ReviewCollectionResult } from "../domain/review-data";
 
@@ -63,7 +63,7 @@ export async function fetchStructuredReviewPage(input: {
   catch { throw new ReviewFetchError("INVALID_URL", "등록된 숙소 링크가 해당 플랫폼과 일치하지 않습니다."); }
 
   for (let redirects = 0; redirects <= REVIEW_FETCH_MAX_REDIRECTS; redirects += 1) {
-    if (!isAllowedListingHostname(input.provider, current.hostname)) {
+    if (!isAllowedListingHostname(input.provider, current.hostname) || !isAllowedListingPathname(input.provider, current.pathname)) {
       throw new ReviewFetchError("REDIRECT", "허용되지 않은 도메인으로 이동하는 리디렉션을 차단했습니다.");
     }
     try { await assertSafePublicHttpsUrl(current, signal); }

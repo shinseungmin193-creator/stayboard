@@ -1,3 +1,5 @@
+import type { CleaningTaskStatus } from "@/lib/generated/prisma/enums";
+
 export const CLEANING_STATS_UNSPECIFIED_VALUE = "__UNSPECIFIED__";
 
 export interface CleaningStatsFilters {
@@ -22,6 +24,7 @@ export interface CleaningStatsDailyGroup extends CleaningStatsGroup {
 
 export interface CleaningStatsDetailItem {
   id: string;
+  status: CleaningTaskStatus;
   completedAt: string;
   companyName: string;
   propertyName: string;

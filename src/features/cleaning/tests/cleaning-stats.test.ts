@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import { CLEANING_STATS_UNSPECIFIED_VALUE } from "../cleaning-stats.types";
+import { isCleaningRecordCompleted } from "../domain/cleaning-record-status";
 import { getCleaningStatsPresetRange, parseCleaningStatsRange } from "../domain/cleaning-stats-date";
 import { buildCleaningStatsTaskWhere, sortCleaningStatsGroups } from "../domain/cleaning-stats-policy";
 
@@ -73,4 +74,49 @@ test("날짜별 집계는 Asia/Tokyo SQL aggregate, 상세는 서버 페이지�
   assert.match(repository, /skip: \(safeDetailPage - 1\) \* DETAIL_PAGE_SIZE/);
   assert.match(repository, /take: DETAIL_PAGE_SIZE/);
   assert.match(repository, /_count: \{ select: \{ photos:/);
+});
+
+test("완료 내역 상태는 사진·메모가 아닌 CleaningTask 완료 상태로 판정한다", () => {
+  assert.equal(isCleaningRecordCompleted({
+    status: "COMPLETED",
+    completedAt: "2026-09-01T03:00:00.000Z",
+    photoCount: 0,
+    note: null,
+  }), true);
+  assert.equal(isCleaningRecordCompleted({
+    status: "COMPLETED",
+    completedAt: "2026-09-01T03:00:00.000Z",
+    photoCount: 3,
+    note: null,
+  }), true);
+  assert.equal(isCleaningRecordCompleted({
+    status: "PENDING",
+    completedAt: null,
+    photoCount: 0,
+    note: null,
+  }), false);
+  assert.equal(isCleaningRecordCompleted({
+    status: "IN_PROGRESS",
+    completedAt: "2026-09-01T03:00:00.000Z",
+  }), true);
+});
+
+test("과거 완료 기록은 새로고침 후에도 사진 수와 무관하게 완료로 표시한다", () => {
+  const refreshed = JSON.parse(JSON.stringify({
+    status: "COMPLETED",
+    completedAt: "2026-08-01T03:00:00.000Z",
+    photoCount: 0,
+    note: null,
+  })) as Parameters<typeof isCleaningRecordCompleted>[0];
+  const repository = read("src/features/cleaning/server/cleaning-stats.repository.ts");
+  const page = read("src/app/cleaning/stats/page.tsx");
+  const statusPolicy = read("src/features/cleaning/domain/cleaning-record-status.ts");
+
+  assert.equal(isCleaningRecordCompleted(refreshed), true);
+  assert.match(repository, /select: \{[\s\S]*?id: true,[\s\S]*?status: true,[\s\S]*?completedAt: true/);
+  assert.match(page, /const completed = isCleaningRecordCompleted\(detail\)/);
+  assert.match(page, /completed \? t\("details\.completed"\) : t\("unspecified"\)/);
+  assert.equal(page.match(/data-cleaning-record-status/g)?.length, 1);
+  assert.doesNotMatch(page, /cleanerLabel\(detail\.cleanerName\)/);
+  assert.doesNotMatch(statusPolicy, /photoCount|photos|note|memo/);
 });

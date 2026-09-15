@@ -474,6 +474,7 @@
       "empty": "선택 기간에 완료된 청소가 없습니다.",
       "details": {
         "title": "{name} 완료 내역",
+        "completed": "완료",
         "account": "처리 계정",
         "photos": "사진",
         "note": "메모",

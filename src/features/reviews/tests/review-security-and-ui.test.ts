@@ -38,6 +38,7 @@ test("수동 수집은 SSRF, redirect 재검증, 동시성 제한과 중복 잠�
   const service = readFileSync("src/features/reviews/server/review-sync.service.ts", "utf8");
   assert.match(fetcher, /redirect: "manual"/);
   assert.match(fetcher, /isAllowedListingHostname\(input\.provider, current\.hostname\)/);
+  assert.match(fetcher, /isAllowedListingPathname\(input\.provider, current\.pathname\)/);
   assert.match(fetcher, /assertSafePublicHttpsUrl\(current, signal\)/);
   assert.match(service, /withPostgresAdvisoryLocks/);
   assert.match(service, /runIsolatedReviewSyncBatch/);

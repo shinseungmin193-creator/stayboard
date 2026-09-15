@@ -156,6 +156,7 @@ export async function getCleaningStatsPage(
       where: detailsWhere,
       select: {
         id: true,
+        status: true,
         completedAt: true,
         cleanerName: true,
         completedByName: true,
@@ -188,6 +189,7 @@ export async function getCleaningStatsPage(
     workerOptions,
     details: detailRows.map((task) => ({
       id: task.id,
+      status: task.status,
       completedAt: task.completedAt?.toISOString() ?? "",
       companyName: task.company.name,
       propertyName: task.property.name,

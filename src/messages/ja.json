@@ -474,6 +474,7 @@
       "empty": "選択期間に完了した清掃はありません。",
       "details": {
         "title": "{name}の完了一覧",
+        "completed": "完了",
         "account": "処理アカウント",
         "photos": "写真",
         "note": "メモ",

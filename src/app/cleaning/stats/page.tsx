@@ -9,6 +9,7 @@ import {
   CLEANING_STATS_UNSPECIFIED_VALUE,
   type CleaningStatsFilters,
 } from "@/features/cleaning/cleaning-stats.types";
+import { isCleaningRecordCompleted } from "@/features/cleaning/domain/cleaning-record-status";
 import { getCleaningStatsPresetRange } from "@/features/cleaning/domain/cleaning-stats-date";
 import { getCleaningStatsPage } from "@/features/cleaning/server/cleaning-stats.repository";
 import { cn } from "@/lib/utils";
@@ -207,20 +208,33 @@ export default async function CleaningStatsPage({
           <Link href={statsHref(filters, { detailCleanerName: null, detailDate: null, page: 1 })} className={buttonVariants({ variant: "ghost", size: "sm" })}>{common("close")}</Link>
         </div>
         <div className="grid gap-3">
-          {data.details.map((detail) => <article key={detail.id} className="rounded-xl border bg-card p-4 shadow-sm">
+          {data.details.map((detail) => {
+            const completed = isCleaningRecordCompleted(detail);
+            return <article key={detail.id} className="rounded-xl border bg-card p-4 shadow-sm">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <p className="font-semibold">{detail.propertyName} · {detail.roomName}</p>
                 <p className="mt-1 text-xs text-muted-foreground">{dateTime.format(new Date(detail.completedAt))}</p>
               </div>
-              <span className="shrink-0 rounded-full bg-muted px-2.5 py-1 text-xs font-medium">{cleanerLabel(detail.cleanerName)}</span>
+              <span
+                data-cleaning-record-status={completed ? "completed" : "missing"}
+                className={cn(
+                  "shrink-0 rounded-full px-2.5 py-1 text-xs font-medium",
+                  completed
+                    ? "bg-green-100 text-green-700 dark:bg-green-950/50 dark:text-green-300"
+                    : "bg-muted text-muted-foreground",
+                )}
+              >
+                {completed ? t("details.completed") : t("unspecified")}
+              </span>
             </div>
             <dl className="mt-3 grid grid-cols-[5.5rem_1fr] gap-x-2 gap-y-1.5 text-sm">
               <dt className="text-muted-foreground">{t("details.account")}</dt><dd>{detail.completedByName ?? t("unspecified")}</dd>
               <dt className="text-muted-foreground">{t("details.photos")}</dt><dd>{t("photoCount", { count: detail.photoCount })}</dd>
               <dt className="text-muted-foreground">{t("details.note")}</dt><dd className="whitespace-pre-wrap">{detail.note || t("details.noNote")}</dd>
             </dl>
-          </article>)}
+          </article>;
+          })}
           {!data.details.length && <p className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">{t("details.empty")}</p>}
         </div>
         {data.detailTotalPages > 1 && <nav className="flex items-center justify-center gap-2" aria-label={t("pagination.label")}>
