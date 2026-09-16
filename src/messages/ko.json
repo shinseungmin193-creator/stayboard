@@ -119,9 +119,10 @@
       "apply": "조회"
     },
     "actions": {
-      "refresh": "새로고침",
-      "refreshing": "새로고침 중",
-      "refreshReviews": "리뷰 새로고침",
+      "collectAll": "현재 목록 리뷰 갱신",
+      "collectingAll": "현재 목록 리뷰 갱신 중...",
+      "load": "불러오기",
+      "reload": "다시 불러오기",
       "recentReviews": "최근 리뷰 보기",
       "details": "상세",
       "back": "목록으로",
@@ -132,7 +133,8 @@
     "states": {
       "unregistered": "미등록",
       "notCollected": "아직 리뷰 정보를 불러오지 않았습니다.",
-      "collecting": "수집 중",
+      "collecting": "불러오는 중...",
+      "loadFailed": "불러오기 실패",
       "lastFailed": "마지막 수집에 실패했습니다.",
       "noLinks": "등록된 숙소 링크가 없습니다.",
       "noRooms": "조건에 맞는 숙소가 없습니다.",
@@ -140,6 +142,7 @@
       "providerMissing": "이 플랫폼의 숙소 링크가 등록되지 않았습니다.",
       "noReviewContent": "저장된 리뷰 내용이 없습니다.",
       "noPublicContent": "공개 구조화 데이터에 리뷰 본문이 없거나 아직 수집하지 않았습니다.",
+      "noSummary": "불러오기는 완료됐지만 공개된 별점·리뷰 수 정보가 없습니다.",
       "preservedAfterFailure": "마지막 수집에 실패했습니다. 기존 리뷰 데이터는 유지됩니다.",
       "loadError": "숙소별 리뷰를 표시하지 못했습니다.",
       "loading": "숙소별 리뷰를 불러오는 중입니다."
@@ -151,7 +154,8 @@
       "storedData": "플랫폼별 최근 저장 데이터",
       "page": "{page} / {totalPages}",
       "pagination": "리뷰 숙소 페이지",
-      "providerNavigation": "리뷰 플랫폼"
+      "providerNavigation": "리뷰 플랫폼",
+      "lastCollected": "마지막 불러오기: {date}"
     }
   },
   "reservation": {

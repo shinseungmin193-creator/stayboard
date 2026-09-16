@@ -1,7 +1,7 @@
 "use client";
 
 import { useLocale, useTranslations } from "next-intl";
-import { AlertTriangle, Check, Clock3, WifiOff } from "lucide-react";
+import { AlertTriangle, Check, Clock3, WifiOff, Wrench } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { getProviderVisual } from "@/features/reservations/provider-visuals";
@@ -26,6 +26,7 @@ export function CompactRoomStatusCard({
   const status = getMobileRoomStatusVisual(room, i18n);
   const StatusIcon = status.icon;
   const sync = getMobileSyncLabel(room, i18n);
+  const hasCardAlerts = sync.error || room.activeConflictCount > 0 || room.pendingMemoCount > 0;
   const visibleProviders = room.providers.slice(0, 2);
 
   return (
@@ -98,16 +99,17 @@ export function CompactRoomStatusCard({
         )}
       </div>
 
-      <div className="mx-2.5 mt-auto flex min-w-0 items-center justify-between gap-1 border-t border-current/10 py-1.5 text-[9px] text-muted-foreground">
-        <span className={cn("flex min-w-0 items-center gap-1", sync.error && "font-medium text-destructive")}>
+      {hasCardAlerts && <div className="mx-2.5 mt-auto flex min-w-0 flex-wrap items-center gap-1 border-t border-current/10 py-1.5 text-[9px] text-muted-foreground">
+        {room.pendingMemoCount > 0 && <Badge variant="outline" className="h-5 gap-0.5 border-gray-300 bg-gray-50 px-1 text-[9px] text-gray-800 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200"><Wrench className="size-3" />{i18n("roomStatus.INSPECTION_REQUIRED")} {room.pendingMemoCount}</Badge>}
+        {sync.error && <span className="flex min-w-0 items-center gap-1 font-medium text-destructive">
           <Clock3 className="size-3 shrink-0" /><span className="truncate">{sync.label}</span>
-        </span>
+        </span>}
         {room.activeConflictCount > 0 && (
-          <span className="flex shrink-0 items-center gap-0.5 font-semibold text-destructive">
+          <span className="ml-auto flex shrink-0 items-center gap-0.5 font-semibold text-destructive">
             <AlertTriangle className="size-3" />{room.activeConflictCount}
           </span>
         )}
-      </div>
+      </div>}
     </button>
   );
 }

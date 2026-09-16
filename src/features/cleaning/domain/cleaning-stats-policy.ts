@@ -1,11 +1,41 @@
 import type { Prisma } from "@/lib/generated/prisma/client";
 import { CLEANING_STATS_UNSPECIFIED_VALUE } from "../cleaning-stats.types";
 
+export function getCleaningStatsWorkerName(input: {
+  cleanerName: string | null;
+  completedByName: string | null;
+  completedBy?: { name: string } | null;
+}): string | null {
+  return input.cleanerName?.trim()
+    || input.completedBy?.name.trim()
+    || input.completedByName?.trim()
+    || null;
+}
+
 export function buildCleaningStatsCleanerWhere(value: string | null): Prisma.CleaningTaskWhereInput {
   if (!value) return {};
-  return value === CLEANING_STATS_UNSPECIFIED_VALUE
-    ? { cleanerName: null }
-    : { cleanerName: value };
+  if (value === CLEANING_STATS_UNSPECIFIED_VALUE) {
+    return {
+      AND: [
+        { cleanerName: null },
+        { completedBy: { is: null } },
+        { completedByName: null },
+      ],
+    };
+  }
+  return {
+    OR: [
+      { cleanerName: value },
+      { AND: [{ cleanerName: null }, { completedBy: { is: { name: value } } }] },
+      {
+        AND: [
+          { cleanerName: null },
+          { completedBy: { is: null } },
+          { completedByName: value },
+        ],
+      },
+    ],
+  };
 }
 
 export function buildCleaningStatsTaskWhere(input: {

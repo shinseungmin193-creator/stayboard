@@ -2,7 +2,7 @@ import "server-only";
 
 import { hasPermission, PERMISSIONS, PermissionDeniedError, roomScopeWhere, type AccessContext } from "@/features/access-control";
 import { prisma } from "@/lib/prisma";
-import type { ReviewProviderType } from "../domain/listing-provider";
+import { REVIEW_PROVIDER_TYPES, type ReviewProviderType } from "../domain/listing-provider";
 import type { ReviewListingSummary, ReviewRoomDetail, ReviewRoomPage, ReviewSyncTarget } from "../review.types";
 
 export const REVIEW_LIST_PAGE_SIZE = 30;
@@ -70,7 +70,7 @@ export async function listReviewRooms(context: AccessContext, input: {
         propertyId: true,
         property: { select: { name: true } },
         listings: {
-          where: { isActive: true, provider: { in: ["AIRBNB", "BOOKING", "AGODA"] } },
+          where: { isActive: true, provider: { in: [...REVIEW_PROVIDER_TYPES] } },
           select: {
             id: true,
             provider: true,
@@ -108,7 +108,7 @@ export async function getReviewRoomDetail(context: AccessContext, roomId: string
       name: true,
       property: { select: { name: true } },
       listings: {
-        where: { isActive: true, provider: { in: ["AIRBNB", "BOOKING", "AGODA"] } },
+        where: { isActive: true, provider: { in: [...REVIEW_PROVIDER_TYPES] } },
         select: {
           id: true,
           provider: true,
@@ -140,11 +140,33 @@ export async function findReviewSyncTargets(context: AccessContext, listingIds: 
     where: {
       id: { in: [...new Set(listingIds)] },
       isActive: true,
-      provider: { in: ["AIRBNB", "BOOKING", "AGODA"] },
+      provider: { in: [...REVIEW_PROVIDER_TYPES] },
       room: { AND: [roomScopeWhere(context.scope) ?? {}, { isActive: true, property: { isActive: true } }] },
     },
     select: { id: true, roomId: true, provider: true, listingUrl: true },
     orderBy: [{ roomId: "asc" }, { provider: "asc" }],
   });
   return listings.map((listing) => ({ ...listing, provider: listing.provider as ReviewProviderType }));
+}
+
+export async function findReviewSyncTarget(
+  context: AccessContext,
+  input: { roomId: string; provider: ReviewProviderType },
+): Promise<ReviewSyncTarget | null> {
+  assertSync(context);
+  const listing = await prisma.roomListing.findFirst({
+    where: {
+      roomId: input.roomId,
+      provider: input.provider,
+      isActive: true,
+      room: {
+        AND: [
+          roomScopeWhere(context.scope) ?? {},
+          { isActive: true, property: { isActive: true } },
+        ],
+      },
+    },
+    select: { id: true, roomId: true, provider: true, listingUrl: true },
+  });
+  return listing ? { ...listing, provider: listing.provider as ReviewProviderType } : null;
 }

@@ -119,9 +119,10 @@
       "apply": "表示"
     },
     "actions": {
-      "refresh": "更新",
-      "refreshing": "更新中",
-      "refreshReviews": "レビューを更新",
+      "collectAll": "表示中のレビューを更新",
+      "collectingAll": "表示中のレビューを更新中...",
+      "load": "取得",
+      "reload": "再取得",
       "recentReviews": "最近のレビューを見る",
       "details": "詳細",
       "back": "一覧へ",
@@ -132,7 +133,8 @@
     "states": {
       "unregistered": "未登録",
       "notCollected": "レビュー情報はまだ取得されていません。",
-      "collecting": "取得中",
+      "collecting": "取得中...",
+      "loadFailed": "取得に失敗しました",
       "lastFailed": "前回の取得に失敗しました。",
       "noLinks": "登録された宿泊施設リンクがありません。",
       "noRooms": "条件に一致する宿泊施設がありません。",
@@ -140,6 +142,7 @@
       "providerMissing": "このプラットフォームの宿泊施設リンクは未登録です。",
       "noReviewContent": "保存されたレビュー内容がありません。",
       "noPublicContent": "公開構造化データにレビュー本文がないか、まだ取得されていません。",
+      "noSummary": "取得は完了しましたが、公開された評価・レビュー数の情報がありません。",
       "preservedAfterFailure": "前回の取得に失敗しました。既存のレビューデータは保持されています。",
       "loadError": "宿泊施設別レビューを表示できませんでした。",
       "loading": "宿泊施設別レビューを読み込んでいます。"
@@ -151,7 +154,8 @@
       "storedData": "プラットフォーム別の最新保存データ",
       "page": "{page} / {totalPages}",
       "pagination": "レビュー宿泊施設ページ",
-      "providerNavigation": "レビュープラットフォーム"
+      "providerNavigation": "レビュープラットフォーム",
+      "lastCollected": "最終取得: {date}"
     }
   },
   "reservation": {

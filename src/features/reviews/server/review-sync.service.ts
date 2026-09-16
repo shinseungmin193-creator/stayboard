@@ -155,7 +155,7 @@ async function syncWithLock(target: ReviewSyncTarget, actorUserId: string): Prom
       alreadyRunning: false,
       fetchedReviewCount: reviewsByFingerprint.size,
       newReviewCount,
-      message: "리뷰 정보를 새로고침했습니다.",
+      message: "리뷰 정보를 불러왔습니다.",
     };
   } catch (error) {
     const details = await failLog(log.id, target.provider, error);
@@ -163,23 +163,29 @@ async function syncWithLock(target: ReviewSyncTarget, actorUserId: string): Prom
   }
 }
 
-export async function syncReviewListing(target: ReviewSyncTarget, actorUserId: string): Promise<ReviewSyncResult> {
+export async function collectReviews(input: {
+  target: ReviewSyncTarget;
+  actorUserId: string;
+}): Promise<ReviewSyncResult> {
   try {
-    return await withPostgresAdvisoryLocks([lockKey(target.id)], () => syncWithLock(target, actorUserId));
+    return await withPostgresAdvisoryLocks(
+      [lockKey(input.target.id)],
+      () => syncWithLock(input.target, input.actorUserId),
+    );
   } catch (error) {
     if (error instanceof AdvisoryLockUnavailableError) {
-      return { listingId: target.id, provider: target.provider, success: false, alreadyRunning: true, fetchedReviewCount: 0, newReviewCount: 0, message: "이미 이 숙소 링크의 리뷰를 새로고침하고 있습니다." };
+      return { listingId: input.target.id, provider: input.target.provider, success: false, alreadyRunning: true, fetchedReviewCount: 0, newReviewCount: 0, message: "이미 이 숙소 링크의 리뷰를 불러오고 있습니다." };
     }
     throw error;
   }
 }
 
-export async function syncReviewListings(targets: readonly ReviewSyncTarget[], actorUserId: string) {
+export async function collectReviewListings(targets: readonly ReviewSyncTarget[], actorUserId: string) {
   const results = await runIsolatedReviewSyncBatch({
     targets,
     concurrency: REVIEW_SYNC_CONCURRENCY,
-    worker: (target) => syncReviewListing(target, actorUserId),
-    failure: (target) => ({ listingId: target.id, provider: target.provider, success: false, alreadyRunning: false, fetchedReviewCount: 0, newReviewCount: 0, message: "리뷰 새로고침을 시작하지 못했습니다." } satisfies ReviewSyncResult),
+    worker: (target) => collectReviews({ target, actorUserId }),
+    failure: (target) => ({ listingId: target.id, provider: target.provider, success: false, alreadyRunning: false, fetchedReviewCount: 0, newReviewCount: 0, message: "리뷰 불러오기를 시작하지 못했습니다." } satisfies ReviewSyncResult),
   });
   return {
     results,

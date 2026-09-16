@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createReviewFingerprint, shouldCreateReviewSnapshot } from "../domain/review-data";
+import { getReviewCollectionState } from "../domain/review-collection-state";
 import { parseStructuredReviewData } from "../domain/structured-review-data";
 import { runIsolatedReviewSyncBatch } from "../domain/review-sync-batch";
 
@@ -59,4 +60,38 @@ test("한 Provider 수집 실패가 다른 Provider 결과를 막지 않는다",
     failure: (provider) => `${provider}:FAILED`,
   });
   assert.deepEqual(results, ["AIRBNB:FAILED", "BOOKING:SUCCESS", "AGODA:SUCCESS"]);
+});
+
+const collectionStateFixture = {
+  rating: null,
+  reviewCount: null,
+  collectedAt: null,
+  latestSyncStatus: null,
+  latestSyncStartedAt: null,
+} as const;
+
+test("그란 301처럼 Airbnb 링크만 있고 수집 데이터가 없으면 최초 불러오기 상태다", () => {
+  assert.equal(getReviewCollectionState(collectionStateFixture), "NOT_COLLECTED");
+});
+
+test("리뷰 링크 없음·수집 중·성공·실패 상태를 명확히 구분한다", () => {
+  const now = new Date("2026-09-17T03:00:00.000Z");
+  assert.equal(getReviewCollectionState(undefined, now), "UNREGISTERED");
+  assert.equal(getReviewCollectionState({
+    ...collectionStateFixture,
+    latestSyncStatus: "RUNNING",
+    latestSyncStartedAt: new Date("2026-09-17T02:59:00.000Z"),
+  }, now), "COLLECTING");
+  assert.equal(getReviewCollectionState({
+    ...collectionStateFixture,
+    rating: "4.82",
+    reviewCount: 137,
+    collectedAt: new Date("2026-09-17T02:00:00.000Z"),
+    latestSyncStatus: "SUCCESS",
+  }, now), "COLLECTED");
+  assert.equal(getReviewCollectionState({
+    ...collectionStateFixture,
+    latestSyncStatus: "FAILED",
+    latestSyncStartedAt: new Date("2026-09-17T02:00:00.000Z"),
+  }, now), "FAILED");
 });

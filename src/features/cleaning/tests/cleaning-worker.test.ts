@@ -146,7 +146,8 @@ test("비활성화는 dropdown에서만 제외하며 과거 CleaningTask와 통�
   assert.match(workerRepository, /data: \{ isActive: input\.isActive \}/);
   assert.doesNotMatch(workerRepository, /cleaningTask\.(?:update|delete)/);
   assert.match(statsPolicy, /status: "COMPLETED"/);
-  assert.match(statsRepository, /groupBy\(\{ by: \["cleanerName"\]/);
+  assert.match(statsRepository, /COALESCE\(task\."cleanerName", completed_user\."name", task\."completedByName"\)/);
+  assert.doesNotMatch(statsRepository, /JOIN "CleaningWorker"/);
   assert.doesNotMatch(statsRepository, /cleaningWorkerId/);
 });
 

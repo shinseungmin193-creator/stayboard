@@ -84,7 +84,8 @@ export const ROOM_STATUS_THEME = {
 const OPERATIONAL_STATUS_THEME = {
   NONE: null,
   CLEANING_REQUIRED: "CLEANING_REQUIRED",
-  INSPECTION_REQUIRED: "INSPECTION_REQUIRED",
+  // Inspection is derived from open room memos and rendered as a counted badge.
+  INSPECTION_REQUIRED: null,
 } as const satisfies Record<RoomOperationalStatus, Exclude<RoomOverviewVisualStatus, RoomReservationState> | null>;
 
 export function getRoomStatusThemeStatus(

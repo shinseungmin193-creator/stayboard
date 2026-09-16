@@ -1,7 +1,7 @@
 import { addDays, differenceInCalendarDays } from "date-fns";
 import type { CalendarProviderType, RoomOperationalStatus, SyncStatus } from "@/lib/generated/prisma/enums";
 import { getDashboardTodayRange } from "@/features/dashboard/dashboard-time";
-import { buildRoomOperationalSchedule, calculateRoomOverviewStatus, isValidReservation, selectCurrentReservation, selectNextReservation, sortRoomOverviewCards, summarizeRoomOverview, type RoomOverviewCard, type RoomOverviewReservation, type RoomOverviewStatus } from "../domain/room-overview";
+import { buildRoomOperationalSchedule, calculateRoomOverviewStatus, isValidReservation, matchesRoomOperationalStatus, selectCurrentReservation, selectNextReservation, sortRoomOverviewCards, summarizeRoomOverview, type RoomOverviewCard, type RoomOverviewReservation, type RoomOverviewStatus } from "../domain/room-overview";
 import { findRoomOverviewData, findUpcomingRoomOverviewConflicts } from "../infrastructure/room-overview.repository";
 import { formatRoomDisplayName } from "@/features/rooms/room-display";
 import type { AccessScope } from "@/features/access-control";
@@ -34,6 +34,7 @@ export async function listRoomOverview(filters: RoomOverviewFilters, now = new D
       nextReservationLeadDays: nextReservation ? Math.max(0, differenceInCalendarDays(nextReservation.startDate, todayStart)) : null,
       reservationCount: reservations.filter((item) => item.status !== "CANCELLED" && item.status !== "BLOCKED" && isValidReservation(item)).length,
       activeConflictCount: row.conflicts.length,
+      pendingMemoCount: row._count.roomNotes,
       providers: [...new Set(row.calendarSources.map((source) => source.provider))],
       latestSync: syncs[0] ?? null,
       syncStates,
@@ -45,6 +46,7 @@ export async function listRoomOverview(filters: RoomOverviewFilters, now = new D
   const filteredCards = cards.filter((card) => {
     if (normalizedQuery && !`${card.code} ${card.name} ${card.propertyName}`.toLocaleLowerCase("ko").includes(normalizedQuery)) return false;
     if (filters.status && card.status !== filters.status) return false;
+    if (filters.operationalStatus && !matchesRoomOperationalStatus(card, filters.operationalStatus)) return false;
     if (filters.provider && !card.providers.includes(filters.provider)) return false;
     if (filters.syncStatus && !card.syncStates.some((sync) => sync.status === filters.syncStatus)) return false;
     return true;

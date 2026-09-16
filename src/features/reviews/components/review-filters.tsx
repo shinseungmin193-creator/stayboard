@@ -2,7 +2,7 @@ import { Search } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { REVIEW_PROVIDER_CONFIG, type ReviewProviderType } from "../domain/listing-provider";
-import { ReviewRefreshButton } from "./review-refresh-button";
+import { ReviewBulkCollectButton } from "./review-bulk-collect-button";
 
 export function ReviewFilters({ properties, propertyId, provider, query, listingIds }: {
   properties: Array<{ id: string; name: string; isActive: boolean }>;
@@ -30,6 +30,6 @@ export function ReviewFilters({ properties, propertyId, provider, query, listing
         <span className="flex gap-2"><span className="relative min-w-0 flex-1"><Search className="absolute left-2.5 top-2.5 size-4 text-muted-foreground" /><input name="query" defaultValue={query ?? ""} placeholder={t("reviews.filters.searchPlaceholder")} className="h-9 w-full rounded-md border border-input bg-background pr-2 pl-9 text-sm" /></span><Button type="submit" variant="outline">{t("reviews.filters.apply")}</Button></span>
       </label>
     </form>
-    <ReviewRefreshButton listingIds={listingIds} />
+    <ReviewBulkCollectButton listingIds={listingIds} />
   </div>;
 }

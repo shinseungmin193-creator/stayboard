@@ -5,7 +5,11 @@ import test from "node:test";
 import { CLEANING_STATS_UNSPECIFIED_VALUE } from "../cleaning-stats.types";
 import { isCleaningRecordCompleted } from "../domain/cleaning-record-status";
 import { getCleaningStatsPresetRange, parseCleaningStatsRange } from "../domain/cleaning-stats-date";
-import { buildCleaningStatsTaskWhere, sortCleaningStatsGroups } from "../domain/cleaning-stats-policy";
+import {
+  buildCleaningStatsTaskWhere,
+  getCleaningStatsWorkerName,
+  sortCleaningStatsGroups,
+} from "../domain/cleaning-stats-policy";
 
 const read = (path: string) => readFileSync(path, "utf8");
 const now = new Date("2026-09-01T12:00:00+09:00");
@@ -32,9 +36,9 @@ test("PENDING·IN_PROGRESS·CANCELLED는 제외하고 COMPLETED만 DB 집계한�
   const repository = read("src/features/cleaning/server/cleaning-stats.repository.ts");
   const policy = read("src/features/cleaning/domain/cleaning-stats-policy.ts");
   assert.match(policy, /\{ status: "COMPLETED" \}/);
-  assert.match(repository, /groupBy\(\{ by: \["cleanerName"\], where/);
+  assert.match(repository, /COALESCE\(task\."cleanerName", completed_user\."name", task\."completedByName"\)/);
   assert.match(repository, /COUNT\(\*\)::int/);
-  assert.doesNotMatch(repository, /findMany\([\s\S]{0,200}groupBy\(/);
+  assert.doesNotMatch(repository, /photos[\s\S]{0,120}COUNT\(\*\)|COUNT\(\*\)[\s\S]{0,120}photos/);
 });
 
 test("김철수 2건·박영희 1건·미입력 1건 aggregate 결과를 건수 내림차순으로 유지한다", () => {
@@ -57,23 +61,66 @@ test("미입력·숙소·직원 필터는 DB where에 직접 적용한다", () =
     { status: "COMPLETED" },
     { completedAt: { gte: start, lt: toExclusive } },
     { propertyId: "property-a" },
-    { cleanerName: null },
+    { AND: [
+      { cleanerName: null },
+      { completedBy: { is: null } },
+      { completedByName: null },
+    ] },
   ] });
   const named = buildCleaningStatsTaskWhere({ start, toExclusive, cleanerName: "사토" });
   assert.deepEqual(named, { AND: [
     { status: "COMPLETED" },
     { completedAt: { gte: start, lt: toExclusive } },
-    { cleanerName: "사토" },
+    { OR: [
+      { cleanerName: "사토" },
+      { AND: [{ cleanerName: null }, { completedBy: { is: { name: "사토" } } }] },
+      { AND: [
+        { cleanerName: null },
+        { completedBy: { is: null } },
+        { completedByName: "사토" },
+      ] },
+    ] },
   ] });
 });
 
 test("날짜별 집계는 Asia/Tokyo SQL aggregate, 상세는 서버 페이지네이션과 필요한 관계만 사용한다", () => {
   const repository = read("src/features/cleaning/server/cleaning-stats.repository.ts");
   assert.match(repository, /completedAt" AT TIME ZONE \$\{range\.timeZone\}/);
-  assert.match(repository, /GROUP BY 1, task\."cleanerName"/);
+  assert.match(repository, /GROUP BY 1, 2/);
   assert.match(repository, /skip: \(safeDetailPage - 1\) \* DETAIL_PAGE_SIZE/);
   assert.match(repository, /take: DETAIL_PAGE_SIZE/);
   assert.match(repository, /_count: \{ select: \{ photos:/);
+});
+
+test("완료 직원은 실제 청소 직원명에서 처리 계정으로 fallback하고 사진·메모와 무관하게 집계한다", () => {
+  const records = [
+    { status: "COMPLETED" as const, completedAt: new Date(), cleanerName: null, completedBy: { name: "병진" }, completedByName: "병진", photoCount: 0, note: null },
+    { status: "COMPLETED" as const, completedAt: new Date(), cleanerName: "세로", completedBy: { name: "처리 계정" }, completedByName: "처리 계정", photoCount: 2, note: "완료" },
+    { status: "COMPLETED" as const, completedAt: new Date(), cleanerName: null, completedBy: { name: "신텐직원" }, completedByName: "신텐직원", photoCount: 0, note: null },
+    { status: "COMPLETED" as const, completedAt: new Date(), cleanerName: null, completedBy: null, completedByName: null, photoCount: 0, note: null },
+    { status: "PENDING" as const, completedAt: null, cleanerName: "병진", completedBy: { name: "병진" }, completedByName: "병진", photoCount: 0, note: null },
+    { status: "IN_PROGRESS" as const, completedAt: null, cleanerName: null, completedBy: null, completedByName: null, photoCount: 2, note: null },
+  ];
+  const counts = new Map<string, number>();
+  for (const record of records) {
+    if (!isCleaningRecordCompleted(record)) continue;
+    const workerName = getCleaningStatsWorkerName(record) ?? CLEANING_STATS_UNSPECIFIED_VALUE;
+    counts.set(workerName, (counts.get(workerName) ?? 0) + 1);
+  }
+
+  assert.deepEqual(Object.fromEntries(counts), {
+    "병진": 1,
+    "세로": 1,
+    "신텐직원": 1,
+    [CLEANING_STATS_UNSPECIFIED_VALUE]: 1,
+  });
+  assert.equal([...counts.values()].reduce((sum, count) => sum + count, 0), 4);
+});
+
+test("실제 청소 직원명과 처리 계정이 모두 없을 때만 미입력이다", () => {
+  assert.equal(getCleaningStatsWorkerName({ cleanerName: null, completedBy: { name: "병진" }, completedByName: null }), "병진");
+  assert.equal(getCleaningStatsWorkerName({ cleanerName: null, completedBy: null, completedByName: "과거 처리자" }), "과거 처리자");
+  assert.equal(getCleaningStatsWorkerName({ cleanerName: null, completedBy: null, completedByName: null }), null);
 });
 
 test("완료 내역 상태는 사진·메모가 아닌 CleaningTask 완료 상태로 판정한다", () => {

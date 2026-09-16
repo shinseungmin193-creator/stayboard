@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { buildRoomOperationalSchedule, calculateRoomOverviewStatus, getReservationOperationalDay, getRoomOverviewGuestName, getRoomOverviewStatusLabel, sortRoomOverviewCards, summarizeRoomOverview, type RoomOverviewCard, type RoomOverviewReservation } from "../domain/room-overview";
+import { buildRoomOperationalSchedule, calculateRoomOverviewStatus, getReservationOperationalDay, getRoomOverviewGuestName, getRoomOverviewStatusLabel, matchesRoomOperationalStatus, requiresRoomInspection, sortRoomOverviewCards, summarizeRoomOverview, type RoomOverviewCard, type RoomOverviewReservation } from "../domain/room-overview";
 import { buildCalendarDateRange, buildMobileRoomCalendarSegments, filterMobileRooms, getCalendarRangeStart, groupRoomsForCalendar, moveRoomOverviewDate, parseCalendarRangeDays, parseRoomOverviewDateKey, sortMobileRooms, summarizeMobileRooms } from "../domain/room-overview-mobile";
 import { getRoomOperationalStatusLabel } from "../../rooms/room-operational-status";
 import { AlertTriangle, ArrowDownToLine, ArrowUpFromLine, BedDouble, BrushCleaning, House, Wrench } from "lucide-react";
@@ -41,9 +41,16 @@ test("오늘 체크아웃과 체크인이 겹치는 turnover는 체크아웃 우
 });
 test("예약자 이름이 없으면 가짜 이름을 만들지 않는다", () => { assert.equal(getRoomOverviewGuestName(reservation({ guestName: "Kim" })), "Kim"); assert.equal(getRoomOverviewGuestName(reservation()), "예약자 정보 없음"); assert.equal(getRoomOverviewGuestName(reservation({ status: "BLOCKED" })), "예약자 정보 없음"); assert.equal(getRoomOverviewGuestName(reservation({ provider: "BOOKING" })), "예약자 정보 없음"); });
 
-const card = (overrides: Partial<RoomOverviewCard>): RoomOverviewCard => ({ id: "1", propertyId: "p", propertyName: "세레니테", name: "객실", code: "801", sortOrder: 0, operationalStatus: "NONE", operationalStatusUpdatedAt: null, status: "VACANT", currentReservation: null, nextReservation: null, nextReservationLeadDays: null, reservationCount: 0, activeConflictCount: 0, providers: [], latestSync: null, syncStates: [], reservations: [], ...overrides });
+const card = (overrides: Partial<RoomOverviewCard>): RoomOverviewCard => ({ id: "1", propertyId: "p", propertyName: "세레니테", name: "객실", code: "801", sortOrder: 0, operationalStatus: "NONE", operationalStatusUpdatedAt: null, status: "VACANT", currentReservation: null, nextReservation: null, nextReservationLeadDays: null, reservationCount: 0, activeConflictCount: 0, pendingMemoCount: 0, providers: [], latestSync: null, syncStates: [], reservations: [], ...overrides });
 test("객실은 숙소·sortOrder·객실 코드 순서로 정렬한다", () => { const result = sortRoomOverviewCards([card({ id: "801", code: "801", sortOrder: 2 }), card({ id: "303", code: "303", sortOrder: 1 }), card({ id: "701", code: "701", sortOrder: 2 })]); assert.deepEqual(result.map((item) => item.id), ["303", "701", "801"]); });
-test("자동·수동 상태별 객실 수를 집계한다", () => { const result = summarizeRoomOverview([card({ status: "VACANT" }), card({ id: "2", status: "OCCUPIED", operationalStatus: "CLEANING_REQUIRED" }), card({ id: "3", status: "CONFLICT", operationalStatus: "INSPECTION_REQUIRED" })]); assert.equal(result.total, 3); assert.equal(result.statuses.VACANT, 1); assert.equal(result.statuses.CONFLICT, 1); assert.equal(result.operationalStatuses.CLEANING_REQUIRED, 1); });
+test("자동 상태와 청소 상태·미완료 메모 기반 점검 상태를 집계한다", () => { const result = summarizeRoomOverview([card({ status: "VACANT" }), card({ id: "2", status: "OCCUPIED", operationalStatus: "CLEANING_REQUIRED" }), card({ id: "3", status: "CONFLICT", pendingMemoCount: 2 })]); assert.equal(result.total, 3); assert.equal(result.statuses.VACANT, 1); assert.equal(result.statuses.CONFLICT, 1); assert.equal(result.operationalStatuses.CLEANING_REQUIRED, 1); assert.equal(result.operationalStatuses.INSPECTION_REQUIRED, 1); });
+test("점검 필요는 OPEN 객실 메모 집계 수가 1개 이상일 때만 판정한다", () => {
+  assert.equal(requiresRoomInspection(card({ pendingMemoCount: 0 })), false);
+  assert.equal(requiresRoomInspection(card({ pendingMemoCount: 1 })), true);
+  assert.equal(requiresRoomInspection(card({ pendingMemoCount: 3 })), true);
+  assert.equal(matchesRoomOperationalStatus(card({ pendingMemoCount: 2 }), "INSPECTION_REQUIRED"), true);
+  assert.equal(matchesRoomOperationalStatus(card({ pendingMemoCount: 0, operationalStatus: "INSPECTION_REQUIRED" }), "INSPECTION_REQUIRED"), false);
+});
 test("CONFLICT는 번역 키를 통해 오버부킹으로 표시한다", () => assert.equal(getRoomOverviewStatusLabel("CONFLICT", () => "오버부킹"), "오버부킹"));
 test("수동 운영 상태 표시 문자열을 번역 키로 구분한다", () => {
   const labels = { "roomStatus.NONE": "상태 없음", "roomStatus.CLEANING_REQUIRED": "청소 필요", "roomStatus.INSPECTION_REQUIRED": "점검 필요" } as const;
@@ -79,8 +86,27 @@ test("객실 상태 테마는 7개 상태의 색상·아이콘·다크 모드를
 test("오버부킹과 운영 상태의 표시 우선순위를 유지한다", () => {
   assert.equal(getRoomStatusThemeStatus(card({ status: "CONFLICT", operationalStatus: "CLEANING_REQUIRED" })), "CONFLICT");
   assert.equal(getRoomStatusThemeStatus(card({ status: "OCCUPIED", operationalStatus: "CLEANING_REQUIRED" })), "CLEANING_REQUIRED");
-  assert.equal(getRoomStatusThemeStatus(card({ status: "VACANT", operationalStatus: "INSPECTION_REQUIRED" })), "INSPECTION_REQUIRED");
+  assert.equal(getRoomStatusThemeStatus(card({ status: "VACANT", operationalStatus: "INSPECTION_REQUIRED" })), "VACANT");
   assert.equal(getRoomStatusThemeStatus(card({ status: "CHECK_IN_TODAY" })), "CHECK_IN_TODAY");
+});
+
+test("객실 카드 점검 배지는 OPEN 메모 count를 사용하고 정상 상태 문구는 렌더링하지 않는다", () => {
+  const repository = readFileSync("src/features/room-overview/infrastructure/room-overview.repository.ts", "utf8");
+  const desktopCard = readFileSync("src/features/room-overview/components/room-overview-card.tsx", "utf8");
+  const mobileCard = readFileSync("src/features/room-overview/components/compact-room-status-card.tsx", "utf8");
+
+  assert.match(repository, /roomNotes: \{ some: \{ status: OPEN_ROOM_NOTE_STATUS \} \}/);
+  assert.match(repository, /_count: \{ select: \{ roomNotes: \{ where: \{ status: OPEN_ROOM_NOTE_STATUS \} \} \} \}/);
+  assert.doesNotMatch(repository, /prisma\.roomNote\.(findMany|count)/);
+  assert.match(desktopCard, /card\.pendingMemoCount > 0/);
+  assert.match(desktopCard, /\/room-notes\?propertyId=/);
+  assert.doesNotMatch(desktopCard, /i18n\("sync\.normal"\)/);
+  assert.doesNotMatch(desktopCard, /i18n\("conflict\.none"\)/);
+  assert.match(desktopCard, /sync\.status === "FAILED" \|\| sync\.status === "TIMEOUT"/);
+  assert.match(desktopCard, /card\.activeConflictCount > 0/);
+  assert.match(mobileCard, /room\.pendingMemoCount > 0/);
+  assert.match(mobileCard, /sync\.error/);
+  assert.match(mobileCard, /room\.activeConflictCount > 0/);
 });
 
 test("PC와 모바일 객실 카드는 공통 테마의 Header·Body·Badge·아이콘을 사용한다", () => {

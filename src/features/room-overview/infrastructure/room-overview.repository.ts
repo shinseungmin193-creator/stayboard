@@ -5,13 +5,23 @@ import type { AccessScope } from "@/features/access-control";
 import { roomScopeWhere } from "@/features/access-control";
 import { CALENDAR_PROVIDER_TYPES } from "@/providers/calendar";
 import { buildOperationalReservationWhere } from "@/features/reservations/operational-reservation-where";
+import { OPEN_ROOM_NOTE_STATUS } from "@/features/room-notes/domain/room-note";
 
 export function findRoomOverviewData(input: { propertyId?: string; operationalStatus?: "NONE" | "CLEANING_REQUIRED" | "INSPECTION_REQUIRED"; companyIds?: readonly string[]; accessScope?: AccessScope; from: Date; todayStart: Date; toExclusive: Date }) {
   return prisma.room.findMany({
-    where: { ...(roomScopeWhere(input.accessScope) ?? {}), isActive: true, property: { isActive: true, company: { isActive: true }, companyId: input.companyIds ? { in: [...input.companyIds] } : undefined }, propertyId: input.propertyId, operationalStatus: input.operationalStatus },
+    where: {
+      ...(roomScopeWhere(input.accessScope) ?? {}),
+      isActive: true,
+      property: { isActive: true, company: { isActive: true }, companyId: input.companyIds ? { in: [...input.companyIds] } : undefined },
+      propertyId: input.propertyId,
+      ...(input.operationalStatus === "INSPECTION_REQUIRED"
+        ? { roomNotes: { some: { status: OPEN_ROOM_NOTE_STATUS } } }
+        : { operationalStatus: input.operationalStatus }),
+    },
     select: {
       id: true, propertyId: true, name: true, code: true, sortOrder: true, operationalStatus: true, operationalStatusUpdatedAt: true,
       property: { select: { name: true } },
+      _count: { select: { roomNotes: { where: { status: OPEN_ROOM_NOTE_STATUS } } } },
       reservations: {
         where: { ...buildOperationalReservationWhere(), endDate: { gt: input.from }, startDate: { lt: input.toExclusive } },
         select: { id: true, providerReservationId: true, calendarSourceId: true, guestName: true, provider: true, status: true, startDate: true, endDate: true },

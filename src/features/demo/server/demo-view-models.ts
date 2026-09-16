@@ -35,6 +35,7 @@ function buildDemoCards(now = new Date()) {
       nextReservationLeadDays: nextReservation ? differenceInCalendarDays(nextReservation.startDate, fixture.start) : null,
       reservationCount: reservations.length,
       activeConflictCount,
+      pendingMemoCount: room.id === "demo-room-201" ? 1 : 0,
       providers: ["AIRBNB", "BOOKING", "AGODA"],
       latestSync: { status: "SUCCESS", startedAt: new Date(now.getTime() - 5 * 60 * 1000), completedAt: new Date(now.getTime() - 4 * 60 * 1000) },
       syncStates: [{ provider: "AIRBNB", status: "SUCCESS", startedAt: new Date(now.getTime() - 5 * 60 * 1000), completedAt: new Date(now.getTime() - 4 * 60 * 1000) }],
@@ -51,7 +52,8 @@ export function getDemoRoomOverview(filters: RoomOverviewFilters, now = new Date
     if (filters.propertyId && card.propertyId !== filters.propertyId) return false;
     if (query && !`${card.name} ${card.propertyName}`.toLocaleLowerCase("ko").includes(query)) return false;
     if (filters.status && card.status !== filters.status) return false;
-    if (filters.operationalStatus && card.operationalStatus !== filters.operationalStatus) return false;
+    if (filters.operationalStatus === "INSPECTION_REQUIRED" && card.pendingMemoCount === 0) return false;
+    if (filters.operationalStatus && filters.operationalStatus !== "INSPECTION_REQUIRED" && card.operationalStatus !== filters.operationalStatus) return false;
     if (filters.provider && !card.providers.includes(filters.provider)) return false;
     if (filters.syncStatus && !card.syncStates.some((item) => item.status === filters.syncStatus)) return false;
     return true;

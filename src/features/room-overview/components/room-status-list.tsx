@@ -1,6 +1,6 @@
 ﻿"use client";import { useLocale, useTranslations } from "next-intl";
 
-import { ArrowDown, ArrowUp, Check } from "lucide-react";
+import { ArrowDown, ArrowUp, Check, Wrench } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import type { RoomOverviewCard } from "../domain/room-overview";
@@ -55,7 +55,7 @@ export function RoomStatusList({
           return <button key={room.id} type="button" onClick={() => onActivate(room)} aria-pressed={selectionMode ? selected : undefined} className={cn("grid min-h-14 w-full grid-cols-[minmax(0,1fr)_4.5rem_3.5rem_3.5rem] items-center px-2 text-left outline-none [content-visibility:auto] [contain-intrinsic-size:auto_56px] hover:bg-muted/40 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring", selected && "bg-primary/5")}>
             <span className="flex min-w-0 items-center gap-2">
               {selectionMode && <span className={cn("grid size-4 shrink-0 place-items-center rounded border", selected && "border-primary bg-primary text-primary-foreground")}>{selected && <Check className="size-3" />}</span>}
-              <span className="min-w-0"><strong className="block truncate text-sm leading-4">{room.name}</strong><span className="block truncate text-[9px] text-muted-foreground">{room.propertyName}</span></span>
+              <span className="min-w-0"><strong className="flex items-center gap-1 truncate text-sm leading-4"><span className="truncate">{room.name}</span>{room.pendingMemoCount > 0 && <span className="flex shrink-0 items-center gap-0.5 text-[9px] font-semibold text-gray-700 dark:text-gray-200" aria-label={`${i18n("roomStatus.INSPECTION_REQUIRED")} ${room.pendingMemoCount}`}><Wrench className="size-2.5" />{room.pendingMemoCount}</span>}</strong><span className="block truncate text-[9px] text-muted-foreground">{room.propertyName}</span></span>
             </span>
             <Badge variant="outline" className={cn("mx-auto h-5 max-w-[4.25rem] gap-0.5 px-1 text-[8px]", status.badgeClass)}><StatusIcon aria-hidden="true" className="size-2.5 shrink-0" /><span className="truncate">{status.label}</span></Badge>
             <span className="text-center text-[10px] tabular-nums">{formatMobileRoomDate(reservation?.startDate, localeTag)}</span>

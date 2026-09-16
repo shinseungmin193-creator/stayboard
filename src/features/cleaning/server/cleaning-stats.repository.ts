@@ -21,10 +21,15 @@ import { parseCleaningStatsRange } from "../domain/cleaning-stats-date";
 import {
   buildCleaningStatsCleanerWhere,
   buildCleaningStatsTaskWhere,
+  getCleaningStatsWorkerName,
   sortCleaningStatsGroups,
 } from "../domain/cleaning-stats-policy";
 
 const DETAIL_PAGE_SIZE = 20;
+
+function cleaningStatsWorkerNameSql() {
+  return Prisma.sql`COALESCE(task."cleanerName", completed_user."name", task."completedByName")`;
+}
 
 function buildStatsWhere(
   context: AccessContext,
@@ -47,6 +52,7 @@ function rawStatsConditions(
   context: AccessContext,
   filters: CleaningStatsFilters,
   range: ReturnType<typeof parseCleaningStatsRange>,
+  options: { includeCleaner?: boolean } = {},
 ): Prisma.Sql[] {
   const conditions: Prisma.Sql[] = [
     Prisma.sql`task."status" = 'COMPLETED'::"CleaningTaskStatus"`,
@@ -72,10 +78,10 @@ function rawStatsConditions(
   }
   if (filters.companyId) conditions.push(Prisma.sql`task."companyId" = ${filters.companyId}`);
   if (filters.propertyId) conditions.push(Prisma.sql`task."propertyId" = ${filters.propertyId}`);
-  if (filters.cleanerName === CLEANING_STATS_UNSPECIFIED_VALUE) {
-    conditions.push(Prisma.sql`task."cleanerName" IS NULL`);
-  } else if (filters.cleanerName) {
-    conditions.push(Prisma.sql`task."cleanerName" = ${filters.cleanerName}`);
+  if (options.includeCleaner !== false && filters.cleanerName === CLEANING_STATS_UNSPECIFIED_VALUE) {
+    conditions.push(Prisma.sql`${cleaningStatsWorkerNameSql()} IS NULL`);
+  } else if (options.includeCleaner !== false && filters.cleanerName) {
+    conditions.push(Prisma.sql`${cleaningStatsWorkerNameSql()} = ${filters.cleanerName}`);
   }
   return conditions;
 }
@@ -108,11 +114,11 @@ export async function getCleaningStatsPage(
   if (!hasPermission(context.role, PERMISSIONS.STATISTICS_READ)) throw new PermissionDeniedError();
   const range = parseCleaningStatsRange({ from: filters.from, to: filters.to });
   const where = buildStatsWhere(context, filters, range);
-  const optionWhere = buildStatsWhere(context, filters, range, { includeCleaner: false });
   const detailsWhere = detailWhere(context, filters, range);
   const companyIds = companyScopeIds(context);
   const propertyScope = propertyScopeWhere(context.scope);
   const rawConditions = rawStatsConditions(context, filters, range);
+  const rawOptionConditions = rawStatsConditions(context, filters, range, { includeCleaner: false });
   const detailPage = filters.page;
 
   const [
@@ -125,17 +131,36 @@ export async function getCleaningStatsPage(
     detailTotalCount,
   ] = await Promise.all([
     prisma.cleaningTask.count({ where }),
-    prisma.cleaningTask.groupBy({ by: ["cleanerName"], where, _count: { _all: true } }),
-    prisma.cleaningTask.groupBy({ by: ["cleanerName"], where: optionWhere, _count: { _all: true } }),
+    prisma.$queryRaw<Array<{ cleanerName: string | null; count: number }>>(Prisma.sql`
+      SELECT
+        ${cleaningStatsWorkerNameSql()} AS "cleanerName",
+        COUNT(*)::int AS "count"
+      FROM "CleaningTask" task
+      LEFT JOIN "User" completed_user ON completed_user."id" = task."completedById"
+      WHERE ${Prisma.join(rawConditions, " AND ")}
+      GROUP BY 1
+      ORDER BY 2 DESC, 1 ASC NULLS LAST
+    `),
+    prisma.$queryRaw<Array<{ cleanerName: string | null; count: number }>>(Prisma.sql`
+      SELECT
+        ${cleaningStatsWorkerNameSql()} AS "cleanerName",
+        COUNT(*)::int AS "count"
+      FROM "CleaningTask" task
+      LEFT JOIN "User" completed_user ON completed_user."id" = task."completedById"
+      WHERE ${Prisma.join(rawOptionConditions, " AND ")}
+      GROUP BY 1
+      ORDER BY 2 DESC, 1 ASC NULLS LAST
+    `),
     prisma.$queryRaw<Array<{ date: string; cleanerName: string | null; count: number }>>(Prisma.sql`
       SELECT
         to_char(task."completedAt" AT TIME ZONE ${range.timeZone}, 'YYYY-MM-DD') AS "date",
-        task."cleanerName" AS "cleanerName",
+        ${cleaningStatsWorkerNameSql()} AS "cleanerName",
         COUNT(*)::int AS "count"
       FROM "CleaningTask" task
+      LEFT JOIN "User" completed_user ON completed_user."id" = task."completedById"
       WHERE ${Prisma.join(rawConditions, " AND ")}
-      GROUP BY 1, task."cleanerName"
-      ORDER BY 1 DESC, 3 DESC, task."cleanerName" ASC NULLS LAST
+      GROUP BY 1, 2
+      ORDER BY 1 DESC, 3 DESC, 2 ASC NULLS LAST
     `),
     prisma.company.findMany({
       where: { isActive: true, ...(companyIds ? { id: { in: [...companyIds] } } : {}) },
@@ -173,11 +198,11 @@ export async function getCleaningStatsPage(
     }) : [];
 
   const workerTotals = sortCleaningStatsGroups(workerRows
-    .map((row) => ({ cleanerName: row.cleanerName, count: row._count._all })));
+    .map((row) => ({ cleanerName: row.cleanerName, count: Number(row.count) })));
   const workerOptions = sortCleaningStatsGroups(workerOptionRows
     .map((row) => ({
       cleanerName: row.cleanerName,
-      count: row._count._all,
+      count: Number(row.count),
     })))
     .map(({ cleanerName }) => ({ value: cleanerName ?? CLEANING_STATS_UNSPECIFIED_VALUE, name: cleanerName }));
   return {
@@ -194,7 +219,7 @@ export async function getCleaningStatsPage(
       companyName: task.company.name,
       propertyName: task.property.name,
       roomName: task.room.name,
-      cleanerName: task.cleanerName,
+      cleanerName: getCleaningStatsWorkerName(task),
       completedByName: task.cleanerName === null
         ? task.completedBy?.name ?? task.completedByName
         : task.completedByName ?? task.completedBy?.name ?? null,

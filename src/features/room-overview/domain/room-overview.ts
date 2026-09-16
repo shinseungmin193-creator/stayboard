@@ -48,6 +48,7 @@ export interface RoomOverviewCard {
   nextReservationLeadDays: number | null;
   reservationCount: number;
   activeConflictCount: number;
+  pendingMemoCount: number;
   providers: CalendarProviderType[];
   latestSync: { status: SyncStatus; startedAt: Date; completedAt: Date | null } | null;
   syncStates: Array<{ provider: CalendarProviderType; status: SyncStatus; startedAt: Date; completedAt: Date | null }>;
@@ -135,8 +136,23 @@ export function summarizeRoomOverview(cards: RoomOverviewCard[]) {
   const statuses = Object.fromEntries(Object.keys(ROOM_OVERVIEW_STATUS_META).map((status) => [status, 0])) as Record<RoomOverviewStatus, number>;
   for (const card of cards) statuses[card.status] += 1;
   const operationalStatuses = { NONE: 0, CLEANING_REQUIRED: 0, INSPECTION_REQUIRED: 0 } satisfies Record<RoomOperationalStatus, number>;
-  for (const card of cards) operationalStatuses[card.operationalStatus] += 1;
+  for (const card of cards) {
+    if (card.operationalStatus !== "INSPECTION_REQUIRED") operationalStatuses[card.operationalStatus] += 1;
+    if (requiresRoomInspection(card)) operationalStatuses.INSPECTION_REQUIRED += 1;
+  }
   return { total: cards.length, statuses, operationalStatuses };
+}
+
+export function requiresRoomInspection(room: Pick<RoomOverviewCard, "pendingMemoCount">) {
+  return room.pendingMemoCount > 0;
+}
+
+export function matchesRoomOperationalStatus(
+  room: Pick<RoomOverviewCard, "operationalStatus" | "pendingMemoCount">,
+  status: RoomOperationalStatus,
+) {
+  if (status === "INSPECTION_REQUIRED") return requiresRoomInspection(room);
+  return room.operationalStatus === status;
 }
 
 export function sortRoomOverviewCards(cards: RoomOverviewCard[]) {

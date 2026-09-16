@@ -6,7 +6,7 @@ import { DEFAULT_SIDEBAR_PREFERENCE, getAuthorizedSidebarMenus } from "../../sid
 import { SIDEBAR_MENU_ITEMS } from "../../sidebar-preferences/domain/sidebar-menu";
 import { isPrivateNetworkAddress } from "../../../lib/network-safety";
 
-test("DEVELOPER와 ADMIN만 리뷰 메뉴 및 조회·새로고침 권한을 가진다", () => {
+test("DEVELOPER와 ADMIN만 리뷰 메뉴 및 조회·갱신 권한을 가진다", () => {
   for (const role of ["DEVELOPER", "ADMIN"] as const) {
     assert.equal(hasPermission(role, PERMISSIONS.PROPERTY_REVIEW_READ), true);
     assert.equal(hasPermission(role, PERMISSIONS.PROPERTY_REVIEW_SYNC), true);
@@ -41,6 +41,7 @@ test("수동 수집은 SSRF, redirect 재검증, 동시성 제한과 중복 잠�
   assert.match(fetcher, /isAllowedListingPathname\(input\.provider, current\.pathname\)/);
   assert.match(fetcher, /assertSafePublicHttpsUrl\(current, signal\)/);
   assert.match(service, /withPostgresAdvisoryLocks/);
+  assert.match(service, /collectReviews\(input:/);
   assert.match(service, /runIsolatedReviewSyncBatch/);
   assert.doesNotMatch(service, /listingReview\.delete|reviewSnapshot\.delete/);
 });
@@ -56,4 +57,39 @@ test("리뷰 목록은 데스크톱 테이블과 모바일 카드, Light/Dark �
   assert.match(messages, /아직 리뷰 정보를 불러오지 않았습니다/);
   assert.match(status, /dark:text-amber-300/);
   assert.match(detail, /reviews\.states\.preservedAfterFailure/);
+});
+
+test("등록된 플랫폼 셀은 최초·진행·성공·실패 상태별 단건 불러오기 액션을 제공한다", () => {
+  const list = readFileSync("src/features/reviews/components/review-room-list.tsx", "utf8");
+  const status = readFileSync("src/features/reviews/components/review-summary-status.tsx", "utf8");
+  const button = readFileSync("src/features/reviews/components/review-collect-button.tsx", "utf8");
+  const action = readFileSync("src/features/reviews/review.actions.ts", "utf8");
+  const repository = readFileSync("src/features/reviews/server/review.repository.ts", "utf8");
+  const messages = readFileSync("src/messages/ko.json", "utf8");
+
+  assert.match(list, /ReviewSummaryStatus roomId=\{room\.id\}/);
+  assert.match(status, /if \(!listing\) return[\s\S]*reviews\.states\.unregistered/);
+  assert.match(status, /ReviewCollectButton roomId=\{roomId\} provider=\{listing\.provider\} state=\{state\}/);
+  assert.match(button, /collectReviewsAction\(\{ roomId, provider \}\)/);
+  assert.match(button, /disabled=\{collecting\}/);
+  assert.match(button, /LoaderCircle className="animate-spin"/);
+  assert.match(action, /findReviewSyncTarget\(context, parsed\.data\)/);
+  assert.match(action, /collectReviews\(\{ target, actorUserId: context\.userId \}\)/);
+  assert.match(repository, /roomId: input\.roomId,[\s\S]*provider: input\.provider/);
+  assert.match(messages, /"load": "불러오기"/);
+  assert.match(messages, /"reload": "다시 불러오기"/);
+  assert.match(messages, /"loadFailed": "불러오기 실패"/);
+  assert.match(messages, /"collectAll": "현재 목록 리뷰 갱신"/);
+});
+
+test("Airbnb 단건 불러오기는 Provider registry를 통해 해당 플랫폼만 수집한다", () => {
+  const registry = readFileSync("src/features/reviews/providers/review-provider-registry.ts", "utf8");
+  const providers = readFileSync("src/features/reviews/providers/structured-review-provider.ts", "utf8");
+  const service = readFileSync("src/features/reviews/server/review-sync.service.ts", "utf8");
+  assert.match(registry, /\["AIRBNB", new AirbnbReviewProvider\(\)\]/);
+  assert.match(registry, /\["BOOKING", new BookingReviewProvider\(\)\]/);
+  assert.match(registry, /\["AGODA", new AgodaReviewProvider\(\)\]/);
+  assert.match(providers, /class AirbnbReviewProvider extends StructuredReviewProvider/);
+  assert.match(service, /getReviewProvider\(target\.provider\)\.fetch/);
+  assert.doesNotMatch(service, /getReviewProvider\("AIRBNB"\)/);
 });

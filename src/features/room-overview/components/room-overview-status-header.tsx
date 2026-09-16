@@ -43,7 +43,8 @@ export function RoomOverviewStatusHeader({
   const [operationalStatus, setOperationalStatus] = useState(initialOperationalStatus);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
-  const themeStatus = getRoomStatusThemeStatus({ status: reservationState, operationalStatus });
+  const displayedOperationalStatus = operationalStatus === "INSPECTION_REQUIRED" ? "NONE" : operationalStatus;
+  const themeStatus = getRoomStatusThemeStatus({ status: reservationState, operationalStatus: displayedOperationalStatus });
   const theme = ROOM_STATUS_THEME[themeStatus];
   const ThemeIcon = theme.icon;
   const themeLabel = i18n(theme.labelKey);
@@ -89,13 +90,13 @@ export function RoomOverviewStatusHeader({
           <span className="truncate">{themeLabel}</span>
         </span>
         <span className="flex min-w-0 items-center gap-1.5">
-          {operationalStatus === "NONE" ? (
+          {displayedOperationalStatus === "NONE" ? (
             <span data-room-overview-next-reservation className="truncate text-[10px] font-medium opacity-80 xl:text-xs">
               {assistiveLabel}
             </span>
           ) : (
             <Badge variant="outline" className={cn("h-5 px-1.5 text-[9px] xl:rounded-md xl:text-[10px]", theme.badgeClass)}>
-              {i18n(`roomStatus.${operationalStatus}`)}
+              {i18n(`roomStatus.${displayedOperationalStatus}`)}
             </Badge>
           )}
           {!canUpdate ? (
@@ -111,10 +112,10 @@ export function RoomOverviewStatusHeader({
         <DropdownMenuGroup>
           <DropdownMenuLabel>{i18n("auto.m0484")}</DropdownMenuLabel>
           <DropdownMenuSeparator />
-          {ROOM_OPERATIONAL_STATUS_VALUES.map((status) => (
+          {ROOM_OPERATIONAL_STATUS_VALUES.filter((status) => status !== "INSPECTION_REQUIRED").map((status) => (
             <DropdownMenuItem key={status} disabled={pending} onClick={() => update(status)}>
               {i18n(`roomStatus.${status}`)}
-              {operationalStatus === status && <Check className="ml-auto size-4" />}
+              {displayedOperationalStatus === status && <Check className="ml-auto size-4" />}
             </DropdownMenuItem>
           ))}
         </DropdownMenuGroup>

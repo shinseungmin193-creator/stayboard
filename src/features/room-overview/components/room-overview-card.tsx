@@ -1,5 +1,6 @@
 ﻿import { useTranslations } from "next-intl";import Link from "next/link";
-import { AlertTriangle, ArrowUpRight, CalendarDays, Clock3 } from "lucide-react";
+import { AlertTriangle, ArrowUpRight, CalendarDays, Clock3, Wrench } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import type { RoomOverviewCard as RoomOverviewCardData } from "../domain/room-overview";
@@ -16,15 +17,22 @@ import { getZonedDateInput } from "@/lib/zoned-date";
 
 
 const footerButtonClassName = "min-h-10 rounded-none px-1 text-xs xl:h-9 xl:min-h-9 xl:text-sm xl:[&_svg:not([class*='size-'])]:size-3.5";
+type RoomSyncState = RoomOverviewCardData["syncStates"][number];
 
-export function RoomOverviewCard({ card, canUpdateOperationalStatus = true }: {card: RoomOverviewCardData;canUpdateOperationalStatus?: boolean;}) {const i18n = useTranslations();const syncLabel = { RUNNING: i18n("sync.statuses.RUNNING"), SUCCESS: i18n("sync.normal"), FAILED: i18n("sync.failed"), TIMEOUT: i18n("sync.delayed") } as const;
+function isSyncAlert(sync: RoomSyncState): sync is RoomSyncState & { status: "FAILED" | "TIMEOUT" } {
+  return sync.status === "FAILED" || sync.status === "TIMEOUT";
+}
+
+export function RoomOverviewCard({ card, canUpdateOperationalStatus = true }: {card: RoomOverviewCardData;canUpdateOperationalStatus?: boolean;}) {const i18n = useTranslations();const syncLabel = { FAILED: i18n("sync.failed"), TIMEOUT: i18n("sync.delayed") } as const;
   const themeStatus = getRoomStatusThemeStatus(card);
   const theme = ROOM_STATUS_THEME[themeStatus];
   const reservation = card.currentReservation ?? card.nextReservation;
   const guestName = reservation ? getReservationDisplayName(reservation, "") || null : null;
   const currentProvider = card.currentReservation?.provider ?? null;
-  const syncAlert = card.syncStates.filter((sync) => sync.status === "FAILED" || sync.status === "TIMEOUT").sort((a, b) => b.startedAt.getTime() - a.startedAt.getTime())[0];
+  const syncAlert = card.syncStates.filter(isSyncAlert).sort((a, b) => b.startedAt.getTime() - a.startedAt.getTime())[0];
+  const hasCardAlerts = Boolean(syncAlert || card.activeConflictCount || card.pendingMemoCount);
   const reservationsHref = `/reservations?roomId=${card.id}`;
+  const roomNotesHref = `/room-notes?propertyId=${card.propertyId}&roomId=${card.id}`;
   const currentHref = reservation ? `${reservationsHref}&from=${getZonedDateInput(reservation.startDate)}&to=${getZonedDateInput(reservation.endDate)}` : reservationsHref;
   return (
     <Card
@@ -59,10 +67,11 @@ export function RoomOverviewCard({ card, canUpdateOperationalStatus = true }: {c
       </CardHeader>
       <CardContent className="flex flex-col gap-2.5 py-2.5">
         {reservation ? <RoomOverviewGuestInfo reservation={reservation} guestName={guestName} reservationCount={card.reservationCount} isNextReservation={!card.currentReservation} /> : null}
-        <div className="flex items-center justify-between gap-2 border-t pt-1.5 text-[10px] text-muted-foreground xl:text-xs">
-          <span data-room-overview-sync-warning={syncAlert ? true : undefined} className={cn("flex min-w-0 items-center gap-1", syncAlert && "font-medium text-foreground/80")}><Clock3 className={cn("size-3 shrink-0 xl:size-3.5", syncAlert && "text-destructive")} /><span className="truncate">{syncAlert ? `${getProviderLabel(syncAlert.provider, i18n)} ${syncLabel[syncAlert.status]}` : card.latestSync ? syncLabel[card.latestSync.status] : i18n("sync.noHistory")}</span></span>
-          <span className={cn("flex shrink-0 items-center gap-1", card.activeConflictCount && "font-medium text-foreground/80")}>{card.activeConflictCount ? <><AlertTriangle className="size-3 text-destructive" />{i18n("conflict.count", { count: card.activeConflictCount })}</> : <span data-room-overview-no-conflict>{i18n("conflict.none")}</span>}</span>
-        </div>
+        {hasCardAlerts && <div className="flex flex-wrap items-center gap-1.5 border-t pt-1.5 text-[10px] text-muted-foreground xl:text-xs">
+          {card.pendingMemoCount > 0 && <Link href={roomNotesHref} aria-label={`${i18n("roomStatus.INSPECTION_REQUIRED")} ${card.pendingMemoCount}`} className="rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring"><Badge variant="outline" className={cn("h-5 gap-1 px-1.5 text-[9px] xl:text-[10px]", ROOM_STATUS_THEME.INSPECTION_REQUIRED.badgeClass)}><Wrench className="size-3" />{i18n("roomStatus.INSPECTION_REQUIRED")} {card.pendingMemoCount}</Badge></Link>}
+          {syncAlert && <span data-room-overview-sync-warning className="flex min-w-0 items-center gap-1 font-medium text-destructive"><Clock3 className="size-3 shrink-0 xl:size-3.5" /><span className="truncate">{getProviderLabel(syncAlert.provider, i18n)} {syncLabel[syncAlert.status]}</span></span>}
+          {card.activeConflictCount > 0 && <span className="ml-auto flex shrink-0 items-center gap-1 font-medium text-destructive"><AlertTriangle className="size-3" />{i18n("conflict.count", { count: card.activeConflictCount })}</span>}
+        </div>}
       </CardContent>
       <CardFooter data-room-overview-footer className={cn("grid grid-cols-3 gap-0 bg-transparent p-0", styles.actionBar)}>
         <Button nativeButton={false} render={<Link href={currentHref} />} variant="ghost" size="xs" className={footerButtonClassName}>{i18n("common.details")}<ArrowUpRight /></Button>

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { differenceInCalendarDays, format } from "date-fns";
-import { AlertTriangle, ArrowUpRight, CalendarDays, Clock3, List, WifiOff } from "lucide-react";
+import { AlertTriangle, ArrowUpRight, CalendarDays, Clock3, List, WifiOff, Wrench } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -38,6 +38,7 @@ export function RoomDetailContent({ room, canSync }: {room: RoomOverviewCard;can
     </section>
 
     {room.activeConflictCount > 0 && <div className="mx-4 flex items-center gap-2 rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-xs font-medium text-destructive"><AlertTriangle className="size-4" />{i18n("reservation.overbooking")}{room.activeConflictCount}{i18n("auto.m0471")}</div>}
+    {room.pendingMemoCount > 0 && <Button nativeButton={false} render={<Link href={`/room-notes?propertyId=${room.propertyId}&roomId=${room.id}`} />} variant="outline" className="mx-4 justify-start border-gray-300 bg-gray-50 text-gray-800 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200"><Wrench />{i18n("roomStatus.INSPECTION_REQUIRED")} {room.pendingMemoCount}</Button>}
 
     <section className="min-h-0 space-y-2 px-4" aria-labelledby="room-detail-reservations">
       <h3 id="room-detail-reservations" className="text-xs font-semibold">{i18n("auto.m0250")}</h3>
