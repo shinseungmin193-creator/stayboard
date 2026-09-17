@@ -1,6 +1,7 @@
 import type { CalendarProviderType, ReservationStatus, RoomOperationalStatus, SyncStatus } from "@/lib/generated/prisma/enums";
 import { getReservationDisplayName } from "../../reservations/reservation-display";
 import { ACTIVE_OTA_RESERVATION_STATUSES } from "../../reservations/reservation.constants";
+import type { ReservationConflictPeer } from "../../reservation-conflicts/domain/reservation-conflict";
 
 export type RoomReservationState = "VACANT" | "CHECK_IN_TODAY" | "OCCUPIED" | "CHECK_OUT_TODAY" | "CONFLICT";
 export type RoomOverviewStatus = RoomReservationState;
@@ -31,6 +32,7 @@ export interface RoomOverviewReservation {
   status: ReservationStatus;
   startDate: Date;
   endDate: Date;
+  activeConflicts: ReservationConflictPeer[];
 }
 
 export interface RoomOverviewCard {

@@ -8,6 +8,7 @@ import { roomScopeWhere } from "@/features/access-control";
 import { CALENDAR_PROVIDER_TYPES } from "@/providers/calendar";
 import { buildOperationalReservationWhere } from "@/features/reservations/operational-reservation-where";
 import { buildRoomStatusReservationWhere } from "./room-status-calendar";
+import { getReservationConflictPeers, isCurrentReservationConflict } from "@/features/reservation-conflicts/domain/reservation-conflict";
 
 export async function listRoomStatusCalendar(input: {
   propertyId?: string;
@@ -33,6 +34,20 @@ export async function listRoomStatusCalendar(input: {
         select: { id: true, name: true, provider: true },
         orderBy: [{ provider: "asc" }, { name: "asc" }],
       },
+      conflicts: {
+        where: {
+          status: "ACTIVE",
+          overlapStart: { lt: input.rangeEnd },
+          overlapEnd: { gt: input.rangeStart },
+          reservationA: buildOperationalReservationWhere(),
+          reservationB: buildOperationalReservationWhere(),
+        },
+        select: {
+          id: true,
+          reservationA: { select: { id: true, roomId: true, guestName: true, provider: true, status: true, startDate: true, endDate: true } },
+          reservationB: { select: { id: true, roomId: true, guestName: true, provider: true, status: true, startDate: true, endDate: true } },
+        },
+      },
       reservations: {
         where: buildRoomStatusReservationWhere(input),
         select: {
@@ -45,8 +60,6 @@ export async function listRoomStatusCalendar(input: {
           provider: true,
           status: true,
           calendarSource: { select: { name: true } },
-          conflictsAsA: { where: { status: "ACTIVE", reservationB: buildOperationalReservationWhere() }, select: { id: true }, take: 1 },
-          conflictsAsB: { where: { status: "ACTIVE", reservationA: buildOperationalReservationWhere() }, select: { id: true }, take: 1 },
         },
         orderBy: [{ startDate: "asc" }, { endDate: "asc" }],
       },
@@ -59,17 +72,21 @@ export async function listRoomStatusCalendar(input: {
     ],
   });
 
-  return rooms.map(({ property, calendarSources, reservations, ...room }) => ({
-    ...room,
-    name: formatRoomDisplayName(room),
-    propertyName: property.name,
-    sources: calendarSources,
-    reservations: reservations.map(
-      ({ calendarSource, conflictsAsA, conflictsAsB, ...reservation }) => ({
-        ...reservation,
-        calendarSourceName: calendarSource.name,
-        hasActiveConflict: conflictsAsA.length > 0 || conflictsAsB.length > 0,
+  return rooms.map(({ property, calendarSources, conflicts, reservations, ...room }) => {
+    const actualConflicts = conflicts.filter(isCurrentReservationConflict);
+    return {
+      ...room,
+      name: formatRoomDisplayName(room),
+      propertyName: property.name,
+      sources: calendarSources,
+      reservations: reservations.map(({ calendarSource, ...reservation }) => {
+        const activeConflicts = getReservationConflictPeers(reservation.id, actualConflicts);
+        return {
+          ...reservation,
+          calendarSourceName: calendarSource.name,
+          activeConflicts,
+        };
       }),
-    ),
-  }));
+    };
+  });
 }

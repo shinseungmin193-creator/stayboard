@@ -332,7 +332,8 @@
     "active": "対応中のオーバーブッキング",
     "activeNone": "対応中のオーバーブッキングはありません。",
     "empty": "条件に一致するオーバーブッキングはありません",
-    "count": "オーバーブッキング {count}件"
+    "count": "オーバーブッキング {count}件",
+    "overlapDescription": "ほかの予約と期間が重複しています。"
   },
   "provider": {
     "other": "その他",

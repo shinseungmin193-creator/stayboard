@@ -15,6 +15,17 @@ export interface RoomStatusCalendarRange {
   rangeEnd: Date;
 }
 
+export interface RoomStatusReservationPlacement {
+  startDateInput: string;
+  endDateInput: string;
+  leftDays: number;
+  durationDays: number;
+}
+
+function differenceInDateInputs(left: string, right: string) {
+  return (Date.parse(`${left}T00:00:00Z`) - Date.parse(`${right}T00:00:00Z`)) / 86_400_000;
+}
+
 function isMonthInput(value: string | null | undefined): value is string {
   if (!value || !/^\d{4}-(0[1-9]|1[0-2])$/.test(value)) return false;
   const [year, month] = value.split("-").map(Number);
@@ -58,4 +69,17 @@ export function isReservationVisibleInRoomStatusRange(
       viewStart: range.rangeStart,
       viewEnd: range.rangeEnd,
     });
+}
+
+export function getRoomStatusReservationPlacement(
+  reservation: { startDate: Date; endDate: Date },
+  rangeStart: string,
+  dayCount: number,
+): RoomStatusReservationPlacement | null {
+  const startDateInput = getZonedDateInput(reservation.startDate, ROOM_STATUS_TIME_ZONE);
+  const endDateInput = getZonedDateInput(reservation.endDate, ROOM_STATUS_TIME_ZONE);
+  const leftDays = Math.max(0, differenceInDateInputs(startDateInput, rangeStart));
+  const endDays = Math.min(dayCount, differenceInDateInputs(endDateInput, rangeStart));
+  if (endDays <= 0 || leftDays >= dayCount || endDays <= leftDays) return null;
+  return { startDateInput, endDateInput, leftDays, durationDays: endDays - leftDays };
 }

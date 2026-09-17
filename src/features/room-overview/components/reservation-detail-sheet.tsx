@@ -28,7 +28,7 @@ export function ReservationDetailSheet({ room, reservation, canSync, open, onOpe
   return <Sheet open={open} onOpenChange={onOpenChange}>
     <SheetContent side="bottom" className="h-[84dvh] max-h-[84dvh] gap-0 overflow-hidden p-0" aria-label={i18n("auto.m0418")}>
       <SheetHeader className="border-b px-4 py-4 pr-12 text-left">
-        <div className="flex items-center gap-2"><Badge variant="outline" className={provider.className}>{getProviderLabel(reservation.provider, i18n)}</Badge>{room.activeConflictCount > 0 && <Badge variant="destructive"><AlertTriangle />{i18n("reservation.overbooking")}</Badge>}</div>
+        <div className="flex items-center gap-2"><Badge variant="outline" className={provider.className}>{getProviderLabel(reservation.provider, i18n)}</Badge>{reservation.activeConflicts.length > 0 && <Badge variant="destructive"><AlertTriangle />{i18n("reservation.overbooking")}</Badge>}</div>
         <SheetTitle className="text-lg font-bold">{room.name}</SheetTitle>
         <SheetDescription>{room.propertyName}{i18n("auto.m0419")}</SheetDescription>
       </SheetHeader>
@@ -45,7 +45,7 @@ export function ReservationDetailSheet({ room, reservation, canSync, open, onOpe
 
         <section className="space-y-1.5" aria-labelledby="reservation-provider-id"><h3 id="reservation-provider-id" className="text-xs font-semibold">{i18n("auto.m0466")}</h3><p className="break-all rounded-lg border bg-muted/25 p-2.5 font-mono text-[11px] text-muted-foreground">{reservation.providerReservationId?.trim() || i18n("auto.m0400")}</p></section>
 
-        {room.activeConflictCount > 0 && <div className="flex items-center gap-2 rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-xs font-medium text-destructive"><AlertTriangle className="size-4" />{i18n("auto.m0467")}</div>}
+        {reservation.activeConflicts.length > 0 && <div className="space-y-2 rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-xs text-destructive"><p className="flex items-center gap-2 font-semibold"><AlertTriangle className="size-4" />{i18n("conflict.label")}</p><p>{i18n("conflict.overlapDescription")}</p><ul className="space-y-1">{reservation.activeConflicts.map((peer) => <li key={peer.conflictId} className="font-medium">{getProviderLabel(peer.provider, i18n)} {format(peer.startDate, "yyyy-MM-dd")}–{format(peer.endDate, "yyyy-MM-dd")}</li>)}</ul></div>}
 
         <section className="space-y-2" aria-labelledby="same-room-reservations">
           <h3 id="same-room-reservations" className="text-xs font-semibold">{i18n("auto.m0468")}</h3>

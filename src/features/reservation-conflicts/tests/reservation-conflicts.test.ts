@@ -2,12 +2,32 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { hasPermission, PERMISSIONS } from "../../access-control/domain/access-control";
-import { calculateOverlapRange, doReservationRangesOverlap, findReservationConflictPairs, isValidReservationRange, normalizeConflictPair, type ConflictCandidate } from "../domain/reservation-conflict";
+import { calculateOverlapRange, doReservationRangesOverlap, findReservationConflictPairs, getReservationConflictPeers, isCurrentReservationConflict, isValidReservationRange, normalizeConflictPair, type ConflictCandidate, type StoredReservationConflict } from "../domain/reservation-conflict";
 import { classifyConflicts } from "../domain/classify-conflicts";
 import { getReservationConflictTodayStart, isPastReservationConflict } from "../domain/reservation-conflict-dismissal";
 const candidate = (id: string, start: string, end: string, overrides: Partial<ConflictCandidate> = {}): ConflictCandidate => ({ id, roomId: "room", startDate: new Date(start), endDate: new Date(end), status: "CONFIRMED", ...overrides });
+const storedConflict = (left: ConflictCandidate, right: ConflictCandidate): StoredReservationConflict => ({
+  id: "conflict",
+  reservationA: { ...left, guestName: null, provider: "AIRBNB" },
+  reservationB: { ...right, guestName: null, provider: "BOOKING" },
+});
 test("겹치는 예약과 실제 overlap 범위를 계산한다", () => { const a = candidate("b","2026-01-01","2026-01-05"); const b = candidate("a","2026-01-03","2026-01-07"); assert.equal(doReservationRangesOverlap(a,b),true); assert.deepEqual(normalizeConflictPair(a.id,b.id),["a","b"]); assert.deepEqual(calculateOverlapRange(a,b),{ overlapStart:new Date("2026-01-03"), overlapEnd:new Date("2026-01-05") }); });
 test("비충돌 경계와 제외 조건을 처리한다", () => { const a = candidate("a","2026-01-01","2026-01-03"); assert.equal(doReservationRangesOverlap(a,candidate("b","2026-01-03","2026-01-05")),false); assert.equal(doReservationRangesOverlap(a,candidate("a","2026-01-02","2026-01-04")),false); assert.equal(doReservationRangesOverlap(a,candidate("b","2026-01-02","2026-01-04",{status:"CANCELLED"})),false); assert.equal(doReservationRangesOverlap(a,candidate("b","2026-01-02","2026-01-04",{roomId:"other"})),false); assert.equal(isValidReservationRange(candidate("bad","invalid","2026-01-04")),false); assert.equal(isValidReservationRange(candidate("bad","2026-01-04","2026-01-04")),false); });
+test("저장된 ACTIVE 충돌도 현재 예약 기간이 실제로 겹칠 때만 경고 상대를 반환한다", () => {
+  const target = candidate("target", "2026-09-15", "2026-09-17");
+  const turnover = storedConflict(target, candidate("turnover", "2026-09-17", "2026-09-20"));
+  const overlapping = storedConflict(target, candidate("overlap", "2026-09-16", "2026-09-20"));
+  assert.equal(isCurrentReservationConflict(turnover), false);
+  assert.deepEqual(getReservationConflictPeers(target.id, [turnover]), []);
+  assert.equal(isCurrentReservationConflict(overlapping), true);
+  assert.deepEqual(getReservationConflictPeers(target.id, [overlapping]).map((peer) => peer.reservationId), ["overlap"]);
+});
+test("중복된 자기 예약과 취소·다른 객실의 stale 충돌은 UI 경고 대상에서 제외한다", () => {
+  const target = candidate("target", "2026-09-15", "2026-09-18");
+  assert.equal(isCurrentReservationConflict(storedConflict(target, candidate("target", "2026-09-16", "2026-09-20"))), false);
+  assert.equal(isCurrentReservationConflict(storedConflict(target, candidate("cancelled", "2026-09-16", "2026-09-20", { status: "CANCELLED" }))), false);
+  assert.equal(isCurrentReservationConflict(storedConflict(target, candidate("other-room", "2026-09-16", "2026-09-20", { roomId: "other" }))), false);
+});
 test("Sweep Line으로 다중 충돌을 중복 없이 찾는다", () => { const pairs = findReservationConflictPairs([candidate("a","2026-01-01","2026-01-05"),candidate("b","2026-01-02","2026-01-04"),candidate("c","2026-01-03","2026-01-06")]); assert.deepEqual(pairs.map((p)=>[p.reservationAId,p.reservationBId]),[["a","b"],["a","c"],["b","c"]]); });
 test("신규·유지·복구·해제 충돌을 분류한다", () => { const pair = findReservationConflictPairs([candidate("a","2026-01-01","2026-01-05"),candidate("b","2026-01-02","2026-01-04")])[0]; const missing = { id:"missing",status:"ACTIVE" as const,...pair,reservationAId:"c",reservationBId:"d" }; const resolved = { id:"resolved",status:"RESOLVED" as const,...pair }; const result = classifyConflicts([missing,resolved],[pair,pair]); assert.equal(result.create.length,0); assert.equal(result.refresh.length,1); assert.equal(result.refresh[0].reactivate,true); assert.deepEqual(result.resolveIds,["missing"]); });
 test("신규 충돌 생성과 기존 ACTIVE 유지를 분류한다", () => { const pair = findReservationConflictPairs([candidate("a","2026-01-01","2026-01-05"),candidate("b","2026-01-02","2026-01-04")])[0]; assert.equal(classifyConflicts([], [pair,pair]).create.length,1); const maintained = classifyConflicts([{id:"active",status:"ACTIVE",...pair}],[pair]); assert.equal(maintained.refresh.length,1); assert.equal(maintained.refresh[0].reactivate,false); assert.equal(maintained.resolveIds.length,0); });

@@ -9,7 +9,7 @@ import { getRoomStatusThemeStatus, ROOM_STATUS_THEME } from "../room-overview-vi
 
 const todayStart = new Date("2026-07-24T00:00:00+09:00");
 const todayEnd = new Date("2026-07-25T00:00:00+09:00");
-const reservation = (overrides: Partial<RoomOverviewReservation> = {}): RoomOverviewReservation => ({ id: "r1", guestName: null, provider: "AIRBNB", status: "CONFIRMED", startDate: new Date("2026-07-26T00:00:00+09:00"), endDate: new Date("2026-07-28T00:00:00+09:00"), ...overrides });
+const reservation = (overrides: Partial<RoomOverviewReservation> = {}): RoomOverviewReservation => ({ id: "r1", guestName: null, provider: "AIRBNB", status: "CONFIRMED", startDate: new Date("2026-07-26T00:00:00+09:00"), endDate: new Date("2026-07-28T00:00:00+09:00"), activeConflicts: [], ...overrides });
 const status = (reservations: RoomOverviewReservation[], activeConflictCount = 0) => calculateRoomOverviewStatus({ reservations, activeConflictCount, todayStart, todayEnd });
 
 test("예약이 없거나 미래 예약만 있으면 VACANT다", () => { assert.equal(status([]), "VACANT"); assert.equal(status([reservation()]), "VACANT"); });
@@ -172,16 +172,32 @@ test("모바일 목록 정렬은 객실·숙소·상태·체크인·체크아웃
 });
 
 test("7일 모바일 캘린더는 예약을 범위에 맞춰 자르고 취소·차단 예약을 제외한다", () => {
+  const peer = { conflictId: "conflict-1", reservationId: "peer", guestName: null, provider: "BOOKING" as const, startDate: new Date("2026-07-26T00:00:00+09:00"), endDate: new Date("2026-07-28T00:00:00+09:00") };
   const room = card({
     activeConflictCount: 1,
     reservations: [
-      reservation({ id: "visible", startDate: new Date("2026-07-25T00:00:00+09:00"), endDate: new Date("2026-07-29T00:00:00+09:00") }),
+      reservation({ id: "visible", startDate: new Date("2026-07-25T00:00:00+09:00"), endDate: new Date("2026-07-29T00:00:00+09:00"), activeConflicts: [peer] }),
       reservation({ id: "cancelled", status: "CANCELLED", startDate: new Date("2026-07-27T00:00:00+09:00"), endDate: new Date("2026-07-28T00:00:00+09:00") }),
     ],
   });
   const segments = buildMobileRoomCalendarSegments(room, "2026-07-27", 7);
   assert.equal(segments.length, 1);
   assert.deepEqual({ id: segments[0].id, leftDays: segments[0].leftDays, durationDays: segments[0].durationDays, hasConflict: segments[0].hasConflict }, { id: "visible", leftDays: 0, durationDays: 2, hasConflict: true });
+});
+
+test("객실에 다른 충돌이 있어도 실제 충돌 상대가 없는 예약 막대는 빨갛게 표시하지 않는다", () => {
+  const peer = { conflictId: "conflict-1", reservationId: "peer", guestName: null, provider: "AGODA" as const, startDate: new Date("2026-07-28T00:00:00+09:00"), endDate: new Date("2026-07-31T00:00:00+09:00") };
+  const segments = buildMobileRoomCalendarSegments(card({
+    activeConflictCount: 1,
+    reservations: [
+      reservation({ id: "normal", startDate: new Date("2026-07-27T00:00:00+09:00"), endDate: new Date("2026-07-28T00:00:00+09:00") }),
+      reservation({ id: "conflicting", startDate: new Date("2026-07-28T00:00:00+09:00"), endDate: new Date("2026-08-01T00:00:00+09:00"), activeConflicts: [peer] }),
+    ],
+  }), "2026-07-27", 7);
+  assert.deepEqual(segments.map(({ id, hasConflict }) => ({ id, hasConflict })), [
+    { id: "normal", hasConflict: false },
+    { id: "conflicting", hasConflict: true },
+  ]);
 });
 
 test("모바일 타임라인은 체크아웃 날짜를 숙박 막대에 포함하지 않는다", () => {

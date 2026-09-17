@@ -5,6 +5,7 @@ import test from "node:test";
 import type { CalendarProviderType, ReservationStatus } from "@/lib/generated/prisma/enums";
 import {
   buildRoomStatusReservationWhere,
+  getRoomStatusReservationPlacement,
   getRoomStatusCalendarRange,
   isReservationVisibleInRoomStatusRange,
   shiftRoomStatusMonth,
@@ -63,6 +64,29 @@ test("현재가 체크아웃 당일이어도 선택 범위의 Booking 예약을 
   assert.equal(isReservationVisibleInRoomStatusRange(booking, viewedRange), true);
 });
 
+test("오늘이 9월 18일이어도 9월 캘린더는 과거·경계·미래 overlap 예약을 모두 표시한다", () => {
+  const septemberRange = getRoomStatusCalendarRange("2026-09", new Date("2026-09-18T12:00:00+09:00"));
+  assert.equal(isReservationVisibleInRoomStatusRange(reservation("2026-09-01T00:00:00+09:00", "2026-09-03T00:00:00+09:00"), septemberRange), true);
+  assert.equal(isReservationVisibleInRoomStatusRange(reservation("2026-09-15T00:00:00+09:00", "2026-09-17T00:00:00+09:00"), septemberRange), true);
+  assert.equal(isReservationVisibleInRoomStatusRange(reservation("2026-08-30T00:00:00+09:00", "2026-09-02T00:00:00+09:00"), septemberRange), true);
+  assert.equal(isReservationVisibleInRoomStatusRange(reservation("2026-09-30T00:00:00+09:00", "2026-10-03T00:00:00+09:00"), septemberRange), true);
+  assert.equal(isReservationVisibleInRoomStatusRange(reservation("2026-08-01T00:00:00+09:00", "2026-08-05T00:00:00+09:00"), septemberRange), false);
+  assert.equal(isReservationVisibleInRoomStatusRange(reservation("2026-10-01T00:00:00+09:00", "2026-10-03T00:00:00+09:00"), septemberRange), false);
+  assert.deepEqual(getRoomStatusReservationPlacement(reservation("2026-08-30T00:00:00+09:00", "2026-09-02T00:00:00+09:00"), "2026-09-01", 42), {
+    startDateInput: "2026-08-30",
+    endDateInput: "2026-09-02",
+    leftDays: 0,
+    durationDays: 1,
+  });
+  assert.deepEqual(getRoomStatusReservationPlacement(reservation("2026-09-30T00:00:00+09:00", "2026-10-03T00:00:00+09:00"), "2026-09-01", 42), {
+    startDateInput: "2026-09-30",
+    endDateInput: "2026-10-03",
+    leftDays: 29,
+    durationDays: 3,
+  });
+  assert.equal(getRoomStatusReservationPlacement(reservation("2026-08-01T00:00:00+09:00", "2026-08-05T00:00:00+09:00"), "2026-09-01", 42), null);
+});
+
 test("이전 달에서 넘어오거나 다음 달까지 이어지는 예약을 양쪽 월에 표시한다", () => {
   const fromJune = reservation("2026-06-30T00:00:00+09:00", "2026-07-02T00:00:00+09:00");
   const intoAugust = reservation("2026-07-31T00:00:00+09:00", "2026-08-03T00:00:00+09:00");
@@ -89,6 +113,7 @@ test("취소 예약은 제외하고 OTA Provider 모두 동일한 overlap 규칙
 test("월 URL과 서버 repository가 같은 명시적 범위를 사용한다", () => {
   const page = readFileSync("src/app/room-status/page.tsx", "utf8");
   const repository = readFileSync("src/features/room-status/room-status.repository.ts", "utf8");
+  const domain = readFileSync("src/features/room-status/room-status-calendar.ts", "utf8");
   const calendar = readFileSync("src/features/room-status/components/monthly-reservation-calendar.tsx", "utf8");
   assert.match(page, /getRoomStatusCalendarRange\(value\("month"\)\)/);
   assert.match(page, /month: targetMonth/);
@@ -96,7 +121,9 @@ test("월 URL과 서버 repository가 같은 명시적 범위를 사용한다", 
   assert.match(page, /rangeEnd: calendarRange\.rangeEnd/);
   assert.match(repository, /where: buildRoomStatusReservationWhere\(input\)/);
   assert.doesNotMatch(repository, /new Date\(\)|endDate: \{ gte:|startDate: \{ gte:/);
-  assert.match(calendar, /getZonedDateInput\(reservation\.startDate, DEFAULT_TIMEZONE\)/);
-  assert.match(calendar, /getZonedDateInput\(reservation\.endDate, DEFAULT_TIMEZONE\)/);
+  assert.match(domain, /getZonedDateInput\(reservation\.startDate, ROOM_STATUS_TIME_ZONE\)/);
+  assert.match(domain, /getZonedDateInput\(reservation\.endDate, ROOM_STATUS_TIME_ZONE\)/);
+  assert.match(calendar, /viewportRef\.current\.scrollLeft = 0/);
+  assert.doesNotMatch(calendar, /scrollLeft = Math\.max\(0, todayIndex/);
   assert.doesNotMatch(calendar, /reservation\.startDate\.getFullYear|reservation\.endDate\.getFullYear/);
 });

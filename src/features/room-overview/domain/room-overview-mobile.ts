@@ -221,7 +221,7 @@ export function buildMobileRoomCalendarSegments(
       provider: reservation.provider,
       leftDays: clippedStart - rangeStart,
       durationDays: clippedEnd - clippedStart,
-      hasConflict: room.activeConflictCount > 0,
+      hasConflict: reservation.activeConflicts.length > 0,
       lane: 0,
       laneCount: 1,
       startsInRange: start >= rangeStart,

@@ -9,7 +9,7 @@ import { buildRoomOperationalSchedule } from "../../room-overview/domain/room-ov
 const start = new Date("2026-07-24T15:00:00.000Z");
 const end = new Date("2026-07-25T15:00:00.000Z");
 let reservationSequence = 0;
-const reservation = (status: string, startDate: string, endDate: string) => ({ id: `reservation-${++reservationSequence}`, guestName: null, provider: "AIRBNB" as const, status: status as "CONFIRMED", startDate: new Date(startDate), endDate: new Date(endDate) });
+const reservation = (status: string, startDate: string, endDate: string) => ({ id: `reservation-${++reservationSequence}`, guestName: null, provider: "AIRBNB" as const, status: status as "CONFIRMED", startDate: new Date(startDate), endDate: new Date(endDate), activeConflicts: [] });
 let roomSequence = 0;
 const room = (...reservations: ReturnType<typeof reservation>[]) => ({ id: `room-${++roomSequence}`, name: `${roomSequence}호`, propertyName: "테스트 숙소", reservations });
 const counts = (value: ReturnType<typeof summarizeDashboardCleaning>) => ({ priority: value.priority, flexible: value.flexible });
@@ -39,6 +39,7 @@ test("정상 체크아웃 Reservation 13개를 roomId distinct 없이 13건으�
     status: "CONFIRMED" as const,
     startDate: new Date("2026-07-22T06:00:00Z"),
     endDate: new Date("2026-07-25T01:00:00Z"),
+    activeConflicts: [],
   }));
   assert.equal(buildRoomOperationalSchedule(checkouts, start, end, new Date("2026-08-01T15:00:00Z")).todayCheckOuts.length, 13);
 });

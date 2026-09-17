@@ -31,7 +31,20 @@ export function findRoomOverviewData(input: { propertyId?: string; operationalSt
         select: { id: true, providerReservationId: true, calendarSourceId: true, guestName: true, provider: true, status: true, startDate: true, endDate: true },
         orderBy: [{ startDate: "asc" }, { endDate: "asc" }],
       },
-      conflicts: { where: { status: "ACTIVE", overlapEnd: { gte: input.todayStart }, overlapStart: { lt: input.toExclusive }, reservationA: buildOperationalReservationWhere(), reservationB: buildOperationalReservationWhere() }, select: { id: true } },
+      conflicts: {
+        where: {
+          status: "ACTIVE",
+          overlapEnd: { gt: input.from },
+          overlapStart: { lt: input.toExclusive },
+          reservationA: buildOperationalReservationWhere(),
+          reservationB: buildOperationalReservationWhere(),
+        },
+        select: {
+          id: true,
+          reservationA: { select: { id: true, roomId: true, guestName: true, provider: true, status: true, startDate: true, endDate: true } },
+          reservationB: { select: { id: true, roomId: true, guestName: true, provider: true, status: true, startDate: true, endDate: true } },
+        },
+      },
       calendarSources: {
         where: { isActive: true, provider: { in: [...CALENDAR_PROVIDER_TYPES] } },
         select: {
@@ -51,8 +64,8 @@ export function findUpcomingRoomOverviewConflicts(input: { propertyId?: string; 
     select: {
       id: true, overlapStart: true, overlapEnd: true,
       room: { select: { id: true, name: true } },
-      reservationA: { select: { id: true, guestName: true, provider: true, status: true, startDate: true, endDate: true } },
-      reservationB: { select: { id: true, guestName: true, provider: true, status: true, startDate: true, endDate: true } },
+      reservationA: { select: { id: true, roomId: true, guestName: true, provider: true, status: true, startDate: true, endDate: true } },
+      reservationB: { select: { id: true, roomId: true, guestName: true, provider: true, status: true, startDate: true, endDate: true } },
     },
     orderBy: [{ overlapStart: "asc" }, { id: "asc" }],
   });

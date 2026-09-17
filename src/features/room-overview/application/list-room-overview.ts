@@ -6,6 +6,7 @@ import { findRoomOverviewData, findUpcomingRoomOverviewConflicts } from "../infr
 import { formatRoomDisplayName } from "@/features/rooms/room-display";
 import type { AccessScope } from "@/features/access-control";
 import type { CalendarRangeDays } from "../domain/room-overview-mobile";
+import { calculateOverlapRange, getReservationConflictPeers, isCurrentReservationConflict } from "@/features/reservation-conflicts/domain/reservation-conflict";
 
 export interface RoomOverviewFilters { propertyId?: string; query?: string; status?: RoomOverviewStatus; operationalStatus?: RoomOperationalStatus; provider?: CalendarProviderType; syncStatus?: SyncStatus; companyIds?: readonly string[]; accessScope?: AccessScope }
 
@@ -21,19 +22,27 @@ export async function listRoomOverview(filters: RoomOverviewFilters, now = new D
   ]);
 
   const cards = sortRoomOverviewCards(rows.map((row): RoomOverviewCard => {
-    const reservations: RoomOverviewReservation[] = row.reservations;
+    const actualConflicts = row.conflicts.filter(isCurrentReservationConflict);
+    const currentConflicts = actualConflicts.filter((conflict) => {
+      const overlap = calculateOverlapRange(conflict.reservationA, conflict.reservationB);
+      return overlap ? overlap.overlapEnd > todayStart : false;
+    });
+    const reservations: RoomOverviewReservation[] = row.reservations.map((reservation) => ({
+      ...reservation,
+      activeConflicts: getReservationConflictPeers(reservation.id, actualConflicts),
+    }));
     const currentReservation = selectCurrentReservation(reservations, todayStart, todayEnd);
     const nextReservation = selectNextReservation(reservations, todayEnd);
     const syncs = row.calendarSources.flatMap((source) => source.syncLogs).sort((a, b) => b.startedAt.getTime() - a.startedAt.getTime());
     const syncStates = row.calendarSources.flatMap((source) => source.syncLogs.map((sync) => ({ ...sync, provider: source.provider })));
     return {
       id: row.id, propertyId: row.propertyId, propertyName: row.property.name, name: formatRoomDisplayName(row), code: row.code, sortOrder: row.sortOrder, operationalStatus: row.operationalStatus, operationalStatusUpdatedAt: row.operationalStatusUpdatedAt,
-      status: calculateRoomOverviewStatus({ reservations, activeConflictCount: row.conflicts.length, todayStart, todayEnd }),
+      status: calculateRoomOverviewStatus({ reservations, activeConflictCount: currentConflicts.length, todayStart, todayEnd }),
       currentReservation,
       nextReservation,
       nextReservationLeadDays: nextReservation ? Math.max(0, differenceInCalendarDays(nextReservation.startDate, todayStart)) : null,
       reservationCount: reservations.filter((item) => item.status !== "CANCELLED" && item.status !== "BLOCKED" && isValidReservation(item)).length,
-      activeConflictCount: row.conflicts.length,
+      activeConflictCount: currentConflicts.length,
       pendingMemoCount: row._count.roomNotes,
       providers: [...new Set(row.calendarSources.map((source) => source.provider))],
       latestSync: syncs[0] ?? null,
@@ -52,7 +61,7 @@ export async function listRoomOverview(filters: RoomOverviewFilters, now = new D
     return true;
   });
 
-  const scheduleReservations = cards.flatMap((card) => card.reservations.filter((item) => item.status !== "CANCELLED" && item.status !== "BLOCKED" && isValidReservation(item)).map((item) => ({ ...item, roomId: card.id, roomName: card.name, hasConflict: card.activeConflictCount > 0 })));
+  const scheduleReservations = cards.flatMap((card) => card.reservations.filter((item) => item.status !== "CANCELLED" && item.status !== "BLOCKED" && isValidReservation(item)).map((item) => ({ ...item, roomId: card.id, roomName: card.name, hasConflict: item.activeConflicts.length > 0 })));
   const operationalSchedule = buildRoomOperationalSchedule(scheduleReservations, todayStart, todayEnd, rangeEnd);
-  return { cards: filteredCards, allCards: cards, summary: summarizeRoomOverview(cards), todayStart, todayEnd, rangeEnd, calendarStart, calendarEnd, operationalSchedule, conflicts };
+  return { cards: filteredCards, allCards: cards, summary: summarizeRoomOverview(cards), todayStart, todayEnd, rangeEnd, calendarStart, calendarEnd, operationalSchedule, conflicts: conflicts.filter(isCurrentReservationConflict) };
 }

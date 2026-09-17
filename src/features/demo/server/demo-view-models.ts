@@ -21,7 +21,13 @@ export const DEMO_ROOM_OPTIONS = ["101", "102", "201", "202"].map((number) => ({
 function buildDemoCards(now = new Date()) {
   const fixture = createDemoFixtures(now);
   const cards = fixture.rooms.map((room): RoomOverviewCard => {
-    const reservations: RoomOverviewReservation[] = fixture.reservations.filter((item) => item.roomId === room.id);
+    const roomReservations = fixture.reservations.filter((item) => item.roomId === room.id);
+    const reservations: RoomOverviewReservation[] = roomReservations.map((item) => ({
+      ...item,
+      activeConflicts: room.id === "demo-room-201"
+        ? roomReservations.filter((peer) => peer.id !== item.id).map((peer) => ({ conflictId: "demo-conflict-1", reservationId: peer.id, guestName: peer.guestName, provider: peer.provider, startDate: peer.startDate, endDate: peer.endDate }))
+        : [],
+    }));
     const currentReservation = selectCurrentReservation(reservations, fixture.start, fixture.end);
     const nextReservation = selectNextReservation(reservations, fixture.end);
     const activeConflictCount = room.id === "demo-room-201" ? 1 : 0;
@@ -58,7 +64,7 @@ export function getDemoRoomOverview(filters: RoomOverviewFilters, now = new Date
     if (filters.syncStatus && !card.syncStates.some((item) => item.status === filters.syncStatus)) return false;
     return true;
   });
-  const scheduleReservations: RoomOperationalScheduleReservation[] = fixture.cards.flatMap((card) => card.reservations.map((item) => ({ ...item, roomId: card.id, roomName: card.name, hasConflict: card.activeConflictCount > 0 })));
+  const scheduleReservations: RoomOperationalScheduleReservation[] = fixture.cards.flatMap((card) => card.reservations.map((item) => ({ ...item, roomId: card.id, roomName: card.name, hasConflict: item.activeConflicts.length > 0 })));
   const rangeEnd = addDays(fixture.end, 7);
   const conflictReservations = fixture.reservations.filter((item) => item.roomId === "demo-room-201");
   const conflicts = [{ id: "demo-conflict-1", overlapStart: conflictReservations[1].startDate, overlapEnd: conflictReservations[0].endDate, room: { id: "demo-room-201", name: "201호" }, reservationA: conflictReservations[0], reservationB: conflictReservations[1] }];
@@ -74,7 +80,15 @@ export function getDemoDashboardData(now = new Date()) {
 
 export function getDemoRoomStatusData(range: RoomStatusCalendarRange): RoomStatusRoom[] {
   const fixture = createDemoFixtures(range.rangeStart);
-  return fixture.rooms.map((room) => ({ id: room.id, name: room.name, propertyId: room.propertyId, propertyName: DEMO_PROPERTY.name, sources: [{ id: `${room.id}-airbnb`, name: `${room.name} Airbnb`, provider: "AIRBNB" }], reservations: fixture.reservations.filter((item) => item.roomId === room.id && isReservationVisibleInRoomStatusRange(item, range)).map((item) => ({ ...item, providerReservationId: null, hasActiveConflict: room.id === "demo-room-201" })) }));
+  return fixture.rooms.map((room) => {
+    const roomReservations = fixture.reservations.filter((item) => item.roomId === room.id && isReservationVisibleInRoomStatusRange(item, range));
+    return { id: room.id, name: room.name, propertyId: room.propertyId, propertyName: DEMO_PROPERTY.name, sources: [{ id: `${room.id}-airbnb`, name: `${room.name} Airbnb`, provider: "AIRBNB" }], reservations: roomReservations.map((item) => {
+      const activeConflicts = room.id === "demo-room-201"
+        ? roomReservations.filter((peer) => peer.id !== item.id).map((peer) => ({ conflictId: "demo-conflict-1", reservationId: peer.id, guestName: peer.guestName, provider: peer.provider, startDate: peer.startDate, endDate: peer.endDate }))
+        : [];
+      return { ...item, providerReservationId: null, activeConflicts };
+    }) };
+  });
 }
 
 export function getDemoConflicts(filters: ConflictFilters) {

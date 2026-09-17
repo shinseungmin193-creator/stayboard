@@ -11,7 +11,8 @@ import { formatRoomDisplayName } from "@/features/rooms/room-display";
 import { isCalendarProviderType } from "@/providers/calendar/types";
 import { getProviderLabel } from "@/features/reservations/provider-visuals";
 import { DEFAULT_TIMEZONE } from "@/lib/constants";
-import { getZonedDateInput, getZonedMidnight, shiftDateInput } from "@/lib/zoned-date";
+import { getZonedMidnight, shiftDateInput } from "@/lib/zoned-date";
+import { getRoomStatusReservationPlacement } from "../room-status-calendar";
 
 const DAY_WIDTH = 64;
 const ROOM_WIDTH = 176;
@@ -43,10 +44,8 @@ export function MonthlyReservationCalendar({
   };
 
   useEffect(() => {
-    if (todayIndex >= 0 && todayIndex < dayCount && viewportRef.current) {
-      viewportRef.current.scrollLeft = Math.max(0, todayIndex * DAY_WIDTH - 180);
-    }
-  }, [dayCount, todayIndex]);
+    if (viewportRef.current) viewportRef.current.scrollLeft = 0;
+  }, [rangeStart]);
 
   if (rooms.length === 0) {
     return (
@@ -109,19 +108,15 @@ export function MonthlyReservationCalendar({
                   })}
                 </div>
                 {room.reservations.map((reservation, index) => {
-                  const reservationStart = getZonedDateInput(reservation.startDate, DEFAULT_TIMEZONE);
-                  const reservationEnd = getZonedDateInput(reservation.endDate, DEFAULT_TIMEZONE);
-                  const leftDays = Math.max(0, differenceInDateInputs(reservationStart, rangeStart));
-                  const endDays = Math.min(dayCount, differenceInDateInputs(reservationEnd, rangeStart));
-                  const widthDays = Math.max(1, endDays - leftDays);
-                  if (endDays <= 0 || leftDays >= dayCount) return null;
-                  const width = Math.max(24, widthDays * DAY_WIDTH - 8);
+                  const placement = getRoomStatusReservationPlacement(reservation, rangeStart, dayCount);
+                  if (!placement) return null;
+                  const width = Math.max(24, placement.durationDays * DAY_WIDTH - 8);
                   return (
                     <ReservationBar
                       key={reservation.id}
                       {...reservation}
                       roomName={room.name}
-                      left={leftDays * DAY_WIDTH + 4}
+                      left={placement.leftDays * DAY_WIDTH + 4}
                       top={9 + index % 2 * 34}
                       width={width} />);
 

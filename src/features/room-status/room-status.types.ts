@@ -1,4 +1,5 @@
 import type { CalendarProviderType, ReservationStatus } from "@/lib/generated/prisma/enums";
+import type { ReservationConflictPeer } from "@/features/reservation-conflicts/domain/reservation-conflict";
 
 export interface RoomStatusReservation {
   id: string;
@@ -10,7 +11,7 @@ export interface RoomStatusReservation {
   provider: CalendarProviderType;
   status: ReservationStatus;
   calendarSourceName: string;
-  hasActiveConflict: boolean;
+  activeConflicts: ReservationConflictPeer[];
 }
 
 export interface RoomStatusRoom {

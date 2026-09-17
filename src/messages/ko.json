@@ -332,7 +332,8 @@
     "active": "ACTIVE 오버부킹",
     "activeNone": "활성 오버부킹이 없습니다.",
     "empty": "조건에 맞는 오버부킹이 없습니다",
-    "count": "오버부킹 {count}건"
+    "count": "오버부킹 {count}건",
+    "overlapDescription": "다른 예약과 기간이 겹칩니다."
   },
   "provider": {
     "other": "기타",
