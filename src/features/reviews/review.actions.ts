@@ -2,10 +2,15 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { FORBIDDEN_ACTION_RESULT, isAccessControlError, PERMISSIONS, requirePermission } from "@/features/access-control";
+import { FORBIDDEN_ACTION_RESULT, isAccessControlError, PERMISSIONS, requirePermission, requireRoomAccess } from "@/features/access-control";
+import { normalizeRoomListingDrafts } from "@/features/rooms/room-listing";
+import { saveRoomListing } from "@/features/rooms/room.repository";
+import { roomListingRegistrationSchema } from "@/features/rooms/room.schemas";
+import type { ActionResult } from "@/lib/action-result";
 import { logServerError } from "@/lib/prisma-errors";
-import { REVIEW_PROVIDER_TYPES } from "./domain/listing-provider";
+import { ListingUrlError, REVIEW_PROVIDER_TYPES } from "./domain/listing-provider";
 import { REVIEW_SYNC_MAX_LISTINGS_PER_REQUEST } from "./review.constants";
+import type { ReviewListingSummary } from "./review.types";
 import { findReviewSyncTarget, findReviewSyncTargets } from "./server/review.repository";
 import { collectReviewListings, collectReviews } from "./server/review-sync.service";
 
@@ -25,6 +30,59 @@ export type ReviewCollectActionResult = {
   failureCount?: number;
   alreadyRunningCount?: number;
 };
+
+export type RegisterReviewListingActionResult = ActionResult<ReviewListingSummary>;
+
+export async function registerReviewListingAction(input: unknown): Promise<RegisterReviewListingActionResult> {
+  const parsed = roomListingRegistrationSchema.safeParse(input);
+  if (!parsed.success) {
+    return {
+      success: false,
+      status: 422,
+      message: "입력 내용을 확인해 주세요.",
+      fieldErrors: parsed.error.flatten().fieldErrors,
+    };
+  }
+
+  try {
+    await requireRoomAccess(parsed.data.roomId, PERMISSIONS.PROPERTY_REVIEW_SYNC);
+    const [listing] = normalizeRoomListingDrafts([parsed.data]);
+    if (!listing) {
+      return { success: false, status: 422, message: "숙소 URL을 입력해 주세요.", fieldErrors: { listingUrl: ["숙소 URL을 입력해 주세요."] } };
+    }
+    const saved = await saveRoomListing(parsed.data.roomId, listing);
+    revalidatePath("/property-reviews");
+    revalidatePath(`/property-reviews/${parsed.data.roomId}`);
+    return {
+      success: true,
+      message: "숙소 링크를 등록했습니다.",
+      data: {
+        id: saved.id,
+        provider: listing.provider,
+        rating: null,
+        reviewCount: null,
+        collectedAt: null,
+        latestSyncStatus: null,
+        latestSyncErrorCode: null,
+        latestSyncErrorMessage: null,
+        latestSyncStartedAt: null,
+        latestSyncFinishedAt: null,
+      },
+    };
+  } catch (error) {
+    if (isAccessControlError(error)) return FORBIDDEN_ACTION_RESULT;
+    if (error instanceof ListingUrlError) {
+      return {
+        success: false,
+        status: 422,
+        message: "숙소 링크를 확인해 주세요.",
+        fieldErrors: { listingUrl: [error.message] },
+      };
+    }
+    logServerError("registerReviewListing", error);
+    return { success: false, message: "숙소 링크를 등록하지 못했습니다. 잠시 후 다시 시도해 주세요." };
+  }
+}
 
 export async function collectReviewsAction(input: unknown): Promise<ReviewCollectActionResult> {
   const parsed = collectSchema.safeParse(input);

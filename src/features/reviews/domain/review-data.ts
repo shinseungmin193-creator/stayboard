@@ -11,7 +11,7 @@ export interface CollectedListingReview {
 
 export interface ReviewCollectionResult {
   rating: string | null;
-  reviewCount: number | null;
+  reviewCount: number;
   reviews: CollectedListingReview[];
   collectedAt: Date;
 }

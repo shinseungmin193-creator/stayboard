@@ -38,13 +38,20 @@ const newRoomCalendarSourceSchema = roomCalendarSourceBaseSchema.extend({
   isActive: z.literal(true),
 });
 
+const roomListingDraftSchema = z.object({
+  provider: z.enum(REVIEW_PROVIDER_TYPES),
+  listingUrl: z.string().trim().max(ROOM_LISTING_URL_MAX_LENGTH),
+});
+
+export const roomListingRegistrationSchema = roomListingDraftSchema.extend({
+  roomId: z.string().trim().min(1, "객실을 확인해 주세요.").max(100),
+  listingUrl: z.string().trim().min(1, "숙소 URL을 입력해 주세요.").max(ROOM_LISTING_URL_MAX_LENGTH),
+});
+
 export const roomWithCalendarSourcesUpdateSchema = roomInputSchema.extend({
   id: z.string().trim().min(1),
   sources: z.array(z.discriminatedUnion("kind", [existingRoomCalendarSourceSchema, newRoomCalendarSourceSchema])).max(50),
-  listings: z.array(z.object({
-    provider: z.enum(REVIEW_PROVIDER_TYPES),
-    listingUrl: z.string().trim().max(ROOM_LISTING_URL_MAX_LENGTH),
-  })).length(REVIEW_PROVIDER_TYPES.length).superRefine((listings, context) => {
+  listings: z.array(roomListingDraftSchema).length(REVIEW_PROVIDER_TYPES.length).superRefine((listings, context) => {
     if (new Set(listings.map((listing) => listing.provider)).size !== REVIEW_PROVIDER_TYPES.length) {
       context.addIssue({ code: "custom", message: "숙소 링크 플랫폼 구성이 올바르지 않습니다." });
     }

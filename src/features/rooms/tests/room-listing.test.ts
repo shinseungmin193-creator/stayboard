@@ -25,6 +25,16 @@ test("빈 숙소 링크는 허용하고 생성하지 않는다", () => {
   assert.deepEqual(normalizeRoomListingDrafts(complete()), []);
 });
 
+test("빠른 등록은 전달한 한 플랫폼만 정규화해 다른 플랫폼 입력을 만들지 않는다", () => {
+  const listings = normalizeRoomListingDrafts([{
+    provider: "BOOKING",
+    listingUrl: "https://www.booking.com/hotel/jp/example.html?aid=1",
+  }]);
+  assert.equal(listings.length, 1);
+  assert.equal(listings[0]?.provider, "BOOKING");
+  assert.equal(listings[0]?.listingUrl, "https://www.booking.com/hotel/jp/example.html");
+});
+
 test("Airbnb 공식 국가 도메인과 공유 쿼리 URL을 허용한다", () => {
   for (const url of [
     "https://www.airbnb.com/rooms/123456789",

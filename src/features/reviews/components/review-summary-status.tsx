@@ -10,12 +10,12 @@ export function ReviewSummaryStatus({
   compact = false,
 }: {
   roomId: string;
-  listing?: ReviewListingSummary;
+  listing: ReviewListingSummary;
   compact?: boolean;
 }) {
   const t = useTranslations();
   const locale = useLocale();
-  if (!listing) return <p className="text-sm text-muted-foreground">{t("reviews.states.unregistered")}</p>;
+  const hasNoReviews = listing.reviewCount === 0;
   const hasSummary = listing.rating !== null || listing.reviewCount !== null;
   const state = getReviewCollectionState(listing);
   const collectedAt = listing.collectedAt && new Intl.DateTimeFormat(locale === "ja" ? "ja-JP" : "ko-KR", {
@@ -24,7 +24,8 @@ export function ReviewSummaryStatus({
     timeZone: "Asia/Tokyo",
   }).format(listing.collectedAt);
   return <div className={compact ? "space-y-0.5" : "space-y-1"}>
-    {hasSummary ? <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+    {hasNoReviews ? <p className="text-xs font-medium text-muted-foreground">{t("reviews.states.noReviews")}</p>
+      : hasSummary ? <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
       <span className="inline-flex items-center gap-1 font-semibold tabular-nums"><Star className="size-3.5 fill-amber-400 text-amber-500" />{listing.rating ?? "-"}</span>
       <span className="text-xs text-muted-foreground">{listing.reviewCount === null ? t("reviews.labels.reviewCount", { count: "-" }) : t("reviews.labels.reviewCountValue", { count: listing.reviewCount })}</span>
     </div> : state === "COLLECTED"

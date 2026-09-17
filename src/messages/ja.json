@@ -123,6 +123,8 @@
       "collectingAll": "表示中のレビューを更新中...",
       "load": "取得",
       "reload": "再取得",
+      "register": "登録",
+      "registering": "登録中...",
       "recentReviews": "最近のレビューを見る",
       "details": "詳細",
       "back": "一覧へ",
@@ -130,11 +132,20 @@
       "next": "次へ",
       "retry": "再試行"
     },
+    "registration": {
+      "title": "{provider} 宿泊施設リンクを登録",
+      "description": "{room} の {provider} 宿泊施設URLを登録します。",
+      "room": "宿泊施設",
+      "provider": "プラットフォーム",
+      "url": "宿泊施設URL",
+      "failed": "宿泊施設リンクの登録結果を確認できませんでした。もう一度お試しください。"
+    },
     "states": {
       "unregistered": "未登録",
       "notCollected": "レビュー情報はまだ取得されていません。",
       "collecting": "取得中...",
       "loadFailed": "取得に失敗しました",
+      "noReviews": "レビュー 0件",
       "lastFailed": "前回の取得に失敗しました。",
       "noLinks": "登録された宿泊施設リンクがありません。",
       "noRooms": "条件に一致する宿泊施設がありません。",

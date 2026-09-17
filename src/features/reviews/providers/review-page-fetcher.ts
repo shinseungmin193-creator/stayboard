@@ -2,7 +2,7 @@ import "server-only";
 
 import { assertSafePublicHttpsUrl, NetworkSafetyError } from "@/lib/network-safety";
 import { isAllowedListingHostname, isAllowedListingPathname, validateListingUrl, type ReviewProviderType } from "../domain/listing-provider";
-import { parseStructuredReviewData } from "../domain/structured-review-data";
+import { parseProviderReviewPage } from "../domain/structured-review-data";
 import type { ReviewCollectionResult } from "../domain/review-data";
 
 const REVIEW_FETCH_TIMEOUT_MS = 15_000;
@@ -101,7 +101,11 @@ export async function fetchStructuredReviewPage(input: {
       await discard(response);
       throw new ReviewFetchError("CONTENT_TYPE", "플랫폼이 HTML 숙소 페이지를 반환하지 않았습니다.");
     }
-    const result = parseStructuredReviewData(await readLimitedText(response));
+    const result = parseProviderReviewPage({
+      provider: input.provider,
+      listingUrl: current.toString(),
+      html: await readLimitedText(response),
+    });
     if (!result) throw new ReviewFetchError("STRUCTURED_DATA_UNAVAILABLE", "플랫폼 페이지에서 공개 구조화 리뷰 데이터를 찾지 못했습니다.");
     return result;
   }

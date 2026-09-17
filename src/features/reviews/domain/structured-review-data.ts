@@ -1,4 +1,5 @@
 import type { CollectedListingReview, ReviewCollectionResult } from "./review-data";
+import { extractExternalListingId, type ReviewProviderType } from "./listing-provider";
 
 type JsonRecord = Record<string, unknown>;
 
@@ -81,6 +82,79 @@ export function parseStructuredReviewData(html: string, collectedAt = new Date()
     }
   }
   const reviews = records.map(reviewFromRecord).filter((review): review is CollectedListingReview => Boolean(review));
-  if (rating === null && reviewCount === null && reviews.length === 0) return null;
-  return { rating, reviewCount, reviews, collectedAt };
+  const resolvedReviewCount = reviewCount ?? (reviews.length > 0 ? reviews.length : null);
+  if (resolvedReviewCount === null) return null;
+  return {
+    rating: resolvedReviewCount === 0 && reviews.length === 0 ? null : rating,
+    reviewCount: resolvedReviewCount,
+    reviews,
+    collectedAt,
+  };
+}
+
+const LISTING_SCHEMA_TYPES: Record<ReviewProviderType, ReadonlySet<string>> = {
+  AIRBNB: new Set(["vacationrental"]),
+  BOOKING: new Set(["hotel", "lodgingbusiness", "accommodation", "apartment", "hostel", "product"]),
+  AGODA: new Set(["hotel", "lodgingbusiness", "accommodation", "resort", "apartment", "product"]),
+};
+
+function scalar(value: unknown) {
+  if (typeof value === "string" && value.trim()) return value.trim();
+  if (typeof value === "number" && Number.isFinite(value)) return String(value);
+  return null;
+}
+
+function matchesListingIdentifier(value: unknown, expectedListingId: string) {
+  const identifier = scalar(value);
+  if (!identifier) return false;
+  if (identifier === expectedListingId) return true;
+  try {
+    const decoded = atob(identifier);
+    return decoded.split(":").at(-1) === expectedListingId;
+  } catch {
+    return false;
+  }
+}
+
+function hasConfirmedListingIdentity(provider: ReviewProviderType, listingUrl: string, records: JsonRecord[]) {
+  const expectedListingId = provider === "AIRBNB" ? extractExternalListingId(provider, listingUrl) : null;
+  return records.some((record) => {
+    const recognizedType = types(record["@type"]).some((type) => LISTING_SCHEMA_TYPES[provider].has(type.toLowerCase()));
+    if (!recognizedType || text(record.name, 500) === null) return false;
+    if (provider !== "AIRBNB") return true;
+    return expectedListingId !== null && matchesListingIdentifier(record.identifier, expectedListingId);
+  });
+}
+
+function hasExplicitZeroReviewSignal(provider: ReviewProviderType, html: string) {
+  const fieldNames = provider === "AIRBNB"
+    ? ["reviewCount"]
+    : ["reviewCount", "review_count", "ratingCount"];
+  const fieldSignal = fieldNames.some((field) => new RegExp(
+    `["']${field}["']\\s*:\\s*(?:["']0["']|0)(?=\\s*[,}])`,
+    "i",
+  ).test(html));
+  if (fieldSignal) return true;
+  return /\b(?:no reviews yet|no guest reviews|be the first to review)\b|(?:리뷰|후기)가 없습니다|レビューはまだありません/i.test(html);
+}
+
+/**
+ * Parses public review data and recognizes an empty result only when the page
+ * proves both a real provider listing identity and an explicit zero-review signal.
+ */
+export function parseProviderReviewPage(input: {
+  provider: ReviewProviderType;
+  listingUrl: string;
+  html: string;
+  collectedAt?: Date;
+}): ReviewCollectionResult | null {
+  const collectedAt = input.collectedAt ?? new Date();
+  const structured = parseStructuredReviewData(input.html, collectedAt);
+  if (structured) return structured;
+
+  const records: JsonRecord[] = [];
+  for (const document of extractJsonLdDocuments(input.html)) visit(document, records);
+  if (!hasConfirmedListingIdentity(input.provider, input.listingUrl, records)) return null;
+  if (!hasExplicitZeroReviewSignal(input.provider, input.html)) return null;
+  return { rating: null, reviewCount: 0, reviews: [], collectedAt };
 }

@@ -1,6 +1,7 @@
 import "server-only";
 import { randomUUID } from "node:crypto";
 import { prisma } from "@/lib/prisma";
+import type { Prisma } from "@/lib/generated/prisma/client";
 import { findCalendarSourceSyncStates } from "@/features/calendar-sources/calendar-source.repository";
 import type { RoomListItem } from "./room.types";
 import type { RoomRegistrationInput } from "./create-room-registration";
@@ -15,6 +16,36 @@ const internalRoomCode = () => `room_${randomUUID()}`;
 const summarizeSyncError = (value: string | null | undefined) => value
   ? value.replace(/https?:\/\/\S+/gi, "[URL 숨김]").slice(0, 180)
   : null;
+
+async function writeActiveRoomListing(
+  tx: Prisma.TransactionClient,
+  roomId: string,
+  listing: NormalizedRoomListing & { id?: string },
+) {
+  if (listing.id) {
+    const updated = await tx.roomListing.updateMany({
+      where: { id: listing.id, roomId, provider: listing.provider },
+      data: {
+        listingUrl: listing.listingUrl,
+        externalListingId: listing.externalListingId,
+        isActive: true,
+      },
+    });
+    if (updated.count !== 1) throw new Error("ROOM_LISTING_WRITE_CONFLICT");
+    return { id: listing.id, provider: listing.provider };
+  }
+
+  return tx.roomListing.upsert({
+    where: { roomId_provider: { roomId, provider: listing.provider } },
+    create: { ...listing, roomId, isActive: true },
+    update: {
+      listingUrl: listing.listingUrl,
+      externalListingId: listing.externalListingId,
+      isActive: true,
+    },
+    select: { id: true, provider: true },
+  });
+}
 
 export async function listRooms(propertyId?: string, companyIds?: readonly string[]): Promise<RoomListItem[]> {
   const rooms = await prisma.room.findMany({
@@ -162,17 +193,7 @@ export function updateRoomWithCalendarSourcesAtomically(input: RoomWithCalendarS
         data: input.sourceCreates.map((source) => ({ ...source, roomId: input.room.id })),
       });
     }
-    for (const listing of input.listingUpdates) {
-      const updated = await tx.roomListing.updateMany({
-        where: { id: listing.id, roomId: input.room.id, provider: listing.provider },
-        data: {
-          listingUrl: listing.listingUrl,
-          externalListingId: listing.externalListingId,
-          isActive: true,
-        },
-      });
-      if (updated.count !== 1) throw new Error("ROOM_LISTING_WRITE_CONFLICT");
-    }
+    for (const listing of input.listingUpdates) await writeActiveRoomListing(tx, input.room.id, listing);
     for (const listing of input.listingDeactivations) {
       const updated = await tx.roomListing.updateMany({
         where: { id: listing.id, roomId: input.room.id, isActive: true },
@@ -180,13 +201,12 @@ export function updateRoomWithCalendarSourcesAtomically(input: RoomWithCalendarS
       });
       if (updated.count !== 1) throw new Error("ROOM_LISTING_WRITE_CONFLICT");
     }
-    if (input.listingCreates.length) {
-      await tx.roomListing.createMany({
-        data: input.listingCreates.map((listing) => ({ ...listing, roomId: input.room.id, isActive: true })),
-      });
-    }
+    for (const listing of input.listingCreates) await writeActiveRoomListing(tx, input.room.id, listing);
     return { id: input.room.id };
   });
+}
+export function saveRoomListing(roomId: string, listing: NormalizedRoomListing) {
+  return prisma.$transaction((tx) => writeActiveRoomListing(tx, roomId, listing));
 }
 export function roomExists(id: string) { return prisma.room.findUnique({ where: { id }, select: { id: true, isActive: true, property: { select: { companyId: true } } } }); }
 export function setRoomActive(id: string, isActive: boolean) { return prisma.room.update({ where: { id }, data: { isActive }, select: { id: true, isActive: true } }); }

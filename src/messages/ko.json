@@ -123,6 +123,8 @@
       "collectingAll": "현재 목록 리뷰 갱신 중...",
       "load": "불러오기",
       "reload": "다시 불러오기",
+      "register": "등록",
+      "registering": "등록 중...",
       "recentReviews": "최근 리뷰 보기",
       "details": "상세",
       "back": "목록으로",
@@ -130,11 +132,20 @@
       "next": "다음",
       "retry": "다시 시도"
     },
+    "registration": {
+      "title": "{provider} 숙소 링크 등록",
+      "description": "{room}의 {provider} 숙소 URL을 등록합니다.",
+      "room": "숙소",
+      "provider": "플랫폼",
+      "url": "숙소 URL",
+      "failed": "숙소 링크 등록 결과를 확인하지 못했습니다. 다시 시도해 주세요."
+    },
     "states": {
       "unregistered": "미등록",
       "notCollected": "아직 리뷰 정보를 불러오지 않았습니다.",
       "collecting": "불러오는 중...",
       "loadFailed": "불러오기 실패",
+      "noReviews": "리뷰 0개",
       "lastFailed": "마지막 수집에 실패했습니다.",
       "noLinks": "등록된 숙소 링크가 없습니다.",
       "noRooms": "조건에 맞는 숙소가 없습니다.",
