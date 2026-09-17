@@ -71,20 +71,50 @@ test("등록된 플랫폼 셀은 최초·진행·성공·실패 상태별 단건
   const messages = readFileSync("src/messages/ko.json", "utf8");
 
   assert.match(list, /ReviewPlatformCell[\s\S]*roomId=\{room\.id\}/);
-  assert.match(platformCell, /if \(listing\) return <ReviewSummaryStatus/);
-  assert.match(status, /ReviewCollectButton roomId=\{roomId\} provider=\{listing\.provider\} state=\{state\}/);
+  assert.match(platformCell, /if \(listing\) \{[\s\S]*return <ReviewSummaryStatus/);
+  assert.match(status, /<ReviewCollectButton[\s\S]*status=\{status\}/);
   assert.match(button, /collectReviewsAction\(\{ roomId, provider \}\)/);
   assert.match(button, /disabled=\{collecting\}/);
   assert.match(button, /LoaderCircle className="animate-spin"/);
+  assert.doesNotMatch(button, /setMessage|result\.success|alreadyRunningCount/);
   assert.match(action, /findReviewSyncTarget\(context, parsed\.data\)/);
   assert.match(action, /collectReviews\(\{ target, actorUserId: context\.userId \}\)/);
+  assert.match(action, /getReviewFetchStatus\(listing\)/);
+  assert.match(action, /status === "EMPTY"[\s\S]*status === "SUCCESS"[\s\S]*status === "LOADING"/);
+  assert.match(action, /findReviewListingSummary\(context, parsed\.data\)/);
   assert.match(repository, /roomId: input\.roomId,[\s\S]*provider: input\.provider/);
   assert.match(messages, /"load": "불러오기"/);
   assert.match(messages, /"reload": "다시 불러오기"/);
   assert.match(messages, /"loadFailed": "불러오기 실패"/);
   assert.match(messages, /"noReviews": "리뷰 0개"/);
-  assert.match(status, /listing\.reviewCount === 0/);
+  assert.match(status, /status === "EMPTY"/);
   assert.match(messages, /"collectAll": "현재 목록 리뷰 갱신"/);
+});
+
+test("단건 리뷰 수집은 하나의 status로만 렌더링하고 이전 성공·오류 메시지를 함께 남기지 않는다", () => {
+  const state = readFileSync("src/features/reviews/domain/review-collection-state.ts", "utf8");
+  const status = readFileSync("src/features/reviews/components/review-summary-status.tsx", "utf8");
+  const button = readFileSync("src/features/reviews/components/review-collect-button.tsx", "utf8");
+  const action = readFileSync("src/features/reviews/review.actions.ts", "utf8");
+  const service = readFileSync("src/features/reviews/server/review-sync.service.ts", "utf8");
+
+  assert.match(state, /export type ReviewFetchStatus =[\s\S]*"IDLE"[\s\S]*"LOADING"[\s\S]*"SUCCESS"[\s\S]*"EMPTY"[\s\S]*"FAILED"/);
+  assert.match(state, /latestSyncStatus === "FAILED"[\s\S]*return "FAILED"/);
+  assert.match(state, /reviewCount === 0\) return "EMPTY"/);
+  assert.match(status, /requestResult\?\.status \?\? getReviewFetchStatus/);
+  assert.match(status, /status === "IDLE"/);
+  assert.match(status, /status === "LOADING"/);
+  assert.match(status, /status === "SUCCESS"/);
+  assert.match(status, /status === "EMPTY"/);
+  assert.match(status, /status === "FAILED"/);
+  assert.match(status, /onStarted=\{\(\) => setRequestResult\(\{ status: "LOADING", message: "" \}\)\}/);
+  assert.doesNotMatch(status, /리뷰 정보를 불러왔습니다/);
+  assert.doesNotMatch(button, /role=\{message|text-emerald/);
+  assert.match(action, /status: Exclude<ReviewFetchStatus, "IDLE">/);
+  assert.match(service, /status: collected\.reviewCount === 0 \? "EMPTY" : "SUCCESS"/);
+  assert.match(service, /status: "FAILED"/);
+  assert.match(service, /status: "LOADING"/);
+  assert.match(service, /errorCode: null,[\s\S]*errorMessage: null/);
 });
 
 test("미등록 플랫폼 셀은 같은 화면에서 해당 객실·플랫폼 링크만 등록하고 즉시 최초 불러오기 상태로 바뀐다", () => {

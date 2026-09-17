@@ -1,5 +1,6 @@
 import type { Prisma } from "@/lib/generated/prisma/client";
 import type { ReservationFilters } from "./reservation.types";
+import { buildReservationOverlapWhere } from "./reservation-range-overlap";
 
 type ReservationListDateFilters = Pick<
   ReservationFilters,
@@ -21,8 +22,8 @@ export function buildReservationListDateWhere(
   if (filters.dateField === "checkOut") {
     return { endDate: { gt: filters.from, lte: filters.toExclusive } };
   }
-  return {
-    startDate: { lt: filters.toExclusive },
-    endDate: { gt: filters.from },
-  };
+  return buildReservationOverlapWhere({
+    viewStart: filters.from,
+    viewEnd: filters.toExclusive,
+  });
 }

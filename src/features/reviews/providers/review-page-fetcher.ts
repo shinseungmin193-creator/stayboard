@@ -106,7 +106,7 @@ export async function fetchStructuredReviewPage(input: {
       listingUrl: current.toString(),
       html: await readLimitedText(response),
     });
-    if (!result) throw new ReviewFetchError("STRUCTURED_DATA_UNAVAILABLE", "플랫폼 페이지에서 공개 구조화 리뷰 데이터를 찾지 못했습니다.");
+    if (!result) throw new ReviewFetchError("STRUCTURED_DATA_UNAVAILABLE", "플랫폼 페이지에서 리뷰 정보를 확인하지 못했습니다.");
     return result;
   }
   throw new ReviewFetchError("REDIRECT", "리디렉션 횟수가 제한을 초과했습니다.");

@@ -50,6 +50,19 @@ test("현재가 8월이어도 7월 정상 예약을 표시한다", () => {
   assert.equal(isReservationVisibleInRoomStatusRange(reservation("2026-07-10T00:00:00+09:00", "2026-07-12T00:00:00+09:00"), july), true);
 });
 
+test("현재가 체크아웃 당일이어도 선택 범위의 Booking 예약을 표시한다", () => {
+  const viewedRange = {
+    rangeStart: new Date("2026-09-10T15:00:00.000Z"),
+    rangeEnd: new Date("2026-09-27T15:00:00.000Z"),
+  };
+  const booking = reservation(
+    "2026-09-14T15:00:00.000Z",
+    "2026-09-16T15:00:00.000Z",
+    "BOOKING",
+  );
+  assert.equal(isReservationVisibleInRoomStatusRange(booking, viewedRange), true);
+});
+
 test("이전 달에서 넘어오거나 다음 달까지 이어지는 예약을 양쪽 월에 표시한다", () => {
   const fromJune = reservation("2026-06-30T00:00:00+09:00", "2026-07-02T00:00:00+09:00");
   const intoAugust = reservation("2026-07-31T00:00:00+09:00", "2026-08-03T00:00:00+09:00");

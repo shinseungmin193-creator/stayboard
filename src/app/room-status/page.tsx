@@ -5,11 +5,12 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 
 import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
-import { AccessDenied, authorizeAccess, companyScopeIds, getCurrentAccessContext, PERMISSIONS } from "@/features/access-control";
+import { AccessDenied, authorizeAccess, companyScopeIds, getCurrentAccessContext, hasPermission, PERMISSIONS } from "@/features/access-control";
 import { DEMO_PROPERTY_OPTIONS, getDemoRoomStatusData } from "@/features/demo";
 import { listPropertyOptions } from "@/features/properties";
 import { getRoomStatusCalendarRange, listRoomStatusCalendar, shiftRoomStatusMonth } from "@/features/room-status";
 import { MonthlyReservationCalendar } from "@/features/room-status/components/monthly-reservation-calendar";
+import { RoomOverviewSync } from "@/features/room-overview/components/room-overview-sync";
 import { DEFAULT_TIMEZONE } from "@/lib/constants";
 import { getZonedDateInput } from "@/lib/zoned-date";
 
@@ -69,6 +70,7 @@ export default async function RoomStatusPage({
           <Button type="submit" variant="outline">{i18n("auto.m0096")}</Button>
         </form>
         <div className="flex items-center justify-between gap-2 sm:justify-end">
+          {context && hasPermission(context.role, PERMISSIONS.SYNC_RUN) ? <RoomOverviewSync propertyId={propertyId} compact /> : null}
           <Button nativeButton={false} render={<Link href={monthHref(shiftRoomStatusMonth(calendarRange.month, -1))} />} variant="outline" size="icon" aria-label={i18n("auto.m0097")}><ChevronLeft /></Button>
           <p className="min-w-28 text-center text-sm font-semibold">{format(monthDisplayDate, i18n("auto.m0098"))}</p>
           <Button nativeButton={false} render={<Link href={monthHref(shiftRoomStatusMonth(calendarRange.month, 1))} />} variant="outline" size="icon" aria-label={i18n("auto.m0099")}><ChevronRight /></Button>

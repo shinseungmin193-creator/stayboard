@@ -76,7 +76,7 @@ export async function listReviewRooms(context: AccessContext, input: {
             provider: true,
             listingUrl: true,
             reviewSnapshots: { orderBy: { collectedAt: "desc" }, take: 10, select: { sourceListingUrl: true, rating: true, reviewCount: true, collectedAt: true } },
-            syncLogs: { orderBy: { startedAt: "desc" }, take: 10, select: { sourceListingUrl: true, status: true, errorCode: true, errorMessage: true, startedAt: true, finishedAt: true } },
+            syncLogs: { orderBy: [{ startedAt: "desc" }, { id: "desc" }], take: 10, select: { sourceListingUrl: true, status: true, errorCode: true, errorMessage: true, startedAt: true, finishedAt: true } },
           },
           orderBy: { provider: "asc" },
         },
@@ -114,7 +114,7 @@ export async function getReviewRoomDetail(context: AccessContext, roomId: string
           provider: true,
           listingUrl: true,
           reviewSnapshots: { orderBy: { collectedAt: "desc" }, take: 10, select: { sourceListingUrl: true, rating: true, reviewCount: true, collectedAt: true } },
-          syncLogs: { orderBy: { startedAt: "desc" }, take: 10, select: { sourceListingUrl: true, status: true, errorCode: true, errorMessage: true, startedAt: true, finishedAt: true } },
+          syncLogs: { orderBy: [{ startedAt: "desc" }, { id: "desc" }], take: 10, select: { sourceListingUrl: true, status: true, errorCode: true, errorMessage: true, startedAt: true, finishedAt: true } },
         },
         orderBy: { provider: "asc" },
       },
@@ -169,4 +169,40 @@ export async function findReviewSyncTarget(
     select: { id: true, roomId: true, provider: true, listingUrl: true },
   });
   return listing ? { ...listing, provider: listing.provider as ReviewProviderType } : null;
+}
+
+export async function findReviewListingSummary(
+  context: AccessContext,
+  input: { roomId: string; provider: ReviewProviderType },
+): Promise<ReviewListingSummary | null> {
+  assertSync(context);
+  const listing = await prisma.roomListing.findFirst({
+    where: {
+      roomId: input.roomId,
+      provider: input.provider,
+      isActive: true,
+      room: {
+        AND: [
+          roomScopeWhere(context.scope) ?? {},
+          { isActive: true, property: { isActive: true } },
+        ],
+      },
+    },
+    select: {
+      id: true,
+      provider: true,
+      listingUrl: true,
+      reviewSnapshots: {
+        orderBy: [{ collectedAt: "desc" }, { id: "desc" }],
+        take: 10,
+        select: { sourceListingUrl: true, rating: true, reviewCount: true, collectedAt: true },
+      },
+      syncLogs: {
+        orderBy: [{ startedAt: "desc" }, { id: "desc" }],
+        take: 10,
+        select: { sourceListingUrl: true, status: true, errorCode: true, errorMessage: true, startedAt: true, finishedAt: true },
+      },
+    },
+  });
+  return listing ? summaryFor(listing) : null;
 }

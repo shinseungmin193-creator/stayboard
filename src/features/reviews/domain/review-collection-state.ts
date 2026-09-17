@@ -1,10 +1,10 @@
 import { REVIEW_SYNC_STALE_RUNNING_MS } from "../review.constants";
 
-export type ReviewCollectionState =
-  | "UNREGISTERED"
-  | "NOT_COLLECTED"
-  | "COLLECTING"
-  | "COLLECTED"
+export type ReviewFetchStatus =
+  | "IDLE"
+  | "LOADING"
+  | "SUCCESS"
+  | "EMPTY"
   | "FAILED";
 
 type RegisteredReviewCollectionInput = {
@@ -15,28 +15,24 @@ type RegisteredReviewCollectionInput = {
   latestSyncStartedAt: Date | null;
 };
 
-export type RegisteredReviewCollectionState = Exclude<ReviewCollectionState, "UNREGISTERED">;
-
-export function getReviewCollectionState(listing: undefined, now?: Date): "UNREGISTERED";
-export function getReviewCollectionState(listing: RegisteredReviewCollectionInput, now?: Date): RegisteredReviewCollectionState;
-export function getReviewCollectionState(
-  listing: RegisteredReviewCollectionInput | undefined,
+export function getReviewFetchStatus(
+  listing: RegisteredReviewCollectionInput,
   now = new Date(),
-): ReviewCollectionState {
-  if (!listing) return "UNREGISTERED";
+): ReviewFetchStatus {
   if (listing.latestSyncStatus === "RUNNING") {
     const startedAt = listing.latestSyncStartedAt?.getTime();
     if (startedAt !== undefined && now.getTime() - startedAt < REVIEW_SYNC_STALE_RUNNING_MS) {
-      return "COLLECTING";
+      return "LOADING";
     }
     return "FAILED";
   }
   if (listing.latestSyncStatus === "FAILED" || listing.latestSyncStatus === "TIMEOUT") return "FAILED";
+  if (listing.reviewCount === 0) return "EMPTY";
   if (
     listing.rating !== null
     || listing.reviewCount !== null
     || listing.collectedAt !== null
     || listing.latestSyncStatus === "SUCCESS"
-  ) return "COLLECTED";
-  return "NOT_COLLECTED";
+  ) return "SUCCESS";
+  return "IDLE";
 }

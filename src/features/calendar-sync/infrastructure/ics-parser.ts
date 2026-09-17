@@ -1,5 +1,7 @@
 import ICAL from "ical.js";
 import { ICS_MAX_DESCRIPTION_LENGTH, ICS_MAX_INVALID_EVENT_RATIO, ICS_MAX_SUMMARY_LENGTH, ICS_MAX_UID_LENGTH, ICS_MAX_VEVENTS } from "../../../providers/calendar/constants";
+import { DEFAULT_TIMEZONE } from "../../../lib/constants";
+import { getZonedMidnight } from "../../../lib/zoned-date";
 import type { CalendarParseIssue, CalendarParseResult, ParsedCalendarEvent } from "../domain/calendar-event";
 
 export interface IcsDocumentParseDiagnostics { totalEventCount: number; parsedEventCount: number; issues: CalendarParseIssue[] }
@@ -10,7 +12,22 @@ export class IcsDocumentParseError extends Error {
   }
 }
 function text(event: ICAL.Component, name: string): string | null { const value = event.getFirstPropertyValue(name); return typeof value === "string" ? value.trim() || null : value == null ? null : String(value).trim() || null; }
-function date(event: ICAL.Component, name: string): Date | null { const value = event.getFirstPropertyValue(name); if (!value || typeof value !== "object" || !("toJSDate" in value) || typeof value.toJSDate !== "function") return null; const result = value.toJSDate(); return Number.isNaN(result.getTime()) ? null : result; }
+function date(event: ICAL.Component, name: string): Date | null {
+  const value = event.getFirstPropertyValue(name);
+  if (!value || typeof value !== "object" || !("toJSDate" in value) || typeof value.toJSDate !== "function") return null;
+  if ("isDate" in value && value.isDate === true && "year" in value && "month" in value && "day" in value) {
+    const year = Number(value.year);
+    const month = Number(value.month);
+    const day = Number(value.day);
+    if (![year, month, day].every(Number.isInteger)) return null;
+    return getZonedMidnight(
+      `${String(year).padStart(4, "0")}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`,
+      DEFAULT_TIMEZONE,
+    );
+  }
+  const result = value.toJSDate();
+  return Number.isNaN(result.getTime()) ? null : result;
+}
 function sequence(event: ICAL.Component): number { const value = Number(event.getFirstPropertyValue("sequence") ?? 0); return Number.isSafeInteger(value) && value >= 0 ? value : 0; }
 function propertyText(value: ReturnType<ICAL.Property["getFirstValue"]>): string | null { if (value == null) return null; const result = String(value).trim(); return result || null; }
 function rawProperties(event: ICAL.Component): Readonly<Record<string, string | null>> {

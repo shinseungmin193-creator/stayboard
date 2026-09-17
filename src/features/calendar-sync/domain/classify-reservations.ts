@@ -7,6 +7,8 @@ export interface MissingReservationReconciliation {
   observedUids: ReadonlySet<string>;
   blockedUids: ReadonlySet<string>;
   fullyParsed: boolean;
+  /** Missing past events are commonly pruned by OTA feeds and must remain as history. */
+  preserveEndedBefore: Date;
 }
 export function classifyReservations(existing: ExistingReservation[], incoming: NormalizedReservation[], reconciliation?: MissingReservationReconciliation): ReservationClassification {
   const existingByUid = new Map(existing.map((reservation) => [reservation.rawUid, reservation])); const incomingByUid = new Map<string, NormalizedReservation>(); incoming.forEach((reservation) => { if (!incomingByUid.has(reservation.rawUid)) incomingByUid.set(reservation.rawUid, reservation); });
@@ -30,6 +32,10 @@ export function classifyReservations(existing: ExistingReservation[], incoming: 
         continue;
       }
       if (reconciliation.observedUids.has(reservation.rawUid)) continue;
+      if (reservation.endDate <= reconciliation.preserveEndedBefore) {
+        result.unchanged.push(reservation);
+        continue;
+      }
       result.missingDeletionIds.push(reservation.id);
     }
   }

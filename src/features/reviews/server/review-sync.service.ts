@@ -3,6 +3,7 @@ import "server-only";
 import { AdvisoryLockUnavailableError, withPostgresAdvisoryLocks } from "@/lib/postgres-advisory-lock";
 import { prisma } from "@/lib/prisma";
 import { createReviewFingerprint, shouldCreateReviewSnapshot } from "../domain/review-data";
+import type { ReviewFetchStatus } from "../domain/review-collection-state";
 import { runIsolatedReviewSyncBatch } from "../domain/review-sync-batch";
 import { getReviewProvider } from "../providers/review-provider-registry";
 import { ReviewFetchError } from "../providers/review-page-fetcher";
@@ -12,8 +13,7 @@ import type { ReviewSyncTarget } from "../review.types";
 export interface ReviewSyncResult {
   listingId: string;
   provider: ReviewSyncTarget["provider"];
-  success: boolean;
-  alreadyRunning: boolean;
+  status: Exclude<ReviewFetchStatus, "IDLE">;
   fetchedReviewCount: number;
   newReviewCount: number;
   message: string;
@@ -55,7 +55,7 @@ async function syncWithLock(target: ReviewSyncTarget, actorUserId: string): Prom
     where: { id: target.id, roomId: target.roomId, provider: target.provider, listingUrl: target.listingUrl, isActive: true },
     select: { id: true },
   });
-  if (!current) return { listingId: target.id, provider: target.provider, success: false, alreadyRunning: false, fetchedReviewCount: 0, newReviewCount: 0, message: "숙소 링크가 변경되었거나 비활성화되었습니다." };
+  if (!current) return { listingId: target.id, provider: target.provider, status: "FAILED", fetchedReviewCount: 0, newReviewCount: 0, message: "숙소 링크가 변경되었거나 비활성화되었습니다." };
 
   const log = await prisma.reviewSyncLog.create({
     data: {
@@ -151,15 +151,16 @@ async function syncWithLock(target: ReviewSyncTarget, actorUserId: string): Prom
     return {
       listingId: target.id,
       provider: target.provider,
-      success: true,
-      alreadyRunning: false,
+      status: collected.reviewCount === 0 ? "EMPTY" : "SUCCESS",
       fetchedReviewCount: reviewsByFingerprint.size,
       newReviewCount,
-      message: "리뷰 정보를 불러왔습니다.",
+      message: collected.reviewCount === 0
+        ? "리뷰 정보를 확인했습니다. 등록된 리뷰가 없습니다."
+        : "리뷰 정보를 불러왔습니다.",
     };
   } catch (error) {
     const details = await failLog(log.id, target.provider, error);
-    return { listingId: target.id, provider: target.provider, success: false, alreadyRunning: false, fetchedReviewCount: 0, newReviewCount: 0, message: details.message };
+    return { listingId: target.id, provider: target.provider, status: "FAILED", fetchedReviewCount: 0, newReviewCount: 0, message: details.message };
   }
 }
 
@@ -174,7 +175,7 @@ export async function collectReviews(input: {
     );
   } catch (error) {
     if (error instanceof AdvisoryLockUnavailableError) {
-      return { listingId: input.target.id, provider: input.target.provider, success: false, alreadyRunning: true, fetchedReviewCount: 0, newReviewCount: 0, message: "이미 이 숙소 링크의 리뷰를 불러오고 있습니다." };
+      return { listingId: input.target.id, provider: input.target.provider, status: "LOADING", fetchedReviewCount: 0, newReviewCount: 0, message: "이미 이 숙소 링크의 리뷰를 불러오고 있습니다." };
     }
     throw error;
   }
@@ -185,12 +186,12 @@ export async function collectReviewListings(targets: readonly ReviewSyncTarget[]
     targets,
     concurrency: REVIEW_SYNC_CONCURRENCY,
     worker: (target) => collectReviews({ target, actorUserId }),
-    failure: (target) => ({ listingId: target.id, provider: target.provider, success: false, alreadyRunning: false, fetchedReviewCount: 0, newReviewCount: 0, message: "리뷰 불러오기를 시작하지 못했습니다." } satisfies ReviewSyncResult),
+    failure: (target) => ({ listingId: target.id, provider: target.provider, status: "FAILED", fetchedReviewCount: 0, newReviewCount: 0, message: "리뷰 불러오기를 시작하지 못했습니다." } satisfies ReviewSyncResult),
   });
   return {
     results,
-    successCount: results.filter((item) => item.success).length,
-    failureCount: results.filter((item) => !item.success && !item.alreadyRunning).length,
-    alreadyRunningCount: results.filter((item) => item.alreadyRunning).length,
+    successCount: results.filter((item) => item.status === "SUCCESS" || item.status === "EMPTY").length,
+    failureCount: results.filter((item) => item.status === "FAILED").length,
+    alreadyRunningCount: results.filter((item) => item.status === "LOADING").length,
   };
 }

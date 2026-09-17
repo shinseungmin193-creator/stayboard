@@ -26,7 +26,10 @@ export function ReviewPlatformCell({
   const [registeredListing, setRegisteredListing] = useState<ReviewListingSummary | null>(null);
   const listing = initialListing ?? registeredListing ?? undefined;
 
-  if (listing) return <ReviewSummaryStatus roomId={roomId} listing={listing} compact={compact} />;
+  if (listing) {
+    const version = [listing.id, listing.latestSyncStatus, listing.latestSyncStartedAt?.toISOString(), listing.collectedAt?.toISOString(), listing.reviewCount].join(":");
+    return <ReviewSummaryStatus key={version} roomId={roomId} listing={listing} compact={compact} />;
+  }
 
   return <div className="flex flex-col items-start gap-1.5 sm:flex-row sm:flex-wrap sm:items-center">
     <span className="text-sm text-muted-foreground">{t("reviews.states.unregistered")}</span>

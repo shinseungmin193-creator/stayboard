@@ -145,6 +145,7 @@
       "notCollected": "아직 리뷰 정보를 불러오지 않았습니다.",
       "collecting": "불러오는 중...",
       "loadFailed": "불러오기 실패",
+      "requestFailed": "리뷰를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.",
       "noReviews": "리뷰 0개",
       "lastFailed": "마지막 수집에 실패했습니다.",
       "noLinks": "등록된 숙소 링크가 없습니다.",

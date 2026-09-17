@@ -9,9 +9,10 @@ import { roomListingRegistrationSchema } from "@/features/rooms/room.schemas";
 import type { ActionResult } from "@/lib/action-result";
 import { logServerError } from "@/lib/prisma-errors";
 import { ListingUrlError, REVIEW_PROVIDER_TYPES } from "./domain/listing-provider";
+import { getReviewFetchStatus, type ReviewFetchStatus } from "./domain/review-collection-state";
 import { REVIEW_SYNC_MAX_LISTINGS_PER_REQUEST } from "./review.constants";
 import type { ReviewListingSummary } from "./review.types";
-import { findReviewSyncTarget, findReviewSyncTargets } from "./server/review.repository";
+import { findReviewListingSummary, findReviewSyncTarget, findReviewSyncTargets } from "./server/review.repository";
 import { collectReviewListings, collectReviews } from "./server/review-sync.service";
 
 const collectListingsSchema = z.object({
@@ -24,6 +25,12 @@ const collectSchema = z.object({
 });
 
 export type ReviewCollectActionResult = {
+  status: Exclude<ReviewFetchStatus, "IDLE">;
+  message: string;
+  listing?: ReviewListingSummary;
+};
+
+export type ReviewBulkCollectActionResult = {
   success: boolean;
   message: string;
   successCount?: number;
@@ -86,29 +93,37 @@ export async function registerReviewListingAction(input: unknown): Promise<Regis
 
 export async function collectReviewsAction(input: unknown): Promise<ReviewCollectActionResult> {
   const parsed = collectSchema.safeParse(input);
-  if (!parsed.success) return { success: false, message: "불러올 객실과 플랫폼을 확인해 주세요." };
+  if (!parsed.success) return { status: "FAILED", message: "불러올 객실과 플랫폼을 확인해 주세요." };
   try {
     const context = await requirePermission(PERMISSIONS.PROPERTY_REVIEW_SYNC);
     const target = await findReviewSyncTarget(context, parsed.data);
-    if (!target) return { success: false, message: "등록된 숙소 링크를 찾을 수 없습니다." };
+    if (!target) return { status: "FAILED", message: "등록된 숙소 링크를 찾을 수 없습니다." };
     const result = await collectReviews({ target, actorUserId: context.userId });
+    const listing = await findReviewListingSummary(context, parsed.data);
+    const persistedStatus = listing ? getReviewFetchStatus(listing) : null;
+    const status = persistedStatus && persistedStatus !== "IDLE" ? persistedStatus : result.status;
+    const message = status === "EMPTY"
+      ? "리뷰 정보를 확인했습니다. 등록된 리뷰가 없습니다."
+      : status === "SUCCESS"
+        ? "리뷰 정보를 불러왔습니다."
+        : status === "LOADING"
+          ? "이미 이 숙소 링크의 리뷰를 불러오고 있습니다."
+          : listing?.latestSyncErrorMessage ?? (result.status === "FAILED" ? result.message : "리뷰 정보를 불러오지 못했습니다.");
     revalidatePath("/property-reviews");
     revalidatePath(`/property-reviews/${target.roomId}`);
     return {
-      success: result.success,
-      message: result.message,
-      successCount: result.success ? 1 : 0,
-      failureCount: !result.success && !result.alreadyRunning ? 1 : 0,
-      alreadyRunningCount: result.alreadyRunning ? 1 : 0,
+      status,
+      message,
+      listing: listing ?? undefined,
     };
   } catch (error) {
-    if (isAccessControlError(error)) return FORBIDDEN_ACTION_RESULT;
+    if (isAccessControlError(error)) return { status: "FAILED", message: FORBIDDEN_ACTION_RESULT.message };
     logServerError("collectReviews", error);
-    return { success: false, message: "리뷰 정보를 불러오지 못했습니다." };
+    return { status: "FAILED", message: "리뷰 정보를 불러오지 못했습니다." };
   }
 }
 
-export async function collectReviewListingsAction(input: unknown): Promise<ReviewCollectActionResult> {
+export async function collectReviewListingsAction(input: unknown): Promise<ReviewBulkCollectActionResult> {
   const parsed = collectListingsSchema.safeParse(input);
   if (!parsed.success) return { success: false, message: "갱신할 숙소 링크를 확인해 주세요." };
   try {

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createReviewFingerprint, shouldCreateReviewSnapshot } from "../domain/review-data";
-import { getReviewCollectionState } from "../domain/review-collection-state";
+import { getReviewFetchStatus } from "../domain/review-collection-state";
 import { parseProviderReviewPage, parseStructuredReviewData } from "../domain/structured-review-data";
 import { runIsolatedReviewSyncBatch } from "../domain/review-sync-batch";
 
@@ -129,34 +129,51 @@ const collectionStateFixture = {
 } as const;
 
 test("그란 301처럼 Airbnb 링크만 있고 수집 데이터가 없으면 최초 불러오기 상태다", () => {
-  assert.equal(getReviewCollectionState(collectionStateFixture), "NOT_COLLECTED");
+  assert.equal(getReviewFetchStatus(collectionStateFixture), "IDLE");
 });
 
-test("리뷰 링크 없음·수집 중·성공·실패 상태를 명확히 구분한다", () => {
+test("리뷰 요청 상태는 IDLE·LOADING·SUCCESS·EMPTY·FAILED 중 하나로만 판정한다", () => {
   const now = new Date("2026-09-17T03:00:00.000Z");
-  assert.equal(getReviewCollectionState(undefined, now), "UNREGISTERED");
-  assert.equal(getReviewCollectionState({
+  assert.equal(getReviewFetchStatus(collectionStateFixture, now), "IDLE");
+  assert.equal(getReviewFetchStatus({
     ...collectionStateFixture,
     latestSyncStatus: "RUNNING",
     latestSyncStartedAt: new Date("2026-09-17T02:59:00.000Z"),
-  }, now), "COLLECTING");
-  assert.equal(getReviewCollectionState({
+  }, now), "LOADING");
+  assert.equal(getReviewFetchStatus({
     ...collectionStateFixture,
     rating: "4.82",
     reviewCount: 137,
     collectedAt: new Date("2026-09-17T02:00:00.000Z"),
     latestSyncStatus: "SUCCESS",
-  }, now), "COLLECTED");
-  assert.equal(getReviewCollectionState({
+  }, now), "SUCCESS");
+  assert.equal(getReviewFetchStatus({
     ...collectionStateFixture,
     rating: null,
     reviewCount: 0,
     collectedAt: new Date("2026-09-17T02:00:00.000Z"),
     latestSyncStatus: "SUCCESS",
-  }, now), "COLLECTED");
-  assert.equal(getReviewCollectionState({
+  }, now), "EMPTY");
+  assert.equal(getReviewFetchStatus({
     ...collectionStateFixture,
     latestSyncStatus: "FAILED",
     latestSyncStartedAt: new Date("2026-09-17T02:00:00.000Z"),
   }, now), "FAILED");
+});
+
+test("진행·실패 상태는 이전 성공 snapshot보다 우선해 충돌 표시를 막는다", () => {
+  const now = new Date("2026-09-17T03:00:00.000Z");
+  const previousSuccess = {
+    ...collectionStateFixture,
+    rating: "4.82",
+    reviewCount: 137,
+    collectedAt: new Date("2026-09-17T02:00:00.000Z"),
+  };
+  assert.equal(getReviewFetchStatus({
+    ...previousSuccess,
+    latestSyncStatus: "RUNNING",
+    latestSyncStartedAt: new Date("2026-09-17T02:59:00.000Z"),
+  }, now), "LOADING");
+  assert.equal(getReviewFetchStatus({ ...previousSuccess, latestSyncStatus: "FAILED" }, now), "FAILED");
+  assert.equal(getReviewFetchStatus({ ...previousSuccess, reviewCount: 0, latestSyncStatus: "FAILED" }, now), "FAILED");
 });

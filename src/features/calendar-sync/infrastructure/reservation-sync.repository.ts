@@ -88,6 +88,7 @@ export async function persistReservationSync(input: PersistReservationSyncInput)
       observedUids: new Set(input.observedUids),
       blockedUids: new Set(input.blockedUids),
       fullyParsed: input.fullyParsed,
+      preserveEndedBefore: input.syncStartedAt,
     });
     const expectedSourceOperationalReservationCount = expectedOperationalReservationCount(existing, classification);
     const statusById = new Map(existing.map((reservation) => [reservation.id, reservation.status]));

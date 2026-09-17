@@ -84,6 +84,7 @@ test("Booking·Agoda 실데이터형 fixture는 parse→classify→저장 계획
       observedUids: new Set(classified.observedUids),
       blockedUids: new Set(classified.blockedUids),
       fullyParsed: parsed.issues.length === 0,
+      preserveEndedBefore: new Date("2026-01-01"),
     });
     assert.equal(persistence.create.length, 1, fixture.name);
     assert.equal(persistence.create[0].status, "CONFIRMED", fixture.name);
@@ -97,6 +98,7 @@ test("Booking·Agoda 실데이터형 fixture는 parse→classify→저장 계획
       observedUids: new Set(),
       blockedUids: new Set(),
       fullyParsed: true,
+      preserveEndedBefore: new Date("2026-01-01"),
     }).create.length, 0, fixture.emptyName);
   }
 });

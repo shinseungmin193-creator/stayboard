@@ -4,6 +4,7 @@ import { DEFAULT_TIMEZONE } from "../../lib/constants";
 import { getZonedDateInput, getZonedMidnight } from "../../lib/zoned-date";
 import { ACTIVE_OTA_RESERVATION_STATUSES } from "../reservations/reservation.constants";
 import { buildOperationalReservationWhere } from "../reservations/operational-reservation-where";
+import { buildReservationOverlapWhere, reservationOverlapsRange } from "../reservations/reservation-range-overlap";
 import { isCalendarProviderType } from "../../providers/calendar/types";
 
 export const ROOM_STATUS_TIME_ZONE = DEFAULT_TIMEZONE;
@@ -40,8 +41,10 @@ export function getRoomStatusCalendarRange(value: string | null | undefined, now
 export function buildRoomStatusReservationWhere(range: Pick<RoomStatusCalendarRange, "rangeStart" | "rangeEnd">): Prisma.ReservationWhereInput {
   return {
     ...buildOperationalReservationWhere(),
-    startDate: { lt: range.rangeEnd },
-    endDate: { gt: range.rangeStart },
+    ...buildReservationOverlapWhere({
+      viewStart: range.rangeStart,
+      viewEnd: range.rangeEnd,
+    }),
   };
 }
 
@@ -51,6 +54,8 @@ export function isReservationVisibleInRoomStatusRange(
 ) {
   return ACTIVE_OTA_RESERVATION_STATUSES.includes(reservation.status as (typeof ACTIVE_OTA_RESERVATION_STATUSES)[number])
     && isCalendarProviderType(reservation.provider)
-    && reservation.startDate < range.rangeEnd
-    && reservation.endDate > range.rangeStart;
+    && reservationOverlapsRange(reservation, {
+      viewStart: range.rangeStart,
+      viewEnd: range.rangeEnd,
+    });
 }

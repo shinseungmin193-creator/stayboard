@@ -5,6 +5,7 @@ import type { AccessScope } from "@/features/access-control";
 import { roomScopeWhere } from "@/features/access-control";
 import { CALENDAR_PROVIDER_TYPES } from "@/providers/calendar";
 import { buildOperationalReservationWhere } from "@/features/reservations/operational-reservation-where";
+import { buildReservationOverlapWhere } from "@/features/reservations/reservation-range-overlap";
 import { OPEN_ROOM_NOTE_STATUS } from "@/features/room-notes/domain/room-note";
 
 export function findRoomOverviewData(input: { propertyId?: string; operationalStatus?: "NONE" | "CLEANING_REQUIRED" | "INSPECTION_REQUIRED"; companyIds?: readonly string[]; accessScope?: AccessScope; from: Date; todayStart: Date; toExclusive: Date }) {
@@ -23,7 +24,10 @@ export function findRoomOverviewData(input: { propertyId?: string; operationalSt
       property: { select: { name: true } },
       _count: { select: { roomNotes: { where: { status: OPEN_ROOM_NOTE_STATUS } } } },
       reservations: {
-        where: { ...buildOperationalReservationWhere(), endDate: { gt: input.from }, startDate: { lt: input.toExclusive } },
+        where: {
+          ...buildOperationalReservationWhere(),
+          ...buildReservationOverlapWhere({ viewStart: input.from, viewEnd: input.toExclusive }),
+        },
         select: { id: true, providerReservationId: true, calendarSourceId: true, guestName: true, provider: true, status: true, startDate: true, endDate: true },
         orderBy: [{ startDate: "asc" }, { endDate: "asc" }],
       },
