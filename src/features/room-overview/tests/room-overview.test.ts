@@ -6,6 +6,7 @@ import { buildCalendarDateRange, buildMobileRoomCalendarSegments, filterMobileRo
 import { getRoomOperationalStatusLabel } from "../../rooms/room-operational-status";
 import { AlertTriangle, ArrowDownToLine, ArrowUpFromLine, BedDouble, BrushCleaning, House, Wrench } from "lucide-react";
 import { getRoomStatusThemeStatus, ROOM_STATUS_THEME } from "../room-overview-visuals";
+import { updateRoomOverviewFilterParams } from "../domain/room-overview-filter";
 
 const todayStart = new Date("2026-07-24T00:00:00+09:00");
 const todayEnd = new Date("2026-07-25T00:00:00+09:00");
@@ -267,4 +268,86 @@ test("모바일 타임라인은 좁은 객실 열과 간결한 OTA·공실 표�
   assert.match(dateHeader, /MOBILE_TIMELINE_TODAY_VISUAL\.badgeClassName/);
   assert.match(calendar, /MOBILE_TIMELINE_TODAY_VISUAL\.lineClassName/);
   assert.match(collapsedGroups, /useState<Set<string>>\(\(\) => new Set\(\)\)/);
+});
+
+test("객실 현황 select 필터는 기존 URL 조건을 유지하며 즉시 병합한다", () => {
+  let params = new URLSearchParams("query=301&date=2026-09-18");
+  params = updateRoomOverviewFilterParams(params, "status", "CHECK_OUT_TODAY");
+  params = updateRoomOverviewFilterParams(params, "provider", "AIRBNB");
+  params = updateRoomOverviewFilterParams(params, "propertyId", "centercoz");
+  params = updateRoomOverviewFilterParams(params, "operationalStatus", "INSPECTION_REQUIRED");
+  params = updateRoomOverviewFilterParams(params, "syncStatus", "FAILED");
+  assert.deepEqual(Object.fromEntries(params), {
+    query: "301",
+    date: "2026-09-18",
+    status: "CHECK_OUT_TODAY",
+    provider: "AIRBNB",
+    propertyId: "centercoz",
+    operationalStatus: "INSPECTION_REQUIRED",
+    syncStatus: "FAILED",
+  });
+});
+
+test("select 기본값 복원은 해당 query만 제거하고 최신 연속 조건을 보존한다", () => {
+  let params = new URLSearchParams("status=CHECK_OUT_TODAY&provider=AIRBNB&propertyId=centercoz");
+  params = updateRoomOverviewFilterParams(params, "status", "VACANT");
+  params = updateRoomOverviewFilterParams(params, "provider", "BOOKING");
+  params = updateRoomOverviewFilterParams(params, "status", "");
+  assert.equal(params.has("status"), false);
+  assert.equal(params.get("provider"), "BOOKING");
+  assert.equal(params.get("propertyId"), "centercoz");
+});
+
+test("PC select는 즉시 replace하고 검색어만 조회 또는 Enter 제출을 기다린다", () => {
+  const form = readFileSync("src/features/room-overview/components/room-overview-filter-form.tsx", "utf8");
+  const toolbar = readFileSync("src/features/room-overview/components/room-overview-toolbar.tsx", "utf8");
+  assert.match(form, /onChange=\{\(event\) => replaceFilter\("status"/);
+  assert.match(form, /onChange=\{\(event\) => replaceFilter\("provider"/);
+  assert.match(form, /onChange=\{\(event\) => replaceFilter\("propertyId"/);
+  assert.match(form, /onChange=\{\(event\) => replaceFilter\("operationalStatus"/);
+  assert.match(form, /router\.replace\([\s\S]*\{ scroll: false \}\)/);
+  assert.match(form, /onSubmit=\{submitSearch\}/);
+  assert.match(form, /roomOverviewFilters\.searchButton/);
+  assert.doesNotMatch(toolbar, /auto\.m0087|method="get"/);
+});
+
+test("모바일 Sheet select는 draft 없이 즉시 적용하고 초기화도 즉시 실행한다", () => {
+  const sheet = readFileSync("src/features/room-overview/components/room-status-filter-sheet.tsx", "utf8");
+  const hook = readFileSync("src/features/room-overview/hooks/use-room-status-filters.ts", "utf8");
+  assert.doesNotMatch(sheet, /\[draft, setDraft\]/);
+  assert.match(sheet, /applySelect\("status"/);
+  assert.match(sheet, /applySelect\("ota"/);
+  assert.match(sheet, /applySelect\("sync"/);
+  assert.match(sheet, /onApply\(filters, nextPropertyId \|\| undefined\)/);
+  assert.match(sheet, /onReset\(\)/);
+  assert.match(hook, /resetFilters[\s\S]*applyFilters\(next, undefined\)/);
+});
+
+test("PC 객실 현황은 개발자 UI 설정 CSS 변수를 모든 노출 항목에 연결한다", () => {
+  const page = readFileSync("src/app/room-overview/page.tsx", "utf8");
+  const card = readFileSync("src/features/room-overview/components/room-overview-card.tsx", "utf8");
+  const statusHeader = readFileSync("src/features/room-overview/components/room-overview-status-header.tsx", "utf8");
+  const providerBadges = readFileSync("src/features/room-overview/components/room-overview-provider-badges.tsx", "utf8");
+  const layout = readFileSync("src/features/room-overview/components/room-overview-visuals.module.css", "utf8");
+
+  assert.match(page, /enabled=\{context\?\.actualRole === "DEVELOPER"\}/);
+  assert.match(card, /styles\.roomCard/);
+  assert.match(card, /styles\.roomCardSection/);
+  assert.match(card, /styles\.propertyName/);
+  assert.match(card, /styles\.roomName/);
+  assert.match(statusHeader, /styles\.statusBar/);
+  assert.match(providerBadges, /styles\.providerBadge/);
+  assert.match(layout, /var\(--room-card-min-width/);
+  assert.match(layout, /var\(--room-card-min-height/);
+  assert.match(layout, /var\(--room-grid-gap/);
+  assert.match(layout, /var\(--room-card-padding/);
+  assert.match(layout, /var\(--room-status-bar-height/);
+  assert.match(layout, /var\(--room-property-font-size/);
+  assert.match(layout, /var\(--room-name-font-size/);
+  assert.match(layout, /var\(--room-schedule-panel-width/);
+  assert.match(layout, /var\(--room-provider-badge-height/);
+  assert.match(layout, /var\(--room-provider-badge-padding/);
+  assert.match(layout, /var\(--room-provider-badge-font-size/);
+  assert.doesNotMatch(layout, /minmax\(min\(100%, 270px\)/);
+  assert.doesNotMatch(page, /grid items-start gap-2/);
 });

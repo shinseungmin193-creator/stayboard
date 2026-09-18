@@ -1,7 +1,7 @@
 "use client";import { useTranslations } from "next-intl";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
-import { applyRoomDensityPreset, DEFAULT_DEVELOPER_SETTINGS, normalizeDeveloperSettings, resetDeveloperSettingsSection, type DeveloperSettings, type RoomDensity } from "../domain/developer-settings";
+import { applyRoomDensityPreset, DEFAULT_DEVELOPER_SETTINGS, getRoomOverviewCssVariables, normalizeDeveloperSettings, resetDeveloperSettingsSection, type DeveloperSettings, type RoomDensity } from "../domain/developer-settings";
 import { clearDeveloperSettings, readDeveloperSettings, writeDeveloperSettings } from "../storage/developer-settings.storage";
 
 interface DeveloperSettingsContextValue {
@@ -23,7 +23,14 @@ export function DeveloperSettingsProvider({ children, enabled = true }: {childre
       setSettings(enabled ? readDeveloperSettings(window.localStorage) : structuredClone(DEFAULT_DEVELOPER_SETTINGS));
       setHydrated(true);
     }, 0);
-    return () => window.clearTimeout(timeoutId);
+    const syncStoredSettings = (event: StorageEvent) => {
+      if (event.storageArea === window.localStorage) setSettings(enabled ? readDeveloperSettings(window.localStorage) : structuredClone(DEFAULT_DEVELOPER_SETTINGS));
+    };
+    window.addEventListener("storage", syncStoredSettings);
+    return () => {
+      window.clearTimeout(timeoutId);
+      window.removeEventListener("storage", syncStoredSettings);
+    };
   }, [enabled]);
   const commit = useCallback((next: DeveloperSettings) => {
     const normalized = normalizeDeveloperSettings(next);
@@ -62,15 +69,6 @@ function RoomOverviewSettingsRoot({ children, enabled }: {children: ReactNode;en
   const { settings } = useDeveloperSettings();
   const room = enabled ? settings.roomOverview : DEFAULT_DEVELOPER_SETTINGS.roomOverview;
   const debug = enabled && settings.debug.enabled ? settings.debug : { ...DEFAULT_DEVELOPER_SETTINGS.debug, enabled: false };
-  const style: RoomOverviewStyle = {
-    "--room-card-min-width": `${room.cardMinWidth}px`,
-    "--room-card-min-height": `${room.cardMinHeight}px`,
-    "--room-grid-gap": `${room.gridGap}px`,
-    "--room-card-padding": `${room.bodyPadding}px`,
-    "--room-status-bar-height": `${room.statusBarHeight}px`,
-    "--room-property-font-size": `${room.propertyFontSize}px`,
-    "--room-name-font-size": `${room.roomFontSize}px`,
-    "--room-schedule-panel-width": `${room.schedulePanelWidth}px`
-  };
+  const style: RoomOverviewStyle = getRoomOverviewCssVariables(room);
   return <div data-room-overview-settings data-schedule-visible={room.schedulePanelVisible} data-provider-size={room.providerBadgeSize} data-show-property={room.showPropertyName} data-show-providers={room.showProviderBadges} data-show-guest={room.showGuestName} data-show-stay-dates={room.showStayDates} data-show-night-count={room.showNightCount} data-show-next-reservation={room.showNextReservation} data-show-sync-warnings={room.showSyncWarnings} data-show-no-conflict={room.showNoConflictText} data-show-footer={room.showFooterActions} data-debug-enabled={debug.enabled} data-debug-room-id={debug.showRoomId} data-debug-reservation-id={debug.showReservationId} data-debug-calendar-source-id={debug.showCalendarSourceId} data-debug-internal-status={debug.showInternalStatus} data-debug-provider-raw={debug.showProviderRawValue} data-debug-render-time={debug.showRenderReferenceTime} data-debug-reservation-count={debug.showReservationCount} style={style}>{children}</div>;
 }

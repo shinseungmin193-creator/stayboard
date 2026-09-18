@@ -39,6 +39,7 @@ export function RoomOverviewCard({ card, canUpdateOperationalStatus = true }: {c
       size="sm"
       className={cn(
         "relative gap-0 overflow-hidden py-0 shadow-sm ring-0 transition-[transform,border-color,box-shadow] hover:-translate-y-0.5 hover:shadow-md motion-reduce:transform-none motion-reduce:transition-none",
+        styles.roomCard,
         theme.bodyClass,
       )}
       data-room-status-theme={themeStatus}
@@ -52,20 +53,20 @@ export function RoomOverviewCard({ card, canUpdateOperationalStatus = true }: {c
         nextReservationLeadDays={card.nextReservationLeadDays}
         canUpdate={canUpdateOperationalStatus} />
       
-      <CardHeader className="grid grid-cols-1 border-b border-border/70 py-2.5">
+      <CardHeader className={cn("grid grid-cols-1 border-b border-border/70", styles.roomCardSection)}>
         <div className="min-w-0">
-          <p data-room-overview-property className="truncate text-xs font-medium leading-4 text-muted-foreground">
+          <p data-room-overview-property className={cn("truncate font-medium leading-4 text-muted-foreground", styles.propertyName)}>
             {card.propertyName}
           </p>
           <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1.5">
-            <h3 className={cn("min-w-0 flex-1 basis-20 truncate text-lg font-bold leading-6 tracking-tight", theme.titleClass)}>
+            <h3 className={cn("min-w-0 flex-1 basis-20 truncate font-bold leading-6 tracking-tight", styles.roomName, theme.titleClass)}>
               {formatRoomDisplayName(card)}
             </h3>
             <RoomOverviewProviderBadges providers={card.providers} currentProvider={currentProvider} />
           </div>
         </div>
       </CardHeader>
-      <CardContent className="flex flex-col gap-2.5 py-2.5">
+      <CardContent className={cn("flex flex-1 flex-col gap-2.5", styles.roomCardSection)}>
         {reservation ? <RoomOverviewGuestInfo reservation={reservation} guestName={guestName} reservationCount={card.reservationCount} isNextReservation={!card.currentReservation} /> : null}
         {hasCardAlerts && <div className="flex flex-wrap items-center gap-1.5 border-t pt-1.5 text-[10px] text-muted-foreground xl:text-xs">
           {card.pendingMemoCount > 0 && <Link href={roomNotesHref} aria-label={`${i18n("roomStatus.INSPECTION_REQUIRED")} ${card.pendingMemoCount}`} className="rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring"><Badge variant="outline" className={cn("h-5 gap-1 px-1.5 text-[9px] xl:text-[10px]", ROOM_STATUS_THEME.INSPECTION_REQUIRED.badgeClass)}><Wrench className="size-3" />{i18n("roomStatus.INSPECTION_REQUIRED")} {card.pendingMemoCount}</Badge></Link>}

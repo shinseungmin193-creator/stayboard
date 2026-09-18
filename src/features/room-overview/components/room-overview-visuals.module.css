@@ -4,7 +4,36 @@
 }
 
 .roomGrid {
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 270px), 1fr));
+  gap: var(--room-grid-gap, 8px);
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, var(--room-card-min-width, 250px)), 1fr));
+}
+
+.roomCard.roomCard[data-size="sm"] {
+  min-height: var(--room-card-min-height, 272px);
+  --card-spacing: var(--room-card-padding, 12px);
+}
+
+.roomCardSection {
+  padding-block: var(--room-card-padding, 12px);
+}
+
+.statusBar {
+  min-height: var(--room-status-bar-height, 36px);
+  height: var(--room-status-bar-height, 36px);
+}
+
+.propertyName {
+  font-size: var(--room-property-font-size, 14px);
+}
+
+.roomName {
+  font-size: var(--room-name-font-size, 16px);
+}
+
+.providerBadge.providerBadge {
+  height: var(--room-provider-badge-height, 20px);
+  padding-inline: var(--room-provider-badge-padding, 8px);
+  font-size: var(--room-provider-badge-font-size, 10px);
 }
 
 @media (min-width: 80rem) {

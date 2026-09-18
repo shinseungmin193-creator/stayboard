@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { applyRoomDensityPreset, DEFAULT_DEVELOPER_SETTINGS, DEVELOPER_SETTINGS_STORAGE_KEY, normalizeDeveloperSettings, resetDeveloperSettingsSection } from "../domain/developer-settings";
+import { applyRoomDensityPreset, DEFAULT_DEVELOPER_SETTINGS, DEVELOPER_SETTINGS_STORAGE_KEY, getMatchingRoomDensityPreset, getRoomOverviewCssVariables, normalizeDeveloperSettings, resetDeveloperSettingsSection, ROOM_DENSITY_PRESETS } from "../domain/developer-settings";
 import { readDeveloperSettings, writeDeveloperSettings, type SettingsStorage } from "../storage/developer-settings.storage";
 
 class MemoryStorage implements SettingsStorage {
@@ -34,5 +34,46 @@ test("객실 현황 표시 토글을 모두 false로 저장하고 복원한다",
 });
 test("잘못된 JSON과 version은 기본값으로 복원한다", () => { const storage = new MemoryStorage(); storage.setItem(DEVELOPER_SETTINGS_STORAGE_KEY, "{"); assert.deepEqual(readDeveloperSettings(storage), DEFAULT_DEVELOPER_SETTINGS); storage.setItem(DEVELOPER_SETTINGS_STORAGE_KEY, JSON.stringify({ version: 2 })); assert.deepEqual(readDeveloperSettings(storage), DEFAULT_DEVELOPER_SETTINGS); });
 test("숫자 범위를 clamp하고 step을 정규화한다", () => { const result = normalizeDeveloperSettings({ ...DEFAULT_DEVELOPER_SETTINGS, roomOverview: { ...DEFAULT_DEVELOPER_SETTINGS.roomOverview, cardMinWidth: 999, gridGap: 7 } }); assert.equal(result.roomOverview.cardMinWidth, 360); assert.equal(result.roomOverview.gridGap, 8); });
-test("프리셋과 Section 기본값을 적용한다", () => { const compact = applyRoomDensityPreset(DEFAULT_DEVELOPER_SETTINGS, "ultra-compact"); assert.equal(compact.roomOverview.cardMinWidth, 210); const reset = resetDeveloperSettingsSection({ ...compact, debug: { ...compact.debug, enabled: true } }, "debug"); assert.equal(reset.debug.enabled, false); });
+test("프리셋은 객실 현황 UI의 모든 크기 값을 함께 적용한다", () => {
+  const compact = applyRoomDensityPreset(DEFAULT_DEVELOPER_SETTINGS, "ultra-compact");
+  assert.deepEqual(
+    Object.fromEntries(Object.keys(ROOM_DENSITY_PRESETS["ultra-compact"]).map((key) => [key, compact.roomOverview[key as keyof typeof compact.roomOverview]])),
+    ROOM_DENSITY_PRESETS["ultra-compact"],
+  );
+  assert.equal(getMatchingRoomDensityPreset(compact.roomOverview), "ultra-compact");
+  assert.equal(getMatchingRoomDensityPreset({ ...compact.roomOverview, cardMinWidth: 220 }), null);
+});
+test("Section 기본값을 적용한다", () => { const compact = applyRoomDensityPreset(DEFAULT_DEVELOPER_SETTINGS, "ultra-compact"); const reset = resetDeveloperSettingsSection({ ...compact, debug: { ...compact.debug, enabled: true } }, "debug"); assert.equal(reset.debug.enabled, false); });
+test("객실 현황 설정을 하위 컴포넌트용 CSS 변수로 변환한다", () => {
+  assert.deepEqual(getRoomOverviewCssVariables({
+    ...DEFAULT_DEVELOPER_SETTINGS.roomOverview,
+    cardMinWidth: 320,
+    cardMinHeight: 340,
+    gridGap: 20,
+    bodyPadding: 20,
+    statusBarHeight: 40,
+    propertyFontSize: 16,
+    roomFontSize: 20,
+    schedulePanelWidth: 420,
+    providerBadgeSize: "lg",
+  }), {
+    "--room-card-min-width": "320px",
+    "--room-card-min-height": "340px",
+    "--room-grid-gap": "20px",
+    "--room-card-padding": "20px",
+    "--room-status-bar-height": "40px",
+    "--room-property-font-size": "16px",
+    "--room-name-font-size": "20px",
+    "--room-schedule-panel-width": "420px",
+    "--room-provider-badge-height": "28px",
+    "--room-provider-badge-padding": "12px",
+    "--room-provider-badge-font-size": "12px",
+  });
+});
+test("Provider Badge 큰 크기를 저장하고 잘못된 값은 기본값으로 정규화한다", () => {
+  const large = normalizeDeveloperSettings({ ...DEFAULT_DEVELOPER_SETTINGS, roomOverview: { ...DEFAULT_DEVELOPER_SETTINGS.roomOverview, providerBadgeSize: "lg" } });
+  const invalid = normalizeDeveloperSettings({ ...DEFAULT_DEVELOPER_SETTINGS, roomOverview: { ...DEFAULT_DEVELOPER_SETTINGS.roomOverview, providerBadgeSize: "huge" } });
+  assert.equal(large.roomOverview.providerBadgeSize, "lg");
+  assert.equal(invalid.roomOverview.providerBadgeSize, DEFAULT_DEVELOPER_SETTINGS.roomOverview.providerBadgeSize);
+});
 test("Debug Mode OFF면 세부 설정이 있어도 활성 상태가 아니다", () => { const settings = normalizeDeveloperSettings({ ...DEFAULT_DEVELOPER_SETTINGS, debug: { ...DEFAULT_DEVELOPER_SETTINGS.debug, enabled: false, showRoomId: true } }); assert.equal(settings.debug.enabled && settings.debug.showRoomId, false); });

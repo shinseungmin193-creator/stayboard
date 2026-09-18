@@ -2,6 +2,7 @@ export const DEVELOPER_SETTINGS_VERSION = 1 as const;
 export const DEVELOPER_SETTINGS_STORAGE_KEY = "stayboard:developer-settings:v1";
 export const ROOM_DENSITIES = ["comfortable", "default", "compact", "ultra-compact"] as const;
 export type RoomDensity = (typeof ROOM_DENSITIES)[number];
+export type ProviderBadgeSize = "sm" | "md" | "lg";
 
 export interface DeveloperSettings {
   version: 1;
@@ -14,7 +15,7 @@ export interface DeveloperSettings {
     statusBarHeight: number;
     propertyFontSize: number;
     roomFontSize: number;
-    providerBadgeSize: "sm" | "md";
+    providerBadgeSize: ProviderBadgeSize;
     schedulePanelVisible: boolean;
     schedulePanelWidth: number;
     showPropertyName: boolean;
@@ -55,11 +56,24 @@ export const ROOM_OVERVIEW_LIMITS = {
   schedulePanelWidth: { min: 260, max: 420, step: 10 },
 } as const;
 
-export const ROOM_DENSITY_PRESETS: Record<RoomDensity, Pick<DeveloperSettings["roomOverview"], "cardMinWidth" | "cardMinHeight" | "gridGap" | "bodyPadding">> = {
-  comfortable: { cardMinWidth: 320, cardMinHeight: 300, gridGap: 16, bodyPadding: 16 },
-  default: { cardMinWidth: 250, cardMinHeight: 272, gridGap: 8, bodyPadding: 12 },
-  compact: { cardMinWidth: 240, cardMinHeight: 260, gridGap: 10, bodyPadding: 10 },
-  "ultra-compact": { cardMinWidth: 210, cardMinHeight: 248, gridGap: 8, bodyPadding: 8 },
+export type RoomOverviewUiConfig = DeveloperSettings["roomOverview"];
+type RoomDensityPreset = Pick<RoomOverviewUiConfig,
+  | "cardMinWidth"
+  | "cardMinHeight"
+  | "gridGap"
+  | "bodyPadding"
+  | "statusBarHeight"
+  | "propertyFontSize"
+  | "roomFontSize"
+  | "schedulePanelWidth"
+  | "providerBadgeSize"
+>;
+
+export const ROOM_DENSITY_PRESETS: Record<RoomDensity, RoomDensityPreset> = {
+  comfortable: { cardMinWidth: 320, cardMinHeight: 320, gridGap: 16, bodyPadding: 18, statusBarHeight: 40, propertyFontSize: 16, roomFontSize: 20, schedulePanelWidth: 380, providerBadgeSize: "lg" },
+  default: { cardMinWidth: 250, cardMinHeight: 272, gridGap: 8, bodyPadding: 12, statusBarHeight: 36, propertyFontSize: 14, roomFontSize: 16, schedulePanelWidth: 300, providerBadgeSize: "sm" },
+  compact: { cardMinWidth: 240, cardMinHeight: 260, gridGap: 8, bodyPadding: 10, statusBarHeight: 34, propertyFontSize: 13, roomFontSize: 15, schedulePanelWidth: 280, providerBadgeSize: "sm" },
+  "ultra-compact": { cardMinWidth: 210, cardMinHeight: 240, gridGap: 6, bodyPadding: 8, statusBarHeight: 32, propertyFontSize: 12, roomFontSize: 14, schedulePanelWidth: 260, providerBadgeSize: "sm" },
 };
 
 export const DEFAULT_DEVELOPER_SETTINGS: DeveloperSettings = {
@@ -67,12 +81,7 @@ export const DEFAULT_DEVELOPER_SETTINGS: DeveloperSettings = {
   roomOverview: {
     density: "default",
     ...ROOM_DENSITY_PRESETS.default,
-    statusBarHeight: 36,
-    propertyFontSize: 14,
-    roomFontSize: 16,
-    providerBadgeSize: "sm",
     schedulePanelVisible: true,
-    schedulePanelWidth: 300,
     showPropertyName: true,
     showProviderBadges: true,
     showGuestName: true,
@@ -122,7 +131,7 @@ export function normalizeDeveloperSettings(value: unknown): DeveloperSettings {
       statusBarHeight: number(room.statusBarHeight, "statusBarHeight", defaults.roomOverview.statusBarHeight),
       propertyFontSize: number(room.propertyFontSize, "propertyFontSize", defaults.roomOverview.propertyFontSize),
       roomFontSize: number(room.roomFontSize, "roomFontSize", defaults.roomOverview.roomFontSize),
-      providerBadgeSize: choice(room.providerBadgeSize, ["sm", "md"] as const, defaults.roomOverview.providerBadgeSize),
+      providerBadgeSize: choice(room.providerBadgeSize, ["sm", "md", "lg"] as const, defaults.roomOverview.providerBadgeSize),
       schedulePanelVisible: bool(room.schedulePanelVisible, defaults.roomOverview.schedulePanelVisible),
       schedulePanelWidth: number(room.schedulePanelWidth, "schedulePanelWidth", defaults.roomOverview.schedulePanelWidth),
       showPropertyName: bool(room.showPropertyName, defaults.roomOverview.showPropertyName),
@@ -155,6 +164,34 @@ export function normalizeDeveloperSettings(value: unknown): DeveloperSettings {
 
 export function applyRoomDensityPreset(settings: DeveloperSettings, density: RoomDensity): DeveloperSettings {
   return { ...settings, roomOverview: { ...settings.roomOverview, density, ...ROOM_DENSITY_PRESETS[density] } };
+}
+
+export function getMatchingRoomDensityPreset(roomOverview: RoomOverviewUiConfig): RoomDensity | null {
+  return ROOM_DENSITIES.find((density) => {
+    const preset = ROOM_DENSITY_PRESETS[density];
+    return (Object.keys(preset) as Array<keyof RoomDensityPreset>).every((key) => roomOverview[key] === preset[key]);
+  }) ?? null;
+}
+
+export function getRoomOverviewCssVariables(roomOverview: RoomOverviewUiConfig) {
+  const providerBadge = {
+    sm: { height: 20, padding: 8, fontSize: 10 },
+    md: { height: 24, padding: 10, fontSize: 11 },
+    lg: { height: 28, padding: 12, fontSize: 12 },
+  }[roomOverview.providerBadgeSize];
+  return {
+    "--room-card-min-width": `${roomOverview.cardMinWidth}px`,
+    "--room-card-min-height": `${roomOverview.cardMinHeight}px`,
+    "--room-grid-gap": `${roomOverview.gridGap}px`,
+    "--room-card-padding": `${roomOverview.bodyPadding}px`,
+    "--room-status-bar-height": `${roomOverview.statusBarHeight}px`,
+    "--room-property-font-size": `${roomOverview.propertyFontSize}px`,
+    "--room-name-font-size": `${roomOverview.roomFontSize}px`,
+    "--room-schedule-panel-width": `${roomOverview.schedulePanelWidth}px`,
+    "--room-provider-badge-height": `${providerBadge.height}px`,
+    "--room-provider-badge-padding": `${providerBadge.padding}px`,
+    "--room-provider-badge-font-size": `${providerBadge.fontSize}px`,
+  } as const;
 }
 
 export function resetDeveloperSettingsSection(settings: DeveloperSettings, section: "roomOverview" | "debug" | "featureFlags"): DeveloperSettings {

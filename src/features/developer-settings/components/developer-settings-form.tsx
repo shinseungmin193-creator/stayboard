@@ -14,7 +14,9 @@ import { SidebarMenuOrderCard } from "@/features/sidebar-preferences/components/
 import {
   ROOM_DENSITIES,
   ROOM_OVERVIEW_LIMITS,
+  getMatchingRoomDensityPreset,
   type DeveloperSettings,
+  type ProviderBadgeSize,
   type RoomDensity,
 } from "../domain/developer-settings";
 import { useDeveloperSettings } from "./developer-settings-provider";
@@ -55,6 +57,7 @@ export function DeveloperSettingsForm({ staffMobileNavigation }: { staffMobileNa
     "ultra-compact": i18n("auto.m0639"),
   };
   const { settings, hydrated, updateSettings, applyPreset, resetSection, resetAll } = useDeveloperSettings();
+  const activeDensity = getMatchingRoomDensityPreset(settings.roomOverview);
   const updateRoom = (patch: Partial<DeveloperSettings["roomOverview"]>) => updateSettings((current) => ({ ...current, roomOverview: { ...current.roomOverview, ...patch } }));
   const updateDebug = (patch: Partial<DeveloperSettings["debug"]>) => updateSettings((current) => ({ ...current, debug: { ...current.debug, ...patch } }));
 
@@ -62,7 +65,7 @@ export function DeveloperSettingsForm({ staffMobileNavigation }: { staffMobileNa
     <SidebarMenuOrderCard />
     <Card>
       <CardHeader className="flex-row items-center justify-between"><CardTitle className="text-base">{i18n("auto.m0312")}</CardTitle><Button type="button" variant="ghost" size="sm" onClick={() => resetSection("roomOverview")}><RotateCcw />{i18n("auto.m0313")}</Button></CardHeader>
-      <CardContent className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">{ROOM_DENSITIES.map((density) => <Button key={density} type="button" variant={settings.roomOverview.density === density ? "default" : "outline"} onClick={() => applyPreset(density)}>{densityLabels[density]}</Button>)}</CardContent>
+      <CardContent className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">{ROOM_DENSITIES.map((density) => <Button key={density} type="button" variant={activeDensity === density ? "default" : "outline"} onClick={() => applyPreset(density)}>{densityLabels[density]}</Button>)}</CardContent>
     </Card>
     <Card>
       <CardHeader><CardTitle className="text-base">{i18n("auto.m0314")}</CardTitle></CardHeader>
@@ -75,7 +78,7 @@ export function DeveloperSettingsForm({ staffMobileNavigation }: { staffMobileNa
         <NumberControl field="propertyFontSize" label={i18n("auto.m0320")} value={settings.roomOverview.propertyFontSize} onChange={(value) => updateRoom({ propertyFontSize: value })} />
         <NumberControl field="roomFontSize" label={i18n("auto.m0321")} value={settings.roomOverview.roomFontSize} onChange={(value) => updateRoom({ roomFontSize: value })} />
         <NumberControl field="schedulePanelWidth" label={i18n("auto.m0322")} value={settings.roomOverview.schedulePanelWidth} onChange={(value) => updateRoom({ schedulePanelWidth: value })} />
-        <label className="space-y-2 rounded-lg border p-3"><span className="block text-sm font-medium">{i18n("technical.providerBadge")}</span><select value={settings.roomOverview.providerBadgeSize} onChange={(event) => updateRoom({ providerBadgeSize: event.target.value as "sm" | "md" })} className="h-8 w-full rounded-md border bg-background px-2 text-sm"><option value="sm">{i18n("auto.m0323")}</option><option value="md">{i18n("auto.m0324")}</option></select></label>
+        <label className="space-y-2 rounded-lg border p-3"><span className="block text-sm font-medium">{i18n("technical.providerBadge")}</span><select value={settings.roomOverview.providerBadgeSize} onChange={(event) => updateRoom({ providerBadgeSize: event.target.value as ProviderBadgeSize })} className="h-8 w-full rounded-md border bg-background px-2 text-sm"><option value="sm">{i18n("auto.m0323")}</option><option value="md">{i18n("auto.m0324")}</option><option value="lg">{i18n("developerSettings.providerBadgeLarge")}</option></select></label>
       </CardContent>
     </Card>
     <Card>

@@ -20,6 +20,7 @@ import { ROOM_OPERATIONAL_STATUS_VALUES } from "@/features/rooms/room-operationa
 import { cn } from "@/lib/utils";
 import type { RoomReservationState } from "../domain/room-overview";
 import { getRoomStatusThemeStatus, ROOM_STATUS_THEME } from "../room-overview-visuals";
+import styles from "./room-overview-visuals.module.css";
 
 type RoomOverviewStatusHeaderProps = {
   roomId: string;
@@ -77,7 +78,8 @@ export function RoomOverviewStatusHeader({
     <DropdownMenu>
       <DropdownMenuTrigger
         className={cn(
-          "flex h-10 w-full items-center justify-between gap-2 px-3 text-left text-sm font-semibold outline-none transition-[filter] hover:brightness-[1.04] focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset",
+          "flex w-full items-center justify-between gap-2 px-3 text-left text-sm font-semibold outline-none transition-[filter] hover:brightness-[1.04] focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset",
+          styles.statusBar,
           theme.headerClass,
         )}
         data-room-status-theme={themeStatus}

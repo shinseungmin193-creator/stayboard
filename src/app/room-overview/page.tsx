@@ -27,10 +27,7 @@ export default async function RoomOverviewPage({ searchParams }: {searchParams: 
   const context = await getCurrentAccessContext();
   const roomAccess = context ? await authorizeSidebarMenuAccess("room-overview") : null;
   if (roomAccess && !roomAccess.allowed) return <AccessDenied role={roomAccess.context?.role ?? null} />;
-  const [properties, developerSettingsAccess] = context ? await Promise.all([
-  listPropertyOptions(companyScopeIds(context), context.scope),
-  authorizeSidebarMenuAccess("developer-settings")]
-  ) : [DEMO_PROPERTY_OPTIONS, null];
+  const properties = context ? await listPropertyOptions(companyScopeIds(context), context.scope) : DEMO_PROPERTY_OPTIONS;
   const rawPropertyId = value("propertyId");
   const propertyId = properties.some((item) => item.id === rawPropertyId && item.isActive) ? rawPropertyId : undefined;
   const rawStatus = value("status");
@@ -63,7 +60,7 @@ export default async function RoomOverviewPage({ searchParams }: {searchParams: 
   const canSync = hasPermission(context?.role, PERMISSIONS.SYNC_RUN);
 
   return (
-    <RoomOverviewDeveloperSettingsBoundary enabled={Boolean(developerSettingsAccess?.allowed)}>
+    <RoomOverviewDeveloperSettingsBoundary enabled={context?.actualRole === "DEVELOPER"}>
       <div className="space-y-4 xl:space-y-2">
         <MobileRoomStatusWorkspace key={propertyId ?? "all-properties"} rooms={result.allCards} properties={properties} selectedDate={selectedDate} today={today} propertyId={propertyId} queryView={value("view")} calendarRange={calendarRange} hasCalendarRangeQuery={Boolean(value("range"))} initialFilters={mobileFilters} canSync={canSync} />
         <div className="hidden xl:block">
@@ -71,7 +68,7 @@ export default async function RoomOverviewPage({ searchParams }: {searchParams: 
           <RoomOverviewSettingsLayout
             schedulePanel={<RoomOverviewSchedule schedule={result.operationalSchedule} conflicts={result.conflicts} />}>
             
-            <section className="min-w-0" aria-label={i18n("auto.m0091")}>{result.cards.length ? <div className={`grid items-start gap-2 ${styles.roomGrid}`}>{result.cards.map((card) => <RoomOverviewCard key={card.id} card={card} canUpdateOperationalStatus={hasPermission(context?.role, PERMISSIONS.ROOM_OPERATIONAL_STATUS_UPDATE)} />)}</div> : <div className="flex min-h-80 items-center rounded-xl border bg-card"><EmptyState icon={BedDouble} title={i18n("auto.m0092")} description={i18n("auto.m0093")} /></div>}</section>
+            <section className="min-w-0" aria-label={i18n("auto.m0091")}>{result.cards.length ? <div className={`grid items-start ${styles.roomGrid}`}>{result.cards.map((card) => <RoomOverviewCard key={card.id} card={card} canUpdateOperationalStatus={hasPermission(context?.role, PERMISSIONS.ROOM_OPERATIONAL_STATUS_UPDATE)} />)}</div> : <div className="flex min-h-80 items-center rounded-xl border bg-card"><EmptyState icon={BedDouble} title={i18n("auto.m0092")} description={i18n("auto.m0093")} /></div>}</section>
           </RoomOverviewSettingsLayout>
         </div>
       </div>

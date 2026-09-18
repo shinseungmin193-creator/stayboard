@@ -105,6 +105,13 @@
     "moveDivider": "区切り線の順序を移動",
     "deleteDivider": "区切り線を削除"
   },
+  "roomOverviewFilters": {
+    "searchButton": "検索",
+    "instantDescription": "選択フィルターはすぐに反映され、客室検索は検索ボタンまたはEnterで適用されます。"
+  },
+  "developerSettings": {
+    "providerBadgeLarge": "大きく"
+  },
   "roomListings": {
     "title": "宿泊施設リンク",
     "calendarCount": "カレンダー {count}件",

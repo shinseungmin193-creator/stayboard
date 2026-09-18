@@ -105,6 +105,13 @@
     "moveDivider": "구분선 순서 이동",
     "deleteDivider": "구분선 삭제"
   },
+  "roomOverviewFilters": {
+    "searchButton": "조회",
+    "instantDescription": "선택 필터는 즉시 반영되며, 객실 검색어는 조회 버튼 또는 Enter로 적용됩니다."
+  },
+  "developerSettings": {
+    "providerBadgeLarge": "크게"
+  },
   "roomListings": {
     "title": "숙소 링크",
     "calendarCount": "캘린더 {count}개",
