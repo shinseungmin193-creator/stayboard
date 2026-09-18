@@ -1,5 +1,5 @@
 import type { NextRequest } from "next/server";
-import { authorizeAccess, companyScopeIds, getCurrentAccessContext, PERMISSIONS } from "@/features/access-control";
+import { authorizeSidebarMenuAccess, companyScopeIds, getCurrentAccessContext } from "@/features/access-control";
 import { getDemoReservations } from "@/features/demo";
 import { listReservations, toReservationViewModel } from "@/features/reservations";
 import { buildReservationRepositoryFilters, getReservationPage } from "@/features/reservations/reservation-filter-server";
@@ -9,7 +9,7 @@ import { calendarProviderRegistry } from "@/providers/calendar/registry";
 
 export async function GET(request: NextRequest) {
   const context = await getCurrentAccessContext();
-  const access = context ? await authorizeAccess(PERMISSIONS.RESERVATION_READ) : null;
+  const access = context ? await authorizeSidebarMenuAccess("reservations") : null;
   if (access && !access.allowed) return Response.json({ message: "예약 조회 권한이 없습니다." }, { status: 403 });
   const providerTypes = calendarProviderRegistry.list().map((provider) => provider.type);
   const now = new Date();

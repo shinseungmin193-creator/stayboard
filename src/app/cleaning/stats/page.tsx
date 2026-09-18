@@ -4,7 +4,7 @@ import { getLocale, getTranslations } from "next-intl/server";
 
 import { PageHeader } from "@/components/shared/page-header";
 import { buttonVariants } from "@/components/ui/button";
-import { AccessDenied, authorizeAccess, getCurrentAccessContext, PERMISSIONS } from "@/features/access-control";
+import { AccessDenied, authorizeSidebarMenuAccess, getCurrentAccessContext } from "@/features/access-control";
 import {
   CLEANING_STATS_UNSPECIFIED_VALUE,
   type CleaningStatsFilters,
@@ -75,7 +75,7 @@ export default async function CleaningStatsPage({
     getLocale(),
   ]);
   if (!context) return <AccessDenied role={null} />;
-  const access = await authorizeAccess(PERMISSIONS.STATISTICS_READ);
+  const access = await authorizeSidebarMenuAccess("cleaning");
   if (!access.allowed) return <AccessDenied role={access.context?.role ?? null} />;
   const requestedFilters = parseFilters(params);
   const data = await getCleaningStatsPage(context, requestedFilters);

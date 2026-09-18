@@ -4,11 +4,11 @@ import Link from "next/link";
 import { useState } from "react";
 import { Menu, MoreHorizontal, ShieldCheck } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { hasPermission, type UserRole } from "@/features/access-control/domain/access-control";
+import { type UserRole } from "@/features/access-control/domain/access-control";
 import { AccountLogoutButton } from "@/features/auth/components/account-menu";
 import { AuthTrigger } from "@/features/auth/components/auth-trigger";
-import { PUBLIC_DEMO_MENU_IDS, SIDEBAR_MENU_GROUPS, SIDEBAR_MENU_ITEMS, type SidebarMenuId } from "@/features/sidebar-preferences/domain/sidebar-menu";
-import { getAuthorizedSidebarMenus, orderSidebarMenus, useSidebarPreference } from "@/features/sidebar-preferences";
+import { PUBLIC_DEMO_MENU_IDS, SIDEBAR_MENU_ITEMS, type SidebarMenuId } from "@/features/sidebar-preferences/domain/sidebar-menu";
+import { getAuthorizedSidebarItems, getSidebarNavigationItems, useSidebarPreference } from "@/features/sidebar-preferences";
 import { Sheet, SheetClose, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { NavigationLink } from "./navigation-link";
 import { Button } from "@/components/ui/button";
@@ -24,20 +24,17 @@ export function MobileNavigation({ role, userName, companyName, staffPrimaryMenu
   const menuLabel = (item: (typeof SIDEBAR_MENU_ITEMS)[number]) =>
     preference.customLabels[item.id]
     ?? t(`navigation.items.${item.id}` as Parameters<typeof t>[0]);
-  const allItems = role
-    ? getAuthorizedSidebarMenus(SIDEBAR_MENU_ITEMS, preference, role)
-    : orderSidebarMenus(SIDEBAR_MENU_ITEMS, preference).filter((item) => PUBLIC_DEMO_MENU_IDS.has(item.id));
+  const sidebarItems = role
+    ? getAuthorizedSidebarItems(SIDEBAR_MENU_ITEMS, preference, role)
+    : getSidebarNavigationItems(SIDEBAR_MENU_ITEMS, preference, (item) => PUBLIC_DEMO_MENU_IDS.has(item.id));
+  const allItems = sidebarItems.flatMap((item) => item.type === "MENU" ? [item.menu] : []);
   const primaryIds = role === "STAFF" && staffPrimaryMenuIds?.length === 4 ? staffPrimaryMenuIds : PRIMARY_MOBILE_IDS;
   const primaryItems = primaryIds
     .map((id) => SIDEBAR_MENU_ITEMS.find((item) => item.id === id))
     .filter((item): item is (typeof SIDEBAR_MENU_ITEMS)[number] => {
       if (!item) return false;
-      return role ? hasPermission(role, item.requiredPermission) : PUBLIC_DEMO_MENU_IDS.has(item.id);
+      return role ? allItems.some((allowedItem) => allowedItem.id === item.id) : PUBLIC_DEMO_MENU_IDS.has(item.id);
     });
-  const grouped = Object.entries(SIDEBAR_MENU_GROUPS)
-    .map(([key]) => ({ key, items: allItems.filter((item) => item.group === key) }))
-    .filter((group) => group.items.length);
-
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <nav className="fixed inset-x-0 bottom-0 z-40 border-t bg-background/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden" aria-label={t("navigation.mobilePrimaryMenu")}>
@@ -56,16 +53,13 @@ export function MobileNavigation({ role, userName, companyName, staffPrimaryMenu
             <span className="block truncate">{role ? `${t(`roles.${role}`)}${companyName ? ` · ${companyName}` : ""}` : t("navigation.demoBrowsing")}</span>
           </SheetDescription>
         </SheetHeader>
-        <div className="space-y-5 p-3">
+        <div className="space-y-1 p-3">
           {role === "DEVELOPER" && roleSwitch.enabled && <Button type="button" variant="ghost" className="min-h-11 w-full justify-start gap-3 px-3" onClick={() => { setOpen(false); roleSwitch.open(); }}><ShieldCheck className="size-4" />{t("developerRoleSwitch.title")}</Button>}
-          {grouped.map((group) => <section key={group.key} aria-labelledby={`mobile-nav-${group.key}`}>
-            <h2 id={`mobile-nav-${group.key}`} className="mb-1 px-3 text-[11px] font-semibold text-muted-foreground">{t(`navigation.groups.${group.key}` as Parameters<typeof t>[0])}</h2>
-            <div className="space-y-1">{group.items.map((item) => (
-              <SheetClose key={item.id} nativeButton={false} render={<Link href={item.href} className="flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm font-medium hover:bg-muted" />}>
-                <item.icon className="size-4" /><span className="min-w-0 truncate">{menuLabel(item)}</span>
-              </SheetClose>
-            ))}</div>
-          </section>)}
+          {sidebarItems.map((item) => item.type === "DIVIDER"
+            ? <div key={item.id} role="separator" className="mx-3 my-2 border-t" />
+            : <SheetClose key={item.menu.id} nativeButton={false} render={<Link href={item.menu.href} className="flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm font-medium hover:bg-muted" />}>
+              <item.menu.icon className="size-4" /><span className="min-w-0 truncate">{menuLabel(item.menu)}</span>
+            </SheetClose>)}
         </div>
         <div className="mt-auto border-t p-4">{role ? <AccountLogoutButton /> : <div className="grid grid-cols-2 gap-2"><AuthTrigger className="h-11" variant="outline">{t("common.login")}</AuthTrigger><AuthTrigger className="h-11" mode="signup">{t("navigation.freeStart")}</AuthTrigger></div>}</div>
       </SheetContent>

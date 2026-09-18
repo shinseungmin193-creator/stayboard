@@ -4,7 +4,7 @@ import { BarChart3 } from "lucide-react";
 
 import { PageHeader } from "@/components/shared/page-header";
 import { buttonVariants } from "@/components/ui/button";
-import { AccessDenied, authorizeAccess, getCurrentAccessContext, hasPermission, PERMISSIONS } from "@/features/access-control";
+import { AccessDenied, authorizeSidebarMenuAccess, getCurrentAccessContext, hasPermission, PERMISSIONS } from "@/features/access-control";
 import { CleaningWorkspace } from "@/features/cleaning/components/cleaning-workspace";
 import type { CleaningFilters } from "@/features/cleaning/cleaning.types";
 import { isCleaningSection } from "@/features/cleaning/domain/cleaning-meta";
@@ -53,7 +53,7 @@ export default async function CleaningPage({ searchParams }: { searchParams: Pro
     getTranslations("cleaning"),
   ]);
   if (!context) return <AccessDenied role={null} />;
-  const access = await authorizeAccess(PERMISSIONS.CLEANING_READ);
+  const access = await authorizeSidebarMenuAccess("cleaning");
   if (!access.allowed) return <AccessDenied role={access.context?.role ?? null} />;
   const filters = parseFilters(params);
   const data = await listCleaningPage(context, filters);

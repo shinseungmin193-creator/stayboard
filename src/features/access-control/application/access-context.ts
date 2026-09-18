@@ -6,8 +6,11 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/features/auth/server/get-current-user";
 import { DEVELOPER_ROLE_SWITCH_COOKIE_NAME } from "@/features/developer-role-switch/server/developer-role-switch.session";
 import { resolveDeveloperRoleSession, revokeDeveloperRoleSessionByToken } from "@/features/developer-role-switch/server/developer-role-switch.service";
+import { canAccessSidebarMenu, isSidebarPermissionAllowed } from "@/features/sidebar-preferences/domain/sidebar-preference";
+import type { SidebarMenuId } from "@/features/sidebar-preferences/domain/sidebar-menu";
+import { findSidebarMenuAllowedRoles } from "@/features/sidebar-preferences/infrastructure/sidebar-menu-policy.repository";
 import type { AccessContext, Permission } from "../domain/access-control";
-import { canAccessCompany, canAccessProperty, canAccessRoom, hasPermission } from "../domain/access-control";
+import { canAccessCompany, canAccessProperty, canAccessRoom } from "../domain/access-control";
 
 export interface AccessContextProvider {
   getCurrentAccessContext(): Promise<AccessContext | null>;
@@ -134,7 +137,17 @@ export type AccessDecision =
 export async function authorizeAccess(permission: Permission, companyId?: string): Promise<AccessDecision> {
   const context = await getCurrentAccessContext();
   if (!context) return { allowed: false, context: null, reason: "UNAUTHENTICATED" };
-  if (!hasPermission(context.role, permission)) return { allowed: false, context, reason: "FORBIDDEN" };
+  const allowedRoles = await findSidebarMenuAllowedRoles();
+  if (!isSidebarPermissionAllowed(context.role, permission, allowedRoles)) return { allowed: false, context, reason: "FORBIDDEN" };
+  if (companyId && !canAccessCompany(context, companyId)) return { allowed: false, context, reason: "COMPANY_SCOPE" };
+  return { allowed: true, context };
+}
+
+export async function authorizeSidebarMenuAccess(menuId: SidebarMenuId, companyId?: string): Promise<AccessDecision> {
+  const context = await getCurrentAccessContext();
+  if (!context) return { allowed: false, context: null, reason: "UNAUTHENTICATED" };
+  const allowedRoles = await findSidebarMenuAllowedRoles();
+  if (!canAccessSidebarMenu(context.role, menuId, allowedRoles)) return { allowed: false, context, reason: "FORBIDDEN" };
   if (companyId && !canAccessCompany(context, companyId)) return { allowed: false, context, reason: "COMPANY_SCOPE" };
   return { allowed: true, context };
 }
@@ -173,6 +186,12 @@ export function isAccessControlError(error: unknown): error is AccessDeniedError
 
 export async function requirePermission(permission: Permission, companyId?: string) {
   const decision = await authorizeAccess(permission, companyId);
+  if (!decision.allowed) throw new AccessDeniedError(decision.reason);
+  return decision.context;
+}
+
+export async function requireSidebarMenuAccess(menuId: SidebarMenuId, companyId?: string) {
+  const decision = await authorizeSidebarMenuAccess(menuId, companyId);
   if (!decision.allowed) throw new AccessDeniedError(decision.reason);
   return decision.context;
 }

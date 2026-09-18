@@ -1,5 +1,5 @@
 ﻿import { getTranslations } from "next-intl/server";import { PageHeader } from "@/components/shared/page-header";
-import { AccessDenied, authorizeAccess, companyScopeIds, hasPermission, PERMISSIONS } from "@/features/access-control";
+import { AccessDenied, authorizeSidebarMenuAccess, companyScopeIds, hasPermission, PERMISSIONS } from "@/features/access-control";
 import { getOrCreateCompanySettings, listSettingsCompanies } from "@/features/admin-settings";
 import { AdminSettingsForm } from "@/features/admin-settings/components/admin-settings-form";
 import { listPropertyOptions } from "@/features/properties";
@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 export async function generateMetadata() { const i18n = await getTranslations(); return { title: i18n("navigation.items.admin-settings") }; }
 
 export default async function AdminSettingsPage({ searchParams }: {searchParams: Promise<{companyId?: string | string[];}>;}) {const i18n = await getTranslations();
-  const access = await authorizeAccess(PERMISSIONS.ADMIN_SETTINGS_READ);
+  const access = await authorizeSidebarMenuAccess("admin-settings");
   if (!access.allowed) return <AccessDenied role={access.context?.role ?? null} />;
   const companies = await listSettingsCompanies(companyScopeIds(access.context));
   const params = await searchParams;

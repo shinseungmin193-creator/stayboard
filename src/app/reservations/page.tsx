@@ -1,4 +1,4 @@
-﻿import { getTranslations } from "next-intl/server";import { AccessDenied, authorizeAccess, companyScopeIds, getCurrentAccessContext, PERMISSIONS } from "@/features/access-control";
+﻿import { getTranslations } from "next-intl/server";import { AccessDenied, authorizeSidebarMenuAccess, companyScopeIds, getCurrentAccessContext } from "@/features/access-control";
 import { listCalendarRoomOptions } from "@/features/calendar-sources";
 import { DEMO_PROPERTY_OPTIONS, DEMO_ROOM_OPTIONS, getDemoReservations } from "@/features/demo";
 import { listPropertyOptions } from "@/features/properties";
@@ -20,7 +20,7 @@ function toUrlSearchParams(params: Record<string, string | string[] | undefined>
 
 export default async function ReservationsPage({ searchParams }: {searchParams: Promise<Record<string, string | string[] | undefined>>;}) {const i18n = await getTranslations();
   const context = await getCurrentAccessContext();
-  const access = context ? await authorizeAccess(PERMISSIONS.RESERVATION_READ) : null;
+  const access = context ? await authorizeSidebarMenuAccess("reservations") : null;
   if (access && !access.allowed) return <AccessDenied role={access.context?.role ?? null} />;
 
   const companyIds = context ? companyScopeIds(context) : undefined;

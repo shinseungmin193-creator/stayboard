@@ -1,7 +1,7 @@
 ﻿import { getTranslations, getLocale } from "next-intl/server";import Link from "next/link";
 import { notFound } from "next/navigation";
 import { differenceInMilliseconds } from "date-fns";
-import { AccessDenied, authorizeAccess, companyScopeIds, PERMISSIONS } from "@/features/access-control";
+import { AccessDenied, authorizeSidebarMenuAccess, companyScopeIds } from "@/features/access-control";
 import { listCalendarSourceSyncLogs } from "@/features/calendar-sync/sync-log.repository";
 import { PageHeader } from "@/components/shared/page-header";
 import { Badge } from "@/components/ui/badge";
@@ -35,7 +35,7 @@ export default async function SyncLogsPage({
 
 
 }: {params: Promise<{id: string;}>;searchParams: Promise<Record<string, string | string[] | undefined>>;}) {const locale = await getLocale(),localeTag = locale === "ja" ? "ja-JP" : "ko-KR";const formatter = new Intl.DateTimeFormat(localeTag, { dateStyle: "short", timeStyle: "medium", timeZone: "Asia/Tokyo" });const i18n = await getTranslations();
-  const access = await authorizeAccess(PERMISSIONS.SYNC_READ);
+  const access = await authorizeSidebarMenuAccess("calendar-sources");
   if (!access.allowed) return <AccessDenied role={access.context?.role ?? null} />;
 
   const { id } = await params;

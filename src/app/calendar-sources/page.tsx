@@ -1,6 +1,6 @@
 import { getTranslations, getLocale } from "next-intl/server";import Link from "next/link";
 import type { CalendarProviderType } from "@/lib/generated/prisma/enums";
-import { AccessDenied, authorizeAccess, companyScopeIds, hasPermission, PERMISSIONS } from "@/features/access-control";
+import { AccessDenied, authorizeSidebarMenuAccess, companyScopeIds, hasPermission, PERMISSIONS } from "@/features/access-control";
 import { listCalendarRoomOptions } from "@/features/calendar-sources";
 import { CalendarSourceForm } from "@/features/calendar-sources/components/calendar-source-form";
 import {
@@ -31,7 +31,7 @@ const statuses = ["HEALTHY", "WARNING", "PARTIAL_FAILURE", "FAILED", "SYNCING", 
 
 
 export default async function CalendarSourcesPage({ searchParams }: {searchParams: Promise<Record<string, string | string[] | undefined>>;}) {const locale = await getLocale(),localeTag = locale === "ja" ? "ja-JP" : "ko-KR";const syncLogFormatter = new Intl.DateTimeFormat(localeTag, { dateStyle: "short", timeStyle: "medium", timeZone: "Asia/Tokyo" });const i18n = await getTranslations();
-  const access = await authorizeAccess(PERMISSIONS.CALENDAR_SOURCE_READ);
+  const access = await authorizeSidebarMenuAccess("calendar-sources");
   if (!access.allowed) return <AccessDenied role={access.context?.role ?? null} />;
 
   const params = await searchParams;

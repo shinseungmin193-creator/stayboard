@@ -72,13 +72,6 @@
     "user": "사용자",
     "demoBrowsing": "로그인하지 않고 데모를 둘러보는 중입니다.",
     "loginRequired": "{label} 기능은 로그인 후 사용할 수 있습니다.",
-    "groups": {
-      "operations": "운영",
-      "management": "관리",
-      "statistics": "통계",
-      "settings": "설정",
-      "developer": "개발자"
-    },
     "items": {
       "dashboard": "대시보드",
       "room-overview": "객실 현황",
@@ -101,6 +94,16 @@
       "developer-audit-logs": "작업 로그"
     },
     "currentOperations": "운영 현황"
+  },
+  "sidebarPreferences": {
+    "allowedRoles": "노출 권한",
+    "requiredRole": "복구를 위해 반드시 유지되는 권한입니다.",
+    "unavailableRole": "기존 시스템 권한이 없어 선택할 수 없습니다.",
+    "permissionBoundary": "노출 권한은 기존 중앙 Permission Map 범위 안에서만 제한할 수 있습니다.",
+    "addDivider": "구분선 추가",
+    "divider": "구분선",
+    "moveDivider": "구분선 순서 이동",
+    "deleteDivider": "구분선 삭제"
   },
   "roomListings": {
     "title": "숙소 링크",
@@ -1539,12 +1542,12 @@
     "m0600": "표시",
     "m0601": "숨김",
     "m0602": "항상 표시",
-    "m0603": "메뉴 순서, 표시 여부, 변경한 이름을 모두 기본 설정으로 복원할까요?",
+    "m0603": "메뉴 순서, 구분선, 표시 여부, 변경한 이름을 모두 기본 설정으로 복원할까요?",
     "m0604": "사이드바 메뉴 순서",
-    "m0605": "순서, 표시 여부와 사이드바 이름을 자동 저장합니다.",
+    "m0605": "메뉴와 구분선의 순서, 표시 여부와 사이드바 이름을 자동 저장합니다.",
     "m0606": "기본 설정 복원",
     "m0607": "연필 아이콘으로 사이드바 표시 이름만 변경합니다. Enter 또는 바깥 클릭으로 저장하고 Esc로 취소합니다.",
-    "m0608": "잠긴 메뉴도 이름은 변경할 수 있으며, 잠금은 이동과 숨김만 제한합니다.",
+    "m0608": "잠긴 메뉴도 순서와 이름은 변경할 수 있으며, 잠금은 숨김만 제한합니다.",
     "m0609": "SidebarPreferenceProvider 안에서 사용해야 합니다.",
     "m0610": "기간",
     "m0611": "객실 번호 또는 이름",

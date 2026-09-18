@@ -37,7 +37,7 @@ export function RoomCalendarList({ summaries, rooms, canManage }: {summaries: Ro
     <div className="grid gap-3 lg:hidden">{summaries.map((room) => <RoomCalendarRow key={room.roomId} room={room} onOpen={handleOpen} mobile />)}</div>
     <Card className="hidden py-0 lg:block">
       <Table>
-        <TableHeader><TableRow><TableHead>{i18n("auto.m0005")}</TableHead><TableHead>{i18n("technical.provider")}</TableHead><TableHead>{i18n("auto.m0006")}</TableHead><TableHead className="text-center">{i18n("common.reservation")}</TableHead><TableHead className="text-center">{i18n("conflict.label")}</TableHead><TableHead>{i18n("auto.m0213")}</TableHead><TableHead>{i18n("auto.m0243")}</TableHead><TableHead className="text-right">{i18n("navigation.groups.management")}</TableHead></TableRow></TableHeader>
+        <TableHeader><TableRow><TableHead>{i18n("auto.m0005")}</TableHead><TableHead>{i18n("technical.provider")}</TableHead><TableHead>{i18n("auto.m0006")}</TableHead><TableHead className="text-center">{i18n("common.reservation")}</TableHead><TableHead className="text-center">{i18n("conflict.label")}</TableHead><TableHead>{i18n("auto.m0213")}</TableHead><TableHead>{i18n("auto.m0243")}</TableHead><TableHead className="text-right">{i18n("common.manage")}</TableHead></TableRow></TableHeader>
         <TableBody>{summaries.map((room) => <RoomCalendarRow key={room.roomId} room={room} onOpen={handleOpen} />)}</TableBody>
       </Table>
     </Card>

@@ -2,7 +2,7 @@
 import { headers } from "next/headers";
 import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
-import { AccessDenied, authorizeAccess, companyScopeIds, PERMISSIONS } from "@/features/access-control";
+import { AccessDenied, authorizeSidebarMenuAccess, companyScopeIds } from "@/features/access-control";
 import { listSettingsCompanies } from "@/features/admin-settings";
 import { InvitationCodeManagement } from "@/features/invitation-codes/components/invitation-code-management";
 import { createInvitationCodeAction, revokeInvitationCodeAction } from "@/features/invitation-codes/invitation-code.actions";
@@ -16,7 +16,7 @@ export const dynamic = "force-dynamic";
 export async function generateMetadata() { const i18n = await getTranslations(); return { title: i18n("navigation.items.member-management") }; }
 
 export default async function MembersPage({ searchParams }: {searchParams: Promise<Record<string, string | string[] | undefined>>;}) {const i18n = await getTranslations();
-  const access = await authorizeAccess(PERMISSIONS.USER_MANAGE);
+  const access = await authorizeSidebarMenuAccess("member-management");
   if (!access.allowed) return <AccessDenied role={access.context?.role ?? null} />;
   const params = await searchParams;
   const locale = resolveInvitationLocale((await headers()).get("accept-language"));

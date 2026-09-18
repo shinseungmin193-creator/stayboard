@@ -1,5 +1,5 @@
 import { getTranslations } from "next-intl/server";
-import { AccessDenied, authorizeAccess, companyScopeIds, PERMISSIONS } from "@/features/access-control";
+import { AccessDenied, authorizeSidebarMenuAccess, companyScopeIds } from "@/features/access-control";
 import { PageHeader } from "@/components/shared/page-header";
 import { listPropertyOptions } from "@/features/properties";
 import { isReviewProviderType, type ReviewProviderType } from "@/features/reviews/domain/listing-provider";
@@ -17,7 +17,7 @@ export async function generateMetadata() {
 
 export default async function PropertyReviewsPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const t = await getTranslations();
-  const access = await authorizeAccess(PERMISSIONS.PROPERTY_REVIEW_READ);
+  const access = await authorizeSidebarMenuAccess("property-reviews");
   if (!access.allowed) return <AccessDenied role={access.context?.role ?? null} />;
   const params = await searchParams;
   const value = (key: string) => typeof params[key] === "string" ? params[key] : undefined;

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { getLocale, getTranslations } from "next-intl/server";
 import { notFound } from "next/navigation";
-import { AccessDenied, authorizeAccess, PERMISSIONS } from "@/features/access-control";
+import { AccessDenied, authorizeSidebarMenuAccess } from "@/features/access-control";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/shared/page-header";
 import { isReviewProviderType, REVIEW_PROVIDER_TYPES, type ReviewProviderType } from "@/features/reviews/domain/listing-provider";
@@ -17,7 +17,7 @@ export default async function PropertyReviewDetailPage({ params, searchParams }:
 }) {
   const t = await getTranslations();
   const locale = await getLocale();
-  const access = await authorizeAccess(PERMISSIONS.PROPERTY_REVIEW_READ);
+  const access = await authorizeSidebarMenuAccess("property-reviews");
   if (!access.allowed) return <AccessDenied role={access.context?.role ?? null} />;
   const { roomId } = await params;
   const room = await getReviewRoomDetail(access.context, roomId);

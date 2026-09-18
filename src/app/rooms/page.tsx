@@ -5,13 +5,13 @@ import { RoomCreateDialog as RoomFormDialog } from "@/features/rooms/components/
 import { RoomList } from "@/features/rooms/components/room-list";
 import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
-import { AccessDenied, authorizeAccess, companyScopeIds, hasPermission, PERMISSIONS } from "@/features/access-control";
+import { AccessDenied, authorizeSidebarMenuAccess, companyScopeIds, hasPermission, PERMISSIONS } from "@/features/access-control";
 
 export async function generateMetadata() { const i18n = await getTranslations(); return { title: i18n("auto.m0100") }; }
 export const dynamic = "force-dynamic";
 
 export default async function RoomsPage({ searchParams }: {searchParams: Promise<{propertyId?: string | string[];}>;}) {const i18n = await getTranslations();
-  const access = await authorizeAccess(PERMISSIONS.ROOM_MANAGE);
+  const access = await authorizeSidebarMenuAccess("rooms");
   if (!access.allowed) return <AccessDenied role={access.context?.role ?? null} />;
   const params = await searchParams;
   const propertyId = typeof params.propertyId === "string" ? params.propertyId : undefined;

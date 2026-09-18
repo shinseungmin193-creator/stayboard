@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
-import { AccessDenied, authorizeAccess, companyScopeIds, getCurrentAccessContext, hasPermission, PERMISSIONS } from "@/features/access-control";
+import { AccessDenied, authorizeSidebarMenuAccess, companyScopeIds, getCurrentAccessContext, hasPermission, PERMISSIONS } from "@/features/access-control";
 import { listCalendarRoomOptions } from "@/features/calendar-sources";
 import { DEMO_PROPERTY_OPTIONS, DEMO_ROOM_OPTIONS, getDemoConflicts } from "@/features/demo";
 import { listPropertyOptions } from "@/features/properties";
@@ -39,7 +39,7 @@ export default async function ReservationConflictsPage({
 }) {
   const i18n = await getTranslations();
   const context = await getCurrentAccessContext();
-  const access = context ? await authorizeAccess(PERMISSIONS.RESERVATION_READ) : null;
+  const access = context ? await authorizeSidebarMenuAccess("reservation-conflicts") : null;
   if (access && !access.allowed) return <AccessDenied role={access.context?.role ?? null} />;
   const companyIds = context ? companyScopeIds(context) : undefined;
   const params = await searchParams;

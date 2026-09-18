@@ -5,7 +5,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 
 import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
-import { AccessDenied, authorizeAccess, companyScopeIds, getCurrentAccessContext, hasPermission, PERMISSIONS } from "@/features/access-control";
+import { AccessDenied, authorizeSidebarMenuAccess, companyScopeIds, getCurrentAccessContext, hasPermission, PERMISSIONS } from "@/features/access-control";
 import { DEMO_PROPERTY_OPTIONS, getDemoRoomStatusData } from "@/features/demo";
 import { listPropertyOptions } from "@/features/properties";
 import { getRoomStatusCalendarRange, listRoomStatusCalendar, shiftRoomStatusMonth } from "@/features/room-status";
@@ -30,7 +30,7 @@ export default async function RoomStatusPage({
 }) {
   const i18n = await getTranslations();
   const context = await getCurrentAccessContext();
-  const access = context ? await authorizeAccess(PERMISSIONS.ROOM_READ) : null;
+  const access = context ? await authorizeSidebarMenuAccess("room-status") : null;
   if (access && !access.allowed) return <AccessDenied role={access.context?.role ?? null} />;
 
   const companyIds = context ? companyScopeIds(context) : undefined;

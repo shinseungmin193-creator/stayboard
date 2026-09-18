@@ -6,13 +6,13 @@ import { PropertyFormDialog } from "@/features/properties/components/property-fo
 import { PropertyList } from "@/features/properties/components/property-list";
 import { PageHeader } from "@/components/shared/page-header";
 import { Card, CardContent } from "@/components/ui/card";
-import { AccessDenied, authorizeAccess, companyScopeIds, hasPermission, PERMISSIONS } from "@/features/access-control";
+import { AccessDenied, authorizeSidebarMenuAccess, companyScopeIds, hasPermission, PERMISSIONS } from "@/features/access-control";
 
 export async function generateMetadata() { const i18n = await getTranslations(); return { title: i18n("auto.m0073") }; }
 export const dynamic = "force-dynamic";
 
 export default async function PropertiesPage() {const i18n = await getTranslations();
-  const access = await authorizeAccess(PERMISSIONS.PROPERTY_MANAGE);
+  const access = await authorizeSidebarMenuAccess("properties");
   if (!access.allowed) return <AccessDenied role={access.context?.role ?? null} />;
   const companyIds = companyScopeIds(access.context);
   const [companies, companyOptions, properties] = await Promise.all([listCompanies(companyIds), listCompanyOptions(companyIds), listProperties(companyIds)]);

@@ -7,7 +7,7 @@ import { StatCard } from "@/components/shared/stat-card";
 import { Button } from "@/components/ui/button";
 import {
   AccessDenied,
-  authorizeAccess,
+  authorizeSidebarMenuAccess,
   companyScopeIds,
   getCurrentAccessContext,
   hasPermission,
@@ -26,7 +26,7 @@ export const dynamic = "force-dynamic";
 export default async function DashboardPage() {
   const i18n = await getTranslations();
   const context = await getCurrentAccessContext();
-  const access = context ? await authorizeAccess(PERMISSIONS.RESERVATION_READ) : null;
+  const access = context ? await authorizeSidebarMenuAccess("dashboard") : null;
   if (access && !access.allowed) return <AccessDenied role={access.context?.role ?? null} />;
 
   const dashboardRole = context?.effectiveRole ?? context?.role;

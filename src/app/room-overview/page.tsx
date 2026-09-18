@@ -1,7 +1,7 @@
 ﻿import { getTranslations } from "next-intl/server";import type { RoomOperationalStatus, SyncStatus } from "@/lib/generated/prisma/enums";
 import { BedDouble } from "lucide-react";
 import { EmptyState } from "@/components/shared/empty-state";
-import { AccessDenied, authorizeAccess, companyScopeIds, getCurrentAccessContext, hasPermission, PERMISSIONS } from "@/features/access-control";
+import { AccessDenied, authorizeSidebarMenuAccess, companyScopeIds, getCurrentAccessContext, hasPermission, PERMISSIONS } from "@/features/access-control";
 import { DEMO_PROPERTY_OPTIONS, getDemoRoomOverview } from "@/features/demo";
 import { RoomOverviewDeveloperSettingsBoundary } from "@/features/developer-settings";
 import { listPropertyOptions } from "@/features/properties";
@@ -25,11 +25,11 @@ export default async function RoomOverviewPage({ searchParams }: {searchParams: 
   const params = await searchParams;
   const value = (key: string) => typeof params[key] === "string" ? params[key] : undefined;
   const context = await getCurrentAccessContext();
-  const roomAccess = context ? await authorizeAccess(PERMISSIONS.ROOM_READ) : null;
+  const roomAccess = context ? await authorizeSidebarMenuAccess("room-overview") : null;
   if (roomAccess && !roomAccess.allowed) return <AccessDenied role={roomAccess.context?.role ?? null} />;
   const [properties, developerSettingsAccess] = context ? await Promise.all([
   listPropertyOptions(companyScopeIds(context), context.scope),
-  authorizeAccess(PERMISSIONS.DEVELOPER_SETTINGS_READ)]
+  authorizeSidebarMenuAccess("developer-settings")]
   ) : [DEMO_PROPERTY_OPTIONS, null];
   const rawPropertyId = value("propertyId");
   const propertyId = properties.some((item) => item.id === rawPropertyId && item.isActive) ? rawPropertyId : undefined;

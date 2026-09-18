@@ -1,7 +1,7 @@
 import { getTranslations } from "next-intl/server";
 
 import { PageHeader } from "@/components/shared/page-header";
-import { AccessDenied, authorizeAccess, PERMISSIONS } from "@/features/access-control";
+import { AccessDenied, authorizeSidebarMenuAccess } from "@/features/access-control";
 import { DeveloperRoleSwitchCard } from "@/features/developer-role-switch/components/developer-role-switch-card";
 import { DeveloperSettingsForm, DeveloperSettingsProvider } from "@/features/developer-settings";
 import { normalizeStaffMobileNavigationPreference } from "@/features/mobile-navigation-preferences/domain/mobile-navigation-preference";
@@ -20,7 +20,7 @@ export default async function DeveloperSettingsPage({
   searchParams: Promise<{ staffMobileNavigationCompanyId?: string | string[] }>;
 }) {
   const i18n = await getTranslations();
-  const access = await authorizeAccess(PERMISSIONS.DEVELOPER_SETTINGS_READ);
+  const access = await authorizeSidebarMenuAccess("developer-settings");
   if (!access.allowed) return <AccessDenied role={access.context?.role ?? null} />;
 
   const companies = access.context.availableCompanies ?? [];

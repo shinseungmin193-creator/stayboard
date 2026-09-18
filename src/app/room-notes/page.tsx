@@ -3,7 +3,7 @@ import { getTranslations } from "next-intl/server";
 
 import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
-import { AccessDenied, authorizeAccess, hasPermission, PERMISSIONS } from "@/features/access-control";
+import { AccessDenied, authorizeSidebarMenuAccess, hasPermission, PERMISSIONS } from "@/features/access-control";
 import { RoomNoteCreateDialog } from "@/features/room-notes/components/room-note-create-dialog";
 import { RoomNoteFilterBar } from "@/features/room-notes/components/room-note-filter-bar";
 import { RoomNoteList } from "@/features/room-notes/components/room-note-list";
@@ -22,7 +22,7 @@ function value(params: Record<string, string | string[] | undefined>, key: strin
 
 export default async function RoomNotesPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const [access, params, t] = await Promise.all([
-    authorizeAccess(PERMISSIONS.ROOM_NOTE_READ),
+    authorizeSidebarMenuAccess("room-notes"),
     searchParams,
     getTranslations("roomNotes"),
   ]);

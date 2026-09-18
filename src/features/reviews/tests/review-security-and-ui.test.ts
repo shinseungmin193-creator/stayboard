@@ -21,7 +21,7 @@ test("리뷰 페이지, Server Action, repository가 각각 권한을 검사한�
   const page = readFileSync("src/app/property-reviews/page.tsx", "utf8");
   const action = readFileSync("src/features/reviews/review.actions.ts", "utf8");
   const repository = readFileSync("src/features/reviews/server/review.repository.ts", "utf8");
-  assert.match(page, /authorizeAccess\(PERMISSIONS\.PROPERTY_REVIEW_READ\)/);
+  assert.match(page, /authorizeSidebarMenuAccess\("property-reviews"\)/);
   assert.match(action, /requirePermission\(PERMISSIONS\.PROPERTY_REVIEW_SYNC\)/);
   assert.match(repository, /hasPermission\(context\.role, PERMISSIONS\.PROPERTY_REVIEW_READ\)/);
   assert.match(repository, /hasPermission\(context\.role, PERMISSIONS\.PROPERTY_REVIEW_SYNC\)/);

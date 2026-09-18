@@ -32,7 +32,7 @@ test("STAFF has operational permissions only", () => {
   assert.equal(hasPermission("STAFF", PERMISSIONS.ROOM_READ), true);
   assert.equal(hasPermission("STAFF", PERMISSIONS.ROOM_OPERATIONAL_STATUS_UPDATE), true);
   assert.equal(hasPermission("STAFF", PERMISSIONS.CLEANING_MANAGE), true);
-  assert.equal(hasPermission("STAFF", PERMISSIONS.CLEANING_COMPLETION_MANAGE), false);
+  assert.equal(hasPermission("STAFF", PERMISSIONS.CLEANING_COMPLETION_MANAGE), true);
   assert.equal(hasPermission("STAFF", PERMISSIONS.CLEANING_WORKER_READ), true);
   assert.equal(hasPermission("STAFF", PERMISSIONS.CLEANING_WORKER_CREATE), true);
   assert.equal(hasPermission("STAFF", PERMISSIONS.CLEANING_WORKER_MANAGE), false);
@@ -73,7 +73,7 @@ test("ADMIN and STAFF development access requires a company scope", () => {
   assert.deepEqual(context?.scope, { mode: "companies", companyIds: ["company-a"] });
 });
 
-test("STAFF can access only assigned property or room scope", () => {
+test("STAFF can manage cleaning completion only inside assigned property or room scope", () => {
   const context: AccessContext = {
     userId: "staff",
     actualRole: "STAFF",
@@ -89,6 +89,7 @@ test("STAFF can access only assigned property or room scope", () => {
     scope: { mode: "companies", companyIds: ["company-a"], propertyIds: ["property-a"], roomIds: ["room-b"] },
     source: "session",
   };
+  assert.equal(hasPermission(context.role, PERMISSIONS.CLEANING_COMPLETION_MANAGE), true);
   assert.equal(canAccessCompany(context, "company-a"), true);
   assert.equal(canAccessCompany(context, "company-b"), false);
   assert.equal(canAccessRoom(context, { id: "room-a", propertyId: "property-a" }), true);
