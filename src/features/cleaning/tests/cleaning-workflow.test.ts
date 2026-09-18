@@ -1,13 +1,15 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { cleaningTaskAssignmentSchema, cleaningTaskCompletionSchema, cleaningTaskStartSchema } from "../cleaning.schemas";
+import { cleaningCompletionUpdateSchema, cleaningTaskAssignmentSchema, cleaningTaskCompletionSchema, cleaningTaskStartSchema } from "../cleaning.schemas";
 import {
   CleaningWorkflowError,
   getInitialCleaningWorkflowWorkerName,
   normalizeCleaningWorkerName,
   planCleaningAssignment,
   planCleaningCompletion,
+  planCleaningCompletionReversion,
+  planCleaningCompletionUpdate,
   planCleaningStart,
   resolveCleaningAssignmentWorkerName,
   type CleaningWorkflowSnapshot,
@@ -110,4 +112,72 @@ test("already assigned tasks reject a concurrent claim", () => {
 test("completed tasks cannot be completed again", () => {
   const completed = { ...unassigned, status: "COMPLETED" as const, assigneeName: "직원 A" };
   assert.throws(() => planCleaningCompletion(completed, "직원 A"), (error) => error instanceof CleaningWorkflowError && error.code === "NOT_ACTIONABLE");
+});
+
+test("완료 내용 수정은 완료 상태를 유지하며 담당자·완료 시각·메모를 정규화한다", () => {
+  const completedAt = new Date("2026-09-18T04:30:00.000Z");
+  assert.deepEqual(planCleaningCompletionUpdate({
+    status: "COMPLETED",
+    workerName: "  병진  ",
+    completedAt,
+    note: "  수정 메모  ",
+  }), {
+    cleanerName: "병진",
+    completedAt,
+    note: "수정 메모",
+  });
+  assert.equal(cleaningCompletionUpdateSchema.safeParse({
+    taskId: "task-a",
+    workerName: "병진",
+    completedAt: completedAt.toISOString(),
+    note: "",
+  }).success, true);
+});
+
+test("완료 수정은 완료되지 않은 작업과 잘못된 완료 시각을 거부한다", () => {
+  assert.throws(
+    () => planCleaningCompletionUpdate({ status: "PENDING", workerName: "병진", completedAt: new Date(), note: "" }),
+    (error) => error instanceof CleaningWorkflowError && error.code === "NOT_COMPLETED",
+  );
+  assert.throws(
+    () => planCleaningCompletionUpdate({ status: "COMPLETED", workerName: "병진", completedAt: new Date(Number.NaN), note: "" }),
+    (error) => error instanceof CleaningWorkflowError && error.code === "INVALID_COMPLETION_TIME",
+  );
+});
+
+test("완료 취소는 직전 진행 상태를 복원하고 완료 정보만 초기화한다", () => {
+  assert.deepEqual(planCleaningCompletionReversion({
+    status: "COMPLETED",
+    previousStatus: "IN_PROGRESS",
+    startedAt: new Date("2026-09-18T03:00:00.000Z"),
+  }), {
+    status: "IN_PROGRESS",
+    completedAt: null,
+    completedById: null,
+    completedByName: null,
+  });
+  assert.deepEqual(planCleaningCompletionReversion({
+    status: "COMPLETED",
+    previousStatus: "PENDING",
+    startedAt: null,
+  }), {
+    status: "PENDING",
+    completedAt: null,
+    completedById: null,
+    completedByName: null,
+    startedAt: null,
+    startedById: null,
+    startedByName: null,
+    cleanerName: null,
+  });
+});
+
+test("완료 취소 후 같은 작업을 다시 완료할 수 있다", () => {
+  const reverted = planCleaningCompletionReversion({ status: "COMPLETED", previousStatus: "PENDING", startedAt: null });
+  assert.deepEqual(planCleaningCompletion({
+    status: reverted.status,
+    assigneeUserId: "staff-a",
+    assigneeName: "세로",
+    assignedByUserId: "admin-a",
+  }, "세로"), { shouldAssign: false, workerName: "세로" });
 });

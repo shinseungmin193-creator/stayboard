@@ -1,4 +1,5 @@
-import { isAccessControlError, PERMISSIONS, requireRoomAccess } from "@/features/access-control";
+import { hasPermission, isAccessControlError, PERMISSIONS, requireRoomAccess } from "@/features/access-control";
+import { recordCleaningPhotoRemoved } from "@/features/cleaning/server/cleaning-task.service";
 import { getCleaningPhotoStorage } from "@/features/cleaning/storage/local-file-storage-provider";
 import { prisma } from "@/lib/prisma";
 import { logServerError } from "@/lib/prisma-errors";
@@ -8,7 +9,7 @@ export const runtime = "nodejs";
 async function findPhoto(photoId: string) {
   return prisma.cleaningPhoto.findUnique({
     where: { id: photoId },
-    select: { id: true, storageKey: true, mimeType: true, size: true, deletedAt: true, task: { select: { id: true, roomId: true, status: true } } },
+    select: { id: true, storageKey: true, mimeType: true, size: true, deletedAt: true, task: { select: { id: true, roomId: true, status: true, cleanerName: true, assigneeName: true } } },
   });
 }
 
@@ -37,12 +38,24 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
     const photo = await findPhoto((await params).photoId);
     if (!photo?.storageKey || photo.deletedAt) return Response.json({ success: false }, { status: 404 });
     const context = await requireRoomAccess(photo.task.roomId, PERMISSIONS.CLEANING_MANAGE);
-    const isManager = context.effectiveRole === "ADMIN" || context.effectiveRole === "DEVELOPER";
-    if (photo.task.status === "COMPLETED" && !isManager) return Response.json({ success: false }, { status: 409 });
+    const canManageCompleted = hasPermission(context.role, PERMISSIONS.CLEANING_COMPLETION_MANAGE);
+    if (photo.task.status === "COMPLETED" && !canManageCompleted) return Response.json({ success: false }, { status: 403 });
     await getCleaningPhotoStorage().delete(photo.storageKey);
-    await prisma.cleaningPhoto.updateMany({
-      where: { id: photo.id, storageKey: photo.storageKey, deletedAt: null },
-      data: { storageKey: null, deletedAt: new Date(), deleteAfter: null, deleteError: null },
+    await prisma.$transaction(async (tx) => {
+      const deleted = await tx.cleaningPhoto.updateMany({
+        where: { id: photo.id, storageKey: photo.storageKey, deletedAt: null },
+        data: { storageKey: null, deletedAt: new Date(), deleteAfter: null, deleteError: null },
+      });
+      if (!deleted.count) return;
+      await recordCleaningPhotoRemoved(tx, {
+        taskId: photo.task.id,
+        photoId: photo.id,
+        actorUserId: context.userId,
+        workerName: photo.task.cleanerName ?? photo.task.assigneeName,
+        auditMetadata: context.isRoleSwitchActive && context.developerRoleSessionId
+          ? { actualRole: context.actualRole, effectiveRole: context.effectiveRole, developerRoleSessionId: context.developerRoleSessionId }
+          : undefined,
+      });
     });
     return Response.json({ success: true }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {

@@ -12,6 +12,7 @@ export async function requireCleaningTaskAccess(taskId: string, permission: Perm
       propertyId: true,
       roomId: true,
       status: true,
+      completedAt: true,
       assignedToId: true,
       assigneeName: true,
       assignedById: true,
@@ -41,6 +42,8 @@ export class CleaningTaskStateError extends Error {
     | "ALREADY_ASSIGNED"
     | "ALREADY_COMPLETED"
     | "NOT_IN_PROGRESS"
+    | "NOT_COMPLETED"
+    | "INVALID_COMPLETION_TIME"
     | "CONFLICT") {
     super(code);
     this.name = "CleaningTaskStateError";

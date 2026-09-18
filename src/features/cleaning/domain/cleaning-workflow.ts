@@ -22,7 +22,10 @@ export type CleaningWorkflowErrorCode =
   | "ALREADY_ASSIGNED"
   | "ASSIGNEE_REQUIRED"
   | "ALREADY_COMPLETED"
-  | "NOT_IN_PROGRESS";
+  | "NOT_IN_PROGRESS"
+  | "NOT_COMPLETED"
+  | "INVALID_COMPLETION_TIME"
+  | "INVALID_NOTE";
 
 export class CleaningWorkflowError extends Error {
   constructor(public readonly code: CleaningWorkflowErrorCode) {
@@ -81,4 +84,45 @@ export function planCleaningCompletion(task: CleaningWorkflowSnapshot, workerNam
   assertCleaningTaskActionable(task.status);
   const normalizedWorkerName = normalizeCleaningWorkerName(workerName);
   return { shouldAssign: !hasCleaningAssignee(task), workerName: normalizedWorkerName };
+}
+
+export function planCleaningCompletionUpdate(input: {
+  status: CleaningWorkflowStatus;
+  workerName: string;
+  completedAt: Date;
+  note: string | null | undefined;
+}) {
+  if (input.status !== "COMPLETED") throw new CleaningWorkflowError("NOT_COMPLETED");
+  if (!Number.isFinite(input.completedAt.getTime())) throw new CleaningWorkflowError("INVALID_COMPLETION_TIME");
+  const note = input.note?.trim() || null;
+  if (note && note.length > 500) throw new CleaningWorkflowError("INVALID_NOTE");
+  return {
+    cleanerName: normalizeCleaningWorkerName(input.workerName),
+    completedAt: input.completedAt,
+    note,
+  };
+}
+
+export function planCleaningCompletionReversion(input: {
+  status: CleaningWorkflowStatus;
+  previousStatus?: CleaningWorkflowStatus | null;
+  startedAt?: Date | null;
+}) {
+  if (input.status !== "COMPLETED") throw new CleaningWorkflowError("NOT_COMPLETED");
+  const status = input.previousStatus === "IN_PROGRESS"
+    || (input.previousStatus !== "PENDING" && Boolean(input.startedAt))
+    ? "IN_PROGRESS" as const
+    : "PENDING" as const;
+  return {
+    status,
+    completedAt: null,
+    completedById: null,
+    completedByName: null,
+    ...(status === "PENDING" ? {
+      startedAt: null,
+      startedById: null,
+      startedByName: null,
+      cleanerName: null,
+    } : {}),
+  };
 }

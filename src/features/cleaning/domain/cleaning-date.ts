@@ -20,6 +20,43 @@ export function shiftCleaningDate(dateInput: string, days: number) {
   return shiftDateInput(parseCleaningDate(dateInput).dateInput, days);
 }
 
+export function formatCleaningDateTimeInput(value: string | Date | null | undefined, timeZone = DEFAULT_CLEANING_TIME_ZONE) {
+  if (!value) return "";
+  const date = value instanceof Date ? value : new Date(value);
+  if (!Number.isFinite(date.getTime())) return "";
+  const parts = new Intl.DateTimeFormat("en", {
+    timeZone: resolveTimeZone(timeZone),
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(date);
+  const part = (type: Intl.DateTimeFormatPartTypes) => parts.find((item) => item.type === type)?.value ?? "";
+  return `${part("year")}-${part("month")}-${part("day")}T${part("hour")}:${part("minute")}`;
+}
+
+export function parseCleaningDateTimeInput(value: string, timeZone = DEFAULT_CLEANING_TIME_ZONE) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/.exec(value);
+  if (!match) return null;
+  const [, year, month, day, hour, minute] = match.map(Number);
+  if (!isValidDateInput(`${year.toString().padStart(4, "0")}-${month.toString().padStart(2, "0")}-${day.toString().padStart(2, "0")}`)
+    || hour > 23 || minute > 59) return null;
+  const localTimestamp = Date.UTC(year, month - 1, day, hour, minute);
+  let instant = new Date(localTimestamp);
+  const resolvedTimeZone = resolveTimeZone(timeZone);
+  for (let iteration = 0; iteration < 3; iteration += 1) {
+    const formatted = formatCleaningDateTimeInput(instant, resolvedTimeZone);
+    const formattedMatch = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/.exec(formatted);
+    if (!formattedMatch) return null;
+    const [, formattedYear, formattedMonth, formattedDay, formattedHour, formattedMinute] = formattedMatch.map(Number);
+    const zonedTimestamp = Date.UTC(formattedYear, formattedMonth - 1, formattedDay, formattedHour, formattedMinute);
+    instant = new Date(instant.getTime() + localTimestamp - zonedTimestamp);
+  }
+  return formatCleaningDateTimeInput(instant, resolvedTimeZone) === value ? instant : null;
+}
+
 export function formatCleaningSelectedDate({
   date,
   locale,

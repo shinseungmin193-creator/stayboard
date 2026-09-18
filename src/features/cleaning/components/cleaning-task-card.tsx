@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { useTranslations } from "next-intl";
-import { Camera, CircleCheck, Clock3, Ellipsis, FileClock, MessageSquareText, Play, RotateCcw, UserRoundPlus } from "lucide-react";
+import { Camera, CircleCheck, Clock3, Ellipsis, FileClock, MessageSquareText, Pencil, Play, RotateCcw, Undo2, UserRoundPlus } from "lucide-react";
 
 import { Button, buttonVariants } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -32,9 +32,12 @@ export function CleaningTaskCard({
   timeZone,
   locale,
   pending,
+  canManageCompletion,
   onOpenDetails,
   onOpenRoomNotes,
   onCancelStart,
+  onEditCompletion,
+  onRevertCompletion,
   onWorkflow,
 }: {
   task: CleaningTaskViewModel;
@@ -44,9 +47,12 @@ export function CleaningTaskCard({
   timeZone: string;
   locale: string;
   pending: boolean;
+  canManageCompletion: boolean;
   onOpenDetails: (task: CleaningTaskViewModel, focus?: "photos" | "note" | "logs") => void;
   onOpenRoomNotes: (task: CleaningTaskViewModel) => void;
   onCancelStart: (task: CleaningTaskViewModel) => void;
+  onEditCompletion: (task: CleaningTaskViewModel) => void;
+  onRevertCompletion: (task: CleaningTaskViewModel) => void;
   onWorkflow: (task: CleaningTaskViewModel, mode: CleaningWorkflowMode) => void;
 }) {
   const t = useTranslations("cleaning");
@@ -120,6 +126,8 @@ export function CleaningTaskCard({
               {!isCompleted && role !== "STAFF" && <DropdownMenuItem onClick={() => onWorkflow(task, "reassign")}><UserRoundPlus />{t("actions.changeAssignee")}</DropdownMenuItem>}
               {!isCompleted && <DropdownMenuItem disabled={!canWork} onClick={() => onOpenDetails(task, "note")}><MessageSquareText />{t("actions.note")}</DropdownMenuItem>}
               {isCompleted && <DropdownMenuItem onClick={() => onOpenDetails(task, "logs")}><FileClock />{t("actions.history")}</DropdownMenuItem>}
+              {isCompleted && canManageCompletion && <DropdownMenuItem data-cleaning-completion-edit={task.id} onClick={() => onEditCompletion(task)}><Pencil />{t("actions.editCompletion")}</DropdownMenuItem>}
+              {isCompleted && canManageCompletion && <DropdownMenuItem data-cleaning-completion-revert-menu={task.id} className="text-destructive focus:text-destructive" onClick={() => onRevertCompletion(task)}><Undo2 />{t("actions.revertCompletion")}</DropdownMenuItem>}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>

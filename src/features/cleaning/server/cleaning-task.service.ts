@@ -7,11 +7,13 @@ import {
   normalizeCleaningWorkerName,
   planCleaningAssignment,
   planCleaningCompletion,
+  planCleaningCompletionReversion,
+  planCleaningCompletionUpdate,
   planCleaningStart,
   planCleaningStartCancellation,
   type CleaningWorkflowSnapshot,
 } from "../domain/cleaning-workflow";
-import { getCleaningPhotoDeleteAfter, MIN_REQUIRED_CLEANING_PHOTOS } from "../domain/cleaning-retention";
+import { getCleaningPhotoDeleteAfter } from "../domain/cleaning-retention";
 import { CleaningTaskStateError } from "./cleaning-task-access";
 
 const ACTIONABLE_STATUSES = ["PENDING", "IN_PROGRESS"] as const;
@@ -47,7 +49,7 @@ function translateWorkflowError(error: unknown): never {
 
 async function createLog(tx: Prisma.TransactionClient, input: {
   taskId: string;
-  action: "ASSIGNED" | "REASSIGNED" | "STARTED" | "START_CANCELLED" | "COMPLETED" | "NOTE_ADDED" | "PHOTO_ADDED";
+  action: "ASSIGNED" | "REASSIGNED" | "STARTED" | "START_CANCELLED" | "COMPLETED" | "COMPLETION_UPDATED" | "COMPLETION_REVERTED" | "NOTE_ADDED" | "PHOTO_ADDED" | "PHOTO_REMOVED";
   actorUserId: string;
   workerName?: string | null;
   previousStatus?: CleaningTaskStatus | null;
@@ -207,11 +209,9 @@ export async function completeCleaningTask(taskId: string, input: CleaningActor 
             orderBy: [{ createdAt: "desc" }, { id: "desc" }],
             take: 1,
           },
-          photos: { where: { storageKey: { not: null }, deletedAt: null }, select: { id: true }, take: MIN_REQUIRED_CLEANING_PHOTOS },
         },
       });
       if (!task) throw new CleaningTaskStateError("NOT_ACTIONABLE");
-      if (task.photos.length < MIN_REQUIRED_CLEANING_PHOTOS) throw new CleaningTaskStateError("PHOTO_REQUIRED");
       const snapshot = workflowSnapshot(task);
       const plan = planCleaningCompletion(snapshot, input.workerName);
       const workerName = plan.workerName;
@@ -274,6 +274,146 @@ export async function completeCleaningTask(taskId: string, input: CleaningActor 
   }
 }
 
+export async function updateCleaningCompletion(taskId: string, input: CleaningActor & {
+  workerName: string;
+  completedAt: Date;
+  note: string;
+}) {
+  try {
+    await prisma.$transaction(async (tx) => {
+      const task = await tx.cleaningTask.findUnique({
+        where: { id: taskId },
+        select: {
+          roomId: true,
+          status: true,
+          cleanerName: true,
+          completedAt: true,
+          completedById: true,
+          completedByName: true,
+          note: true,
+          updatedAt: true,
+        },
+      });
+      if (!task) throw new CleaningTaskStateError("NOT_ACTIONABLE");
+      const update = planCleaningCompletionUpdate({
+        status: task.status,
+        workerName: input.workerName,
+        completedAt: input.completedAt,
+        note: input.note,
+      });
+      const updated = await tx.cleaningTask.updateMany({
+        where: { id: taskId, status: "COMPLETED", updatedAt: task.updatedAt },
+        data: update,
+      });
+      if (!updated.count) throw new CleaningTaskStateError("CONFLICT");
+      await tx.cleaningPhoto.updateMany({
+        where: { taskId, storageKey: { not: null }, deletedAt: null },
+        data: { deleteAfter: getCleaningPhotoDeleteAfter(update.completedAt), deleteError: null },
+      });
+      await createLog(tx, {
+        taskId,
+        action: "COMPLETION_UPDATED",
+        actorUserId: input.userId,
+        workerName: update.cleanerName,
+        previousStatus: "COMPLETED",
+        nextStatus: "COMPLETED",
+        details: {
+          roomId: task.roomId,
+          before: {
+            cleanerName: task.cleanerName,
+            completedAt: task.completedAt?.toISOString() ?? null,
+            completedById: task.completedById,
+            completedByName: task.completedByName,
+            note: task.note,
+          },
+          after: {
+            cleanerName: update.cleanerName,
+            completedAt: update.completedAt.toISOString(),
+            completedById: task.completedById,
+            completedByName: task.completedByName,
+            note: update.note,
+          },
+        },
+        auditMetadata: input.auditMetadata,
+      });
+    });
+  } catch (error) {
+    translateWorkflowError(error);
+  }
+}
+
+export async function revertCleaningCompletion(taskId: string, input: CleaningActor) {
+  try {
+    await prisma.$transaction(async (tx) => {
+      const task = await tx.cleaningTask.findUnique({
+        where: { id: taskId },
+        select: {
+          roomId: true,
+          status: true,
+          cleanerName: true,
+          startedAt: true,
+          startedById: true,
+          startedByName: true,
+          completedAt: true,
+          completedById: true,
+          completedByName: true,
+          updatedAt: true,
+          logs: {
+            where: { action: "COMPLETED" },
+            select: { previousStatus: true },
+            orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+            take: 1,
+          },
+        },
+      });
+      if (!task) throw new CleaningTaskStateError("NOT_ACTIONABLE");
+      const revert = planCleaningCompletionReversion({
+        status: task.status,
+        previousStatus: task.logs[0]?.previousStatus,
+        startedAt: task.startedAt,
+      });
+      const updated = await tx.cleaningTask.updateMany({
+        where: { id: taskId, status: "COMPLETED", updatedAt: task.updatedAt },
+        data: revert,
+      });
+      if (!updated.count) throw new CleaningTaskStateError("CONFLICT");
+      await tx.cleaningPhoto.updateMany({
+        where: { taskId, storageKey: { not: null }, deletedAt: null },
+        data: { deleteAfter: null, deleteError: null },
+      });
+      await createLog(tx, {
+        taskId,
+        action: "COMPLETION_REVERTED",
+        actorUserId: input.userId,
+        workerName: task.cleanerName,
+        previousStatus: "COMPLETED",
+        nextStatus: revert.status,
+        details: {
+          roomId: task.roomId,
+          before: {
+            cleanerName: task.cleanerName,
+            startedAt: task.startedAt?.toISOString() ?? null,
+            startedById: task.startedById,
+            startedByName: task.startedByName,
+            completedAt: task.completedAt?.toISOString() ?? null,
+            completedById: task.completedById,
+            completedByName: task.completedByName,
+          },
+          after: {
+            status: revert.status,
+            completedAt: null,
+            completedById: null,
+            completedByName: null,
+          },
+        },
+        auditMetadata: input.auditMetadata,
+      });
+    });
+  } catch (error) {
+    translateWorkflowError(error);
+  }
+}
+
 export async function saveCleaningTaskNote(taskId: string, input: CleaningActor & { note: string }) {
   const note = input.note.trim();
   if (!note || note.length > 500) throw new CleaningTaskStateError("INVALID_NOTE");
@@ -298,6 +438,17 @@ export async function saveCleaningTaskNote(taskId: string, input: CleaningActor 
 
 export async function recordCleaningPhotoAdded(tx: Prisma.TransactionClient, input: { taskId: string; actorUserId: string; workerName?: string | null; auditMetadata?: Prisma.InputJsonObject }) {
   await createLog(tx, { taskId: input.taskId, action: "PHOTO_ADDED", actorUserId: input.actorUserId, workerName: input.workerName, auditMetadata: input.auditMetadata });
+}
+
+export async function recordCleaningPhotoRemoved(tx: Prisma.TransactionClient, input: { taskId: string; photoId: string; actorUserId: string; workerName?: string | null; auditMetadata?: Prisma.InputJsonObject }) {
+  await createLog(tx, {
+    taskId: input.taskId,
+    action: "PHOTO_REMOVED",
+    actorUserId: input.actorUserId,
+    workerName: input.workerName,
+    details: { photoId: input.photoId },
+    auditMetadata: input.auditMetadata,
+  });
 }
 
 export async function getEligibleCleaningAssignee(input: { userId: string; companyId: string; propertyId: string; roomId: string }) {

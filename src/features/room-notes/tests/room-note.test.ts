@@ -95,7 +95,8 @@ test("청소 완료는 메모 메타데이터를 멱등 생성하고 RoomNote �
   assert.match(completion, /where: \{ cleaningTaskId: task\.id \}/);
   assert.match(completion, /sourceType: "CLEANING"/);
   assert.match(completion, /status: "OPEN"/);
-  const updateBlock = completion.slice(completion.indexOf("update: {"));
+  const updateStart = completion.indexOf("update: {");
+  const updateBlock = completion.slice(updateStart, completion.indexOf("          },\n        });", updateStart));
   assert.doesNotMatch(updateBlock, /status:/);
 });
 

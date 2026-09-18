@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { formatCleaningSelectedDate, getCleaningDateInput, parseCleaningDate, shiftCleaningDate } from "../domain/cleaning-date";
+import { formatCleaningDateTimeInput, formatCleaningSelectedDate, getCleaningDateInput, parseCleaningDate, parseCleaningDateTimeInput, shiftCleaningDate } from "../domain/cleaning-date";
 
 test("cleaning date uses the configured company or property timezone", () => {
   const now = new Date("2026-08-02T16:30:00.000Z");
@@ -32,4 +32,16 @@ test("all seven weekday labels follow the Korean and Japanese locale", () => {
   const dates = ["2026-08-02", "2026-08-03", "2026-08-04", "2026-08-05", "2026-08-06", "2026-08-07", "2026-08-08"];
   assert.deepEqual(dates.map((date) => formatCleaningSelectedDate({ date, locale: "ko", timeZone: "Asia/Tokyo" }).slice(-2, -1)), ["일", "월", "화", "수", "목", "금", "토"]);
   assert.deepEqual(dates.map((date) => formatCleaningSelectedDate({ date, locale: "ja", timeZone: "Asia/Tokyo" }).slice(-2, -1)), ["日", "月", "火", "水", "木", "金", "土"]);
+});
+
+test("완료 시각 입력은 Asia/Tokyo 기준으로 포맷하고 UTC instant로 복원한다", () => {
+  const instant = new Date("2026-09-18T04:30:00.000Z");
+  const input = formatCleaningDateTimeInput(instant, "Asia/Tokyo");
+  assert.equal(input, "2026-09-18T13:30");
+  assert.equal(parseCleaningDateTimeInput(input, "Asia/Tokyo")?.toISOString(), instant.toISOString());
+});
+
+test("잘못된 완료 시각 입력은 거부한다", () => {
+  assert.equal(parseCleaningDateTimeInput("2026-02-30T13:30", "Asia/Tokyo"), null);
+  assert.equal(parseCleaningDateTimeInput("2026-09-18", "Asia/Tokyo"), null);
 });

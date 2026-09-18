@@ -8,10 +8,12 @@ function source(path: string) {
   return readFileSync(path, "utf8");
 }
 
-test("completion workflow requires the shared photo uploader to finish before completion", () => {
+test("completion workflow allows zero photos but waits for selected uploads to settle", () => {
   const workflow = source("src/features/cleaning/components/cleaning-workflow-dialog.tsx");
   assert.match(workflow, /<CleaningPhotoUploader/);
-  assert.match(workflow, /mode !== "complete" \|\| photoState\.readyForCompletion/);
+  assert.match(workflow, /const photosSettled = photoState\.uploadsSettled/);
+  assert.match(workflow, /mode !== "complete" \|\| photosSettled/);
+  assert.match(workflow, /allowEmpty/);
   assert.match(workflow, /photoState\.isUploading \|\| !valid/);
 });
 

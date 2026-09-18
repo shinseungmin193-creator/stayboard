@@ -32,6 +32,7 @@ test("STAFF has operational permissions only", () => {
   assert.equal(hasPermission("STAFF", PERMISSIONS.ROOM_READ), true);
   assert.equal(hasPermission("STAFF", PERMISSIONS.ROOM_OPERATIONAL_STATUS_UPDATE), true);
   assert.equal(hasPermission("STAFF", PERMISSIONS.CLEANING_MANAGE), true);
+  assert.equal(hasPermission("STAFF", PERMISSIONS.CLEANING_COMPLETION_MANAGE), false);
   assert.equal(hasPermission("STAFF", PERMISSIONS.CLEANING_WORKER_READ), true);
   assert.equal(hasPermission("STAFF", PERMISSIONS.CLEANING_WORKER_CREATE), true);
   assert.equal(hasPermission("STAFF", PERMISSIONS.CLEANING_WORKER_MANAGE), false);
@@ -47,6 +48,8 @@ test("STAFF has operational permissions only", () => {
   assert.equal(hasPermission("STAFF", PERMISSIONS.PROPERTY_REVIEW_READ), false);
   assert.equal(hasPermission("STAFF", PERMISSIONS.PROPERTY_REVIEW_SYNC), false);
   assert.equal(hasPermission("ADMIN", PERMISSIONS.CLEANING_WORKER_MANAGE), true);
+  assert.equal(hasPermission("ADMIN", PERMISSIONS.CLEANING_COMPLETION_MANAGE), true);
+  assert.equal(hasPermission("DEVELOPER", PERMISSIONS.CLEANING_COMPLETION_MANAGE), true);
 });
 
 test("ADMIN과 DEVELOPER만 객실 메모 삭제 권한을 가진다", () => {

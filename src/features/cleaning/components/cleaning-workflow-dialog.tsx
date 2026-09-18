@@ -92,14 +92,15 @@ export function CleaningWorkflowDialog({
     hasUnuploadedFiles: false,
     hasFailedFiles: false,
     isUploading: false,
-    readyForCompletion: initialPhotoCount > 0,
+    uploadsSettled: true,
   });
   const selectedAssignee = options.find((option) => option.id === selectedUserId);
   const showWorkerNameInput = !assignmentMode || selectedAssignee?.role === "STAFF";
   const normalizedName = workerName.trim();
   const validName = normalizedName.length >= 1 && normalizedName.length <= 30;
   const identityValid = assignmentMode ? Boolean(selectedAssignee) && (!showWorkerNameInput || validName) : validName;
-  const valid = identityValid && (mode !== "complete" || photoState.readyForCompletion);
+  const photosSettled = photoState.uploadsSettled;
+  const valid = identityValid && (mode !== "complete" || photosSettled);
   const openRoomNoteCount = mode === "complete" ? task?.openRoomNotes.length ?? 0 : 0;
   const selectWorker = (worker: Pick<CleaningWorkerViewModel, "id" | "name">) => {
     const selection = getCleaningWorkerSelection(worker);
@@ -174,11 +175,12 @@ export function CleaningWorkflowDialog({
                 taskId={task.id}
                 initialPhotos={task.photos}
                 disabled={pending}
+                allowEmpty
                 onResult={onUploadResult}
                 onUploaded={onPhotoUploaded}
                 onStateChange={setPhotoState}
               />
-              {!photoState.readyForCompletion && <p className="text-xs font-medium text-amber-700 dark:text-amber-300">{t(photoState.hasFailedFiles ? "photoUploadFailedHint" : photoState.hasUnuploadedFiles || photoState.isUploading ? "photoUploadPendingHint" : "photoRequiredHint")}</p>}
+              {!photosSettled && <p className="text-xs font-medium text-amber-700 dark:text-amber-300">{t(photoState.hasFailedFiles ? "photoUploadFailedHint" : "photoUploadPendingHint")}</p>}
             </section>}
             {openRoomNoteCount > 0 && <section className="space-y-2 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-amber-900 dark:text-amber-200">
               <p className="flex items-start gap-2 text-sm font-medium"><MessageSquareText className="mt-0.5 size-4 shrink-0" />{t("openRoomNotesWarning", { count: openRoomNoteCount })}</p>

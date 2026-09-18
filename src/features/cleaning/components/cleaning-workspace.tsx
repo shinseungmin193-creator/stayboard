@@ -6,12 +6,14 @@ import { usePathname, useRouter } from "next/navigation";
 import { CalendarDays, ChevronLeft, ChevronRight, LoaderCircle } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import type { UserRole } from "@/features/access-control";
+import { hasPermission, PERMISSIONS, type UserRole } from "@/features/access-control/domain/access-control";
 import {
   assignCleaningTaskAction,
   cancelCleaningTaskStartAction,
   completeCleaningTaskAction,
+  revertCleaningCompletionAction,
   startCleaningTaskAction,
+  updateCleaningCompletionAction,
   type CleaningActionResult,
 } from "../cleaning.actions";
 import type { CleaningFilters, CleaningPageData, CleaningTaskViewModel, CleaningWorkerViewModel } from "../cleaning.types";
@@ -19,6 +21,8 @@ import { formatCleaningSelectedDate, getCleaningDateInput, shiftCleaningDate } f
 import { CLEANING_SECTIONS, type CleaningSection as CleaningSectionName } from "../domain/cleaning-meta";
 import { upsertCleaningWorkerList } from "../domain/cleaning-worker";
 import { CleaningFilterSheet } from "./cleaning-filter-sheet";
+import { CleaningCompletionEditDialog } from "./cleaning-completion-edit-dialog";
+import { CleaningCompletionRevertDialog } from "./cleaning-completion-revert-dialog";
 import { CleaningHistoryList } from "./cleaning-history-list";
 import { CleaningSection } from "./cleaning-section";
 import { CleaningSummaryGrid } from "./cleaning-summary-grid";
@@ -56,6 +60,8 @@ export function CleaningWorkspace({
   const [detail, setDetail] = useState<{ taskId: string; focus: "photos" | "note" | "logs" | null } | null>(null);
   const [workflow, setWorkflow] = useState<{ taskId: string; mode: CleaningWorkflowMode } | null>(null);
   const [startCancellationTaskId, setStartCancellationTaskId] = useState<string | null>(null);
+  const [completionEditTaskId, setCompletionEditTaskId] = useState<string | null>(null);
+  const [completionRevertTaskId, setCompletionRevertTaskId] = useState<string | null>(null);
   const [roomNotesTaskId, setRoomNotesTaskId] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [workerUpdates, setWorkerUpdates] = useState<CleaningWorkerViewModel[]>([]);
@@ -74,7 +80,12 @@ export function CleaningWorkspace({
   const workflowTask = workflow ? tasksById.get(workflow.taskId) ?? null : null;
   const requestedStartCancellationTask = startCancellationTaskId ? tasksById.get(startCancellationTaskId) ?? null : null;
   const startCancellationTask = requestedStartCancellationTask?.status === "IN_PROGRESS" ? requestedStartCancellationTask : null;
+  const requestedCompletionEditTask = completionEditTaskId ? tasksById.get(completionEditTaskId) ?? null : null;
+  const completionEditTask = requestedCompletionEditTask?.status === "COMPLETED" ? requestedCompletionEditTask : null;
+  const requestedCompletionRevertTask = completionRevertTaskId ? tasksById.get(completionRevertTaskId) ?? null : null;
+  const completionRevertTask = requestedCompletionRevertTask?.status === "COMPLETED" ? requestedCompletionRevertTask : null;
   const roomNotesTask = roomNotesTaskId ? tasksById.get(roomNotesTaskId) ?? null : null;
+  const canManageCompletion = hasPermission(role, PERMISSIONS.CLEANING_COMPLETION_MANAGE);
   const workers = useMemo(
     () => workerUpdates.reduce<CleaningWorkerViewModel[]>((current, worker) => upsertCleaningWorkerList(current, worker), data.workers),
     [data.workers, workerUpdates],
@@ -109,7 +120,40 @@ export function CleaningWorkspace({
 
   const handleResult = (result: CleaningActionResult) => {
     showNotice(result.message);
-    if (result.success || result.code === "CONFLICT" || result.code === "ALREADY_ASSIGNED" || result.code === "ALREADY_COMPLETED" || result.code === "NOT_IN_PROGRESS") router.refresh();
+    if (result.success || result.code === "CONFLICT" || result.code === "ALREADY_ASSIGNED" || result.code === "ALREADY_COMPLETED" || result.code === "NOT_IN_PROGRESS" || result.code === "NOT_COMPLETED") router.refresh();
+  };
+
+  const updateCompletion = (input: { task: CleaningTaskViewModel; workerName: string; completedAt: string; note: string }) => {
+    if (pendingTaskId) return;
+    setPendingTaskId(input.task.id);
+    startActionTransition(async () => {
+      try {
+        const result = await updateCleaningCompletionAction({
+          taskId: input.task.id,
+          workerName: input.workerName,
+          completedAt: input.completedAt,
+          note: input.note,
+        });
+        handleResult(result);
+        if (result.success || result.code === "CONFLICT" || result.code === "NOT_COMPLETED") setCompletionEditTaskId(null);
+      } finally {
+        setPendingTaskId(null);
+      }
+    });
+  };
+
+  const revertCompletion = (task: CleaningTaskViewModel) => {
+    if (pendingTaskId) return;
+    setPendingTaskId(task.id);
+    startActionTransition(async () => {
+      try {
+        const result = await revertCleaningCompletionAction({ taskId: task.id });
+        handleResult(result);
+        if (result.success || result.code === "CONFLICT" || result.code === "NOT_COMPLETED") setCompletionRevertTaskId(null);
+      } finally {
+        setPendingTaskId(null);
+      }
+    });
   };
 
   const cancelStart = (task: CleaningTaskViewModel) => {
@@ -178,8 +222,8 @@ export function CleaningWorkspace({
       {(isNavigating || isActionPending) && <div className="flex items-center justify-end gap-1.5 text-xs text-muted-foreground"><LoaderCircle className="size-3.5 animate-spin" />{t("loading")}</div>}
 
       {filters.tab === "ongoing" ? <div className="space-y-5">
-        {sections.map((section) => <CleaningSection key={section} section={section} data={data.sections[section]} selected={filters.section === section} role={role} currentUserId={currentUserId} referenceAt={data.referenceAt} timeZone={data.timeZone} locale={localeTag} pendingTaskId={pendingTaskId} onViewAll={(nextSection) => navigate({ section: nextSection, page: 1 })} onOpenDetails={(task, focus) => setDetail({ taskId: task.id, focus: focus ?? null })} onOpenRoomNotes={(task) => setRoomNotesTaskId(task.id)} onCancelStart={(task) => setStartCancellationTaskId(task.id)} onWorkflow={(task, mode) => setWorkflow({ taskId: task.id, mode })} />)}
-        {filters.section === "all" && <CleaningSection section="completed" data={data.completed} selected={false} role={role} currentUserId={currentUserId} referenceAt={data.referenceAt} timeZone={data.timeZone} locale={localeTag} pendingTaskId={pendingTaskId} onOpenDetails={(task, focus) => setDetail({ taskId: task.id, focus: focus ?? null })} onOpenRoomNotes={(task) => setRoomNotesTaskId(task.id)} onCancelStart={(task) => setStartCancellationTaskId(task.id)} onWorkflow={(task, mode) => setWorkflow({ taskId: task.id, mode })} />}
+        {sections.map((section) => <CleaningSection key={section} section={section} data={data.sections[section]} selected={filters.section === section} role={role} currentUserId={currentUserId} referenceAt={data.referenceAt} timeZone={data.timeZone} locale={localeTag} pendingTaskId={pendingTaskId} canManageCompletion={canManageCompletion} onViewAll={(nextSection) => navigate({ section: nextSection, page: 1 })} onOpenDetails={(task, focus) => setDetail({ taskId: task.id, focus: focus ?? null })} onOpenRoomNotes={(task) => setRoomNotesTaskId(task.id)} onCancelStart={(task) => setStartCancellationTaskId(task.id)} onEditCompletion={(task) => setCompletionEditTaskId(task.id)} onRevertCompletion={(task) => setCompletionRevertTaskId(task.id)} onWorkflow={(task, mode) => setWorkflow({ taskId: task.id, mode })} />)}
+        {filters.section === "all" && <CleaningSection section="completed" data={data.completed} selected={false} role={role} currentUserId={currentUserId} referenceAt={data.referenceAt} timeZone={data.timeZone} locale={localeTag} pendingTaskId={pendingTaskId} canManageCompletion={canManageCompletion} onOpenDetails={(task, focus) => setDetail({ taskId: task.id, focus: focus ?? null })} onOpenRoomNotes={(task) => setRoomNotesTaskId(task.id)} onCancelStart={(task) => setStartCancellationTaskId(task.id)} onEditCompletion={(task) => setCompletionEditTaskId(task.id)} onRevertCompletion={(task) => setCompletionRevertTaskId(task.id)} onWorkflow={(task, mode) => setWorkflow({ taskId: task.id, mode })} />}
       </div> : <CleaningHistoryList data={data.history} locale={localeTag} timeZone={data.timeZone} referenceAt={data.referenceAt} onOpenDetails={(task, focus) => setDetail({ taskId: task.id, focus: focus ?? null })} />}
 
       {paginationData && paginationData.totalPages > 1 && <nav className="flex items-center justify-center gap-2" aria-label={t("pagination.label")}>
@@ -190,6 +234,8 @@ export function CleaningWorkspace({
 
       {workflow && workflowTask && <CleaningWorkflowDialog key={`${workflow.taskId}-${workflow.mode}`} task={workflowTask} mode={workflow.mode} role={role} currentUserId={currentUserId} currentUserName={currentUserName} registeredWorkers={workers} canCreateWorkers={canCreateWorkers} pending={pendingTaskId === workflow.taskId || isActionPending} onClose={() => setWorkflow(null)} onSubmit={runWorkflow} onUploadResult={handleResult} onPhotoUploaded={() => router.refresh()} onReviewRoomNotes={() => { setWorkflow(null); setRoomNotesTaskId(workflowTask.id); }} onWorkerCreated={updateWorker} onNotice={showNotice} />}
       {startCancellationTask && <CleaningStartCancelDialog task={startCancellationTask} pending={pendingTaskId === startCancellationTask.id || isActionPending} onClose={() => setStartCancellationTaskId(null)} onConfirm={cancelStart} />}
+      {completionEditTask && canManageCompletion && <CleaningCompletionEditDialog key={completionEditTask.id} task={completionEditTask} workers={workers} timeZone={data.timeZone} pending={pendingTaskId === completionEditTask.id || isActionPending} onClose={() => setCompletionEditTaskId(null)} onSubmit={updateCompletion} onUploadResult={handleResult} onPhotoChanged={() => router.refresh()} />}
+      {completionRevertTask && canManageCompletion && <CleaningCompletionRevertDialog task={completionRevertTask} pending={pendingTaskId === completionRevertTask.id || isActionPending} onClose={() => setCompletionRevertTaskId(null)} onConfirm={revertCompletion} />}
       {detail && detailTask && <CleaningTaskDetailDialog key={`${detail.taskId}-${detail.focus ?? "details"}`} task={detailTask} focus={detail.focus} role={role} currentUserId={currentUserId} locale={localeTag} timeZone={data.timeZone} pending={pendingTaskId === detail.taskId} onClose={() => setDetail(null)} onResult={handleResult} onRefresh={() => router.refresh()} />}
       {roomNotesTask && <CleaningRoomNotesDialog key={roomNotesTask.id} task={roomNotesTask} canComplete={canCompleteRoomNotes} onClose={() => setRoomNotesTaskId(null)} onCompleted={(message) => { showNotice(message); router.refresh(); }} />}
       {notice && <div className="fixed inset-x-4 bottom-[calc(5.25rem+env(safe-area-inset-bottom))] z-[70] mx-auto max-w-sm rounded-xl bg-foreground px-4 py-3 text-center text-sm font-medium text-background shadow-lg lg:bottom-6" role="status" aria-live="polite">{notice}</div>}

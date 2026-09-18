@@ -1,10 +1,11 @@
 import { getTranslations } from "next-intl/server";
 
-import { isAccessControlError, PERMISSIONS } from "@/features/access-control";
+import { hasPermission, isAccessControlError, PERMISSIONS } from "@/features/access-control";
 import {
   MAX_CLEANING_PHOTO_REQUEST_SIZE,
   validateCleaningPhoto,
 } from "@/features/cleaning/domain/cleaning-photo-validation";
+import { getCleaningPhotoDeleteAfter } from "@/features/cleaning/domain/cleaning-retention";
 import {
   CleaningTaskNotFoundError,
   CleaningTaskStateError,
@@ -29,6 +30,7 @@ type StoredPhotoResponse = {
   mimeType: string;
   size: number;
   createdAt: Date;
+  deleteAfter: Date | null;
 };
 
 function sanitizeOriginalName(name: string) {
@@ -51,7 +53,7 @@ function photoResponse(photo: StoredPhotoResponse, message: string, status: numb
       mimeType: photo.mimeType,
       size: photo.size,
       createdAt: photo.createdAt.toISOString(),
-      deleteAfter: null,
+      deleteAfter: photo.deleteAfter?.toISOString() ?? null,
       deletedAt: null,
     },
   }, { status, headers: { "Cache-Control": "no-store" } });
@@ -67,6 +69,7 @@ async function findExistingUpload(taskId: string, clientUploadId: string) {
       mimeType: true,
       size: true,
       createdAt: true,
+      deleteAfter: true,
       deletedAt: true,
     },
   });
@@ -89,6 +92,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ tas
     const { taskId: routeTaskId } = await params;
     taskId = routeTaskId;
     const { context, task } = await requireCleaningTaskAccess(routeTaskId, PERMISSIONS.CLEANING_MANAGE);
+    const canManageCompleted = hasPermission(context.role, PERMISSIONS.CLEANING_COMPLETION_MANAGE);
     const contentType = request.headers.get("content-type")?.toLowerCase() ?? "";
     if (!contentType.startsWith("multipart/form-data;")) {
       return Response.json({ success: false, message: t("photoInvalidType") }, { status: 415 });
@@ -107,7 +111,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ tas
     if (existing?.storageKey && !existing.deletedAt) {
       return photoResponse(existing, t("photoAlreadyUploaded"), 200);
     }
-    if (task.status !== "PENDING" && task.status !== "IN_PROGRESS") {
+    if (task.status === "COMPLETED" && !canManageCompleted) {
+      return Response.json({ success: false, message: t("forbidden") }, { status: 403 });
+    }
+    if (task.status !== "PENDING" && task.status !== "IN_PROGRESS" && !(task.status === "COMPLETED" && canManageCompleted)) {
       return Response.json({ success: false, message: t("notActionable") }, { status: 409 });
     }
 
@@ -137,8 +144,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ tas
     const uploaded = await storage.upload({ taskId: routeTaskId, extension: normalized.extension, data: normalized.data });
     storageKey = uploaded.storageKey;
     const photo = await prisma.$transaction(async (tx) => {
-      const current = await tx.cleaningTask.findUnique({ where: { id: routeTaskId }, select: { status: true, assigneeName: true } });
-      if (!current || (current.status !== "PENDING" && current.status !== "IN_PROGRESS")) {
+      const current = await tx.cleaningTask.findUnique({ where: { id: routeTaskId }, select: { status: true, assigneeName: true, cleanerName: true, completedAt: true } });
+      if (!current || (current.status !== "PENDING" && current.status !== "IN_PROGRESS" && !(current.status === "COMPLETED" && canManageCompleted))) {
         throw new CleaningTaskStateError("NOT_ACTIONABLE");
       }
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${routeTaskId}))`;
@@ -155,13 +162,16 @@ export async function POST(request: Request, { params }: { params: Promise<{ tas
           width: normalized.width,
           height: normalized.height,
           uploadedById: context.userId,
+          deleteAfter: current.status === "COMPLETED" && current.completedAt
+            ? getCleaningPhotoDeleteAfter(current.completedAt)
+            : null,
         },
-        select: { id: true, storageKey: true, originalName: true, mimeType: true, size: true, createdAt: true },
+        select: { id: true, storageKey: true, originalName: true, mimeType: true, size: true, createdAt: true, deleteAfter: true },
       });
       await recordCleaningPhotoAdded(tx, {
         taskId: routeTaskId,
         actorUserId: context.userId,
-        workerName: current.assigneeName,
+        workerName: current.cleanerName ?? current.assigneeName,
         auditMetadata: context.isRoleSwitchActive && context.developerRoleSessionId
           ? { actualRole: context.actualRole, effectiveRole: context.effectiveRole, developerRoleSessionId: context.developerRoleSessionId }
           : undefined,

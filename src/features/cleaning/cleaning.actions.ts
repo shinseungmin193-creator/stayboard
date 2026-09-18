@@ -6,6 +6,7 @@ import { getTranslations } from "next-intl/server";
 import { hasPermission, isAccessControlError, PERMISSIONS, type AccessContext } from "@/features/access-control";
 import { logServerError } from "@/lib/prisma-errors";
 import {
+  cleaningCompletionUpdateSchema,
   cleaningTaskAssignmentSchema,
   cleaningTaskCompletionSchema,
   cleaningTaskIdSchema,
@@ -20,8 +21,10 @@ import {
   cancelCleaningTaskStart,
   completeCleaningTask,
   getEligibleCleaningAssignee,
+  revertCleaningCompletion,
   saveCleaningTaskNote,
   startCleaningTask,
+  updateCleaningCompletion,
 } from "./server/cleaning-task.service";
 
 export interface CleaningActionResult {
@@ -30,13 +33,17 @@ export interface CleaningActionResult {
   code?: string;
 }
 
-async function errorResult(error: unknown, key: "startFailed" | "cancelStartFailed" | "assignFailed" | "completeFailed" | "noteFailed"): Promise<CleaningActionResult> {
+async function errorResult(error: unknown, key: "startFailed" | "cancelStartFailed" | "assignFailed" | "completeFailed" | "completionUpdateFailed" | "completionRevertFailed" | "noteFailed"): Promise<CleaningActionResult> {
   const t = await getTranslations("cleaning.messages");
   if (error instanceof CleaningTaskStateError) {
     const messageKey = error.code === "ALREADY_COMPLETED"
       ? "alreadyCompleted"
-      : error.code === "NOT_IN_PROGRESS"
-        ? "notInProgress"
+        : error.code === "NOT_IN_PROGRESS"
+          ? "notInProgress"
+        : error.code === "NOT_COMPLETED"
+          ? "completionChanged"
+        : error.code === "INVALID_COMPLETION_TIME"
+          ? "invalidCompletedAt"
         : error.code === "PHOTO_REQUIRED"
       ? "photoRequired"
       : error.code === "ASSIGNEE_REQUIRED"
@@ -61,6 +68,7 @@ async function errorResult(error: unknown, key: "startFailed" | "cancelStartFail
 
 function revalidateCleaning() {
   revalidatePath("/cleaning");
+  revalidatePath("/cleaning/stats");
   revalidatePath("/");
 }
 
@@ -177,6 +185,47 @@ export async function completeCleaningTaskAction(input: { taskId: string; worker
     return { success: true, message: t("completed") };
   } catch (error) {
     return errorResult(error, "completeFailed");
+  }
+}
+
+export async function updateCleaningCompletionAction(input: {
+  taskId: string;
+  workerName: string;
+  completedAt: string;
+  note: string;
+}): Promise<CleaningActionResult> {
+  const parsed = cleaningCompletionUpdateSchema.safeParse(input);
+  const t = await getTranslations("cleaning.messages");
+  if (!parsed.success) {
+    const invalidTime = parsed.error.issues.some((issue) => issue.path[0] === "completedAt");
+    return { success: false, message: t(invalidTime ? "invalidCompletedAt" : "invalidCompletionUpdate"), code: invalidTime ? "INVALID_COMPLETION_TIME" : "INVALID_REQUEST" };
+  }
+  try {
+    const { context } = await requireCleaningTaskAccess(parsed.data.taskId, PERMISSIONS.CLEANING_COMPLETION_MANAGE);
+    await updateCleaningCompletion(parsed.data.taskId, {
+      ...actor(context),
+      workerName: parsed.data.workerName,
+      completedAt: new Date(parsed.data.completedAt),
+      note: parsed.data.note,
+    });
+    revalidateCleaning();
+    return { success: true, message: t("completionUpdated") };
+  } catch (error) {
+    return errorResult(error, "completionUpdateFailed");
+  }
+}
+
+export async function revertCleaningCompletionAction(input: { taskId: string }): Promise<CleaningActionResult> {
+  const parsed = cleaningTaskIdSchema.safeParse(input);
+  const t = await getTranslations("cleaning.messages");
+  if (!parsed.success) return { success: false, message: t("invalidRequest"), code: "INVALID_REQUEST" };
+  try {
+    const { context } = await requireCleaningTaskAccess(parsed.data.taskId, PERMISSIONS.CLEANING_COMPLETION_MANAGE);
+    await revertCleaningCompletion(parsed.data.taskId, actor(context));
+    revalidateCleaning();
+    return { success: true, message: t("completionReverted") };
+  } catch (error) {
+    return errorResult(error, "completionRevertFailed");
   }
 }
 

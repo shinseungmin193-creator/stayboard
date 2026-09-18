@@ -36,7 +36,7 @@ export interface CleaningPhotoUploadState {
   hasUnuploadedFiles: boolean;
   hasFailedFiles: boolean;
   isUploading: boolean;
-  readyForCompletion: boolean;
+  uploadsSettled: boolean;
 }
 
 interface UploadResponse extends CleaningActionResult {
@@ -147,16 +147,20 @@ export function CleaningPhotoUploader({
   initialPhotos,
   disabled = false,
   readOnly = false,
+  allowEmpty = false,
   onResult,
   onUploaded,
+  onDeleted,
   onStateChange,
 }: {
   taskId: string;
   initialPhotos: readonly CleaningPhotoViewModel[];
   disabled?: boolean;
   readOnly?: boolean;
+  allowEmpty?: boolean;
   onResult(result: CleaningActionResult): void;
   onUploaded?(photo: CleaningPhotoViewModel): void;
+  onDeleted?(photoId: string): void;
   onStateChange?(state: CleaningPhotoUploadState): void;
 }) {
   const t = useTranslations("cleaning");
@@ -191,7 +195,7 @@ export function CleaningPhotoUploader({
   const deletedPhotos = useMemo(() => photos.filter((photo) => !photo.url || photo.deletedAt), [photos]);
   const hasUnuploadedFiles = items.some((item) => item.status === "selected" || item.status === "uploading");
   const hasFailedFiles = items.some((item) => item.status === "failed");
-  const readyForCompletion = activePhotos.length > 0 && !hasUnuploadedFiles && !hasFailedFiles && !isUploading;
+  const uploadsSettled = !hasUnuploadedFiles && !hasFailedFiles && !isUploading;
 
   useEffect(() => {
     onStateChange?.({
@@ -199,9 +203,9 @@ export function CleaningPhotoUploader({
       hasUnuploadedFiles,
       hasFailedFiles,
       isUploading,
-      readyForCompletion,
+      uploadsSettled,
     });
-  }, [activePhotos.length, hasFailedFiles, hasUnuploadedFiles, isUploading, onStateChange, readyForCompletion]);
+  }, [activePhotos.length, hasFailedFiles, hasUnuploadedFiles, isUploading, onStateChange, uploadsSettled]);
 
   const commitItems = (update: (current: UploadItem[]) => UploadItem[]) => {
     const next = update(itemsRef.current);
@@ -346,11 +350,13 @@ export function CleaningPhotoUploader({
 
   const deleteStoredPhoto = async (photo: CleaningPhotoViewModel) => {
     if (disabled || isUploading) return;
+    if (!window.confirm(t("photos.deleteConfirm"))) return;
     try {
       const response = await fetch(withBasePath(`/api/cleaning/photos/${encodeURIComponent(photo.id)}`), { method: "DELETE" });
       if (!response.ok) throw new Error();
       setDeletedPhotoIds((current) => new Set(current).add(photo.id));
       onResult({ success: true, message: t("messages.photoDeleted") });
+      onDeleted?.(photo.id);
     } catch {
       onResult({ success: false, message: t("messages.deleteFailed") });
     }
@@ -383,7 +389,7 @@ export function CleaningPhotoUploader({
       </div>)}
     </div>}
 
-    {!activePhotos.length && !items.length && <p className="rounded-xl bg-muted/50 px-3 py-5 text-center text-sm text-muted-foreground">{t("photos.required")}</p>}
+    {!activePhotos.length && !items.length && <p className="rounded-xl bg-muted/50 px-3 py-5 text-center text-sm text-muted-foreground">{t(allowEmpty ? "photos.none" : "photos.required")}</p>}
 
     {!readOnly && <>
       <input id={captureInputId} data-cleaning-photo-input={`${taskId}:camera`} ref={captureInputRef} type="file" accept={CLEANING_PHOTO_ACCEPT} capture="environment" className="sr-only" disabled={pickerDisabled} onChange={handleFileInputChange} />

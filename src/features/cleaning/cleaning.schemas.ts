@@ -12,6 +12,12 @@ export const cleaningTaskAssignmentSchema = z.object({
 });
 export const cleaningTaskStartSchema = z.object({ taskId: id, workerName: cleaningWorkerNameSchema });
 export const cleaningTaskCompletionSchema = z.object({ taskId: id, workerName: cleaningWorkerNameSchema });
+export const cleaningCompletionUpdateSchema = z.object({
+  taskId: id,
+  workerName: cleaningWorkerNameSchema,
+  completedAt: z.iso.datetime({ offset: true }),
+  note: z.string().trim().max(500),
+});
 export const cleaningTaskNoteSchema = z.object({ taskId: id, note: z.string().trim().min(1).max(500) });
 export const cleaningWorkerCreateSchema = z.object({ companyId: id, name: cleaningWorkerNameSchema });
 export const cleaningWorkerUpdateSchema = z.object({ id, name: cleaningWorkerNameSchema });

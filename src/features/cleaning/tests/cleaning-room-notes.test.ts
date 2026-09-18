@@ -71,7 +71,7 @@ test("미처리 메모 경고는 청소 완료를 차단하지 않고 확인과 
   assert.match(workflow, /openRoomNotesWarning/);
   assert.match(workflow, /reviewRoomNotes/);
   assert.match(workflow, /completeWithOpenNotes/);
-  assert.match(workflow, /const valid = identityValid && \(mode !== "complete" \|\| photoState\.readyForCompletion\)/);
+  assert.match(workflow, /const valid = identityValid && \(mode !== "complete" \|\| photosSettled\)/);
   assert.doesNotMatch(workflow, /valid =[^;]*openRoomNoteCount/);
 });
 
