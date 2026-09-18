@@ -1648,6 +1648,16 @@
       "reset": "スタッフ用モバイル下部ナビゲーション設定を初期設定に戻しました。"
     }
   },
+  "pwaInstall": {
+    "addToHome": "StayBoardをホーム画面に追加",
+    "installing": "インストール画面を開いています...",
+    "runningStandalone": "ホーム画面アプリとして実行中",
+    "iosTitle": "StayBoardをホーム画面に追加",
+    "iosDescription": "iPhoneとiPadではSafariのメニューから追加できます。",
+    "iosShareStep": "Safari下部の共有ボタンをタップします。",
+    "iosAddStep": "メニューから「ホーム画面に追加」を選択します。",
+    "confirm": "確認"
+  },
   "developerRoleSwitch": {
     "title": "権限テスト",
     "modeTitle": "権限テストモード",

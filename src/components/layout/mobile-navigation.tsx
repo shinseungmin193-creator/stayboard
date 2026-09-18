@@ -13,6 +13,7 @@ import { Sheet, SheetClose, SheetContent, SheetDescription, SheetHeader, SheetTi
 import { NavigationLink } from "./navigation-link";
 import { Button } from "@/components/ui/button";
 import { useDeveloperRoleSwitch } from "@/features/developer-role-switch/components/developer-role-switch-provider";
+import { PwaInstallMenuItem, usePwaInstall } from "@/features/pwa";
 
 export const PRIMARY_MOBILE_IDS = ["dashboard", "room-overview", "reservations", "room-status"] as const satisfies readonly SidebarMenuId[];
 
@@ -21,6 +22,7 @@ export function MobileNavigation({ role, userName, companyName, staffPrimaryMenu
   const t = useTranslations();
   const [open, setOpen] = useState(false);
   const roleSwitch = useDeveloperRoleSwitch();
+  const pwaInstall = usePwaInstall();
   const menuLabel = (item: (typeof SIDEBAR_MENU_ITEMS)[number]) =>
     preference.customLabels[item.id]
     ?? t(`navigation.items.${item.id}` as Parameters<typeof t>[0]);
@@ -37,7 +39,7 @@ export function MobileNavigation({ role, userName, companyName, staffPrimaryMenu
     });
   return (
     <Sheet open={open} onOpenChange={setOpen}>
-      <nav className="fixed inset-x-0 bottom-0 z-40 border-t bg-background/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden" aria-label={t("navigation.mobilePrimaryMenu")}>
+      <nav className="fixed inset-x-0 bottom-0 z-40 border-t bg-background/95 pr-[env(safe-area-inset-right)] pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] backdrop-blur lg:hidden" aria-label={t("navigation.mobilePrimaryMenu")}>
         <div className="grid h-16 grid-cols-5">
           {primaryItems.slice(0, 4).map((item) => <NavigationLink key={item.id} label={menuLabel(item)} href={item.href} icon={item.icon} mobile />)}
           <SheetTrigger render={<button type="button" className="flex min-w-0 flex-col items-center justify-center gap-1 text-[11px] font-medium text-muted-foreground" aria-label={t("navigation.allMenuOpen")} />}>
@@ -55,6 +57,7 @@ export function MobileNavigation({ role, userName, companyName, staffPrimaryMenu
         </SheetHeader>
         <div className="space-y-1 p-3">
           {role === "DEVELOPER" && roleSwitch.enabled && <Button type="button" variant="ghost" className="min-h-11 w-full justify-start gap-3 px-3" onClick={() => { setOpen(false); roleSwitch.open(); }}><ShieldCheck className="size-4" />{t("developerRoleSwitch.title")}</Button>}
+          <PwaInstallMenuItem status={pwaInstall.status} onInstall={pwaInstall.promptInstall} />
           {sidebarItems.map((item) => item.type === "DIVIDER"
             ? <div key={item.id} role="separator" className="mx-3 my-2 border-t" />
             : <SheetClose key={item.menu.id} nativeButton={false} render={<Link href={item.menu.href} className="flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm font-medium hover:bg-muted" />}>

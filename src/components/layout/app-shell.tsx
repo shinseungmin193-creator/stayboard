@@ -59,7 +59,7 @@ export async function AppShell({ children }: Readonly<{ children: React.ReactNod
             companyName={accessContext?.activeCompanyName}
           />
           <div className="lg:pl-60">
-            <header className="sticky top-0 z-20 flex h-[calc(3.5rem+env(safe-area-inset-top))] items-end justify-between border-b bg-background/95 px-4 pb-2 backdrop-blur lg:h-16 lg:items-center lg:px-7 lg:pb-0">
+            <header className="sticky top-0 z-20 flex h-[calc(3.5rem+env(safe-area-inset-top))] items-end justify-between border-b bg-background/95 pr-[max(1rem,env(safe-area-inset-right))] pb-2 pl-[max(1rem,env(safe-area-inset-left))] backdrop-blur lg:h-16 lg:items-center lg:px-7 lg:pb-0">
               <span className="min-w-0 truncate font-bold tracking-tight lg:hidden">StayBoard</span>
               <div className="hidden text-sm text-muted-foreground lg:block">{t("navigation.currentOperations")}</div>
               <div className="flex min-w-0 items-center gap-1">
@@ -82,7 +82,7 @@ export async function AppShell({ children }: Readonly<{ children: React.ReactNod
             </header>
             <DeveloperRoleSwitchBanner />
             {!accessContext && <DemoModeBanner />}
-            <main className="mx-auto min-w-0 max-w-[1500px] overflow-x-clip p-3 pb-[calc(5.5rem+env(safe-area-inset-bottom))] sm:p-6 sm:pb-24 lg:p-7 lg:pb-7">
+            <main className="mx-auto min-w-0 max-w-[1500px] overflow-x-clip p-3 pr-[max(0.75rem,env(safe-area-inset-right))] pb-[calc(5.5rem+env(safe-area-inset-bottom))] pl-[max(0.75rem,env(safe-area-inset-left))] sm:p-6 sm:pb-24 lg:p-7 lg:pb-7">
               {children}
             </main>
           </div>

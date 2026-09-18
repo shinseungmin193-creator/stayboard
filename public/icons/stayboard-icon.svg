@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="StayBoard">
+  <rect width="512" height="512" rx="112" fill="#0f172a"/>
+  <rect x="112" y="104" width="288" height="304" rx="48" fill="#ffffff"/>
+  <rect x="152" y="152" width="88" height="88" rx="20" fill="#0f172a"/>
+  <rect x="272" y="152" width="88" height="88" rx="20" fill="#0f172a"/>
+  <rect x="152" y="272" width="88" height="88" rx="20" fill="#0f172a"/>
+  <path d="M292 316l25 25 51-61" fill="none" stroke="#16a34a" stroke-width="24" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
