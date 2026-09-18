@@ -8,6 +8,7 @@ import { getProviderLabel, getProviderVisual } from "../provider-visuals";
 import { getLocalizedReservationSyncStatusLabel } from "../reservation-status-meta";
 import { ReservationStatusBadge } from "./reservation-status-badge";
 import type { ReservationDisplayStatus } from "../reservation-display-status";
+import { getReservationDateInput } from "../reservation-date";
 
 
 
@@ -19,7 +20,9 @@ function DetailItem({ label, value, wide = false, mono = false }: {label: string
 
 export function ReservationDetailContent({ reservation, contextualStatus }: {reservation: ReservationViewModel;contextualStatus?: {status: ReservationDisplayStatus;label: string;};}) {const locale = useLocale(),localeTag = locale === "ja" ? "ja-JP" : "ko-KR";const dateTimeFormatter = new Intl.DateTimeFormat(localeTag, { timeZone: "Asia/Tokyo", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" });const dateFormatter = new Intl.DateTimeFormat(localeTag, { timeZone: "Asia/Tokyo", year: "numeric", month: "2-digit", day: "2-digit" });const i18n = useTranslations();
   const provider = getProviderVisual(reservation.provider);
-  const nights = Math.max(1, differenceInCalendarDays(new Date(reservation.endDate), new Date(reservation.startDate)));
+  const startDateInput = getReservationDateInput(new Date(reservation.startDate)) ?? "1970-01-01";
+  const endDateInput = getReservationDateInput(new Date(reservation.endDate)) ?? startDateInput;
+  const nights = Math.max(0, differenceInCalendarDays(new Date(`${endDateInput}T00:00:00Z`), new Date(`${startDateInput}T00:00:00Z`)));
   const syncHasError = reservation.latestSyncStatus === "FAILED" || reservation.latestSyncStatus === "TIMEOUT";
   return (
     <div className="space-y-4">

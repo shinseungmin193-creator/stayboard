@@ -178,13 +178,13 @@ test("체크인 기준은 startDate가 선택 범위 안에 있을 때만 포함
   }), true);
 });
 
-test("체크아웃 기준은 from 초과, toExclusive 이하 경계를 적용한다", () => {
+test("체크아웃 기준은 from 포함, toExclusive 미포함 경계를 적용한다", () => {
   const where = buildReservationListDateWhere({
     dateField: "checkOut",
     ...HISTORICAL_RANGE,
   });
   assert.deepEqual(where, {
-    endDate: { gt: HISTORICAL_RANGE.from, lte: HISTORICAL_RANGE.toExclusive },
+    endDate: { gte: HISTORICAL_RANGE.from, lt: HISTORICAL_RANGE.toExclusive },
   });
   assert.equal(matchesReservationListDateWhere(where, {
     startDate: utcDate("2026-07-30"),
@@ -193,11 +193,11 @@ test("체크아웃 기준은 from 초과, toExclusive 이하 경계를 적용한
   assert.equal(matchesReservationListDateWhere(where, {
     startDate: utcDate("2026-07-30"),
     endDate: HISTORICAL_RANGE.from,
-  }), false);
+  }), true);
   assert.equal(matchesReservationListDateWhere(where, {
     startDate: utcDate("2026-08-20"),
     endDate: HISTORICAL_RANGE.toExclusive,
-  }), true);
+  }), false);
 });
 
 test("날짜 탐색 mode는 남아 있는 일반 날짜 필드보다 우선한다", () => {
@@ -213,7 +213,7 @@ test("날짜 탐색 mode는 남아 있는 일반 날짜 필드보다 우선한�
     dateField: "checkIn",
     ...HISTORICAL_RANGE,
   }), {
-    endDate: { gt: HISTORICAL_RANGE.from, lte: HISTORICAL_RANGE.toExclusive },
+    endDate: { gte: HISTORICAL_RANGE.from, lt: HISTORICAL_RANGE.toExclusive },
   });
 });
 
@@ -324,7 +324,7 @@ test("목록과 결과 개수는 동일한 활성 예약 서버 조건을 사용
   assert.match(listWhere, /buildOperationalReservationWhere/);
   assert.match(listWhere, /buildScopedReservationHistoryWhere/);
   assert.match(operationalWhere, /status: \{ in: \[\.\.\.ACTIVE_OTA_RESERVATION_STATUSES\] \}/);
-  assert.match(activeWhere, /endDate: \{ gt: start \}/);
+  assert.match(activeWhere, /endDate: \{ gte: start \}/);
   assert.match(operationalWhere, /calendarSource: \{ is: \{ isActive: true \} \}/);
   assert.match(operationalWhere, /provider: \{ in: \[\.\.\.CALENDAR_PROVIDER_TYPES\] \}/);
   assert.match(operationalWhere, /room:[\s\S]*isActive: true,[\s\S]*property: \{ isActive: true, company: \{ isActive: true \} \}/);

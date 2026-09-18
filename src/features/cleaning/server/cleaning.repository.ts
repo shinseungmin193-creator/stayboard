@@ -82,7 +82,7 @@ export async function listCleaningPage(context: AccessContext, filters: Cleaning
   };
   const sharedAnd: Prisma.CleaningTaskWhereInput[] = [
     scopeRoomWhere ? { room: { is: scopeRoomWhere } } : {},
-    { scheduledDate: { gt: start, lte: end } },
+    { scheduledDate: { gte: start, lt: end } },
     filters.companyId ? { companyId: filters.companyId } : {},
     filters.propertyId ? { propertyId: filters.propertyId } : {},
     filters.roomId ? { roomId: filters.roomId } : {},

@@ -1,4 +1,5 @@
 import type { RoomOverviewCard, RoomOverviewReservation, RoomOverviewStatus } from "./room-overview";
+import { getReservationDateInput } from "../../reservations/reservation-date";
 
 export const ROOM_STATUS_VIEW_MODES = ["card", "list", "calendar"] as const;
 export type RoomStatusViewMode = (typeof ROOM_STATUS_VIEW_MODES)[number];
@@ -79,25 +80,13 @@ export interface MobileRoomCalendarGroup {
 const TIME_ZONE = "Asia/Tokyo";
 const ERROR_SYNC_STATUSES = new Set(["FAILED", "TIMEOUT"]);
 
-function dateParts(value: Date) {
-  const parts = new Intl.DateTimeFormat("en", {
-    timeZone: TIME_ZONE,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).formatToParts(value);
-  const part = (type: Intl.DateTimeFormatPartTypes) => parts.find((item) => item.type === type)?.value ?? "";
-  return { year: Number(part("year")), month: Number(part("month")), day: Number(part("day")) };
-}
-
 function dateKeyOrdinal(value: string) {
   const [year, month, day] = value.split("-").map(Number);
   return Math.floor(Date.UTC(year, month - 1, day) / 86_400_000);
 }
 
 export function roomOverviewDateKey(value = new Date()) {
-  const { year, month, day } = dateParts(value);
-  return `${year.toString().padStart(4, "0")}-${month.toString().padStart(2, "0")}-${day.toString().padStart(2, "0")}`;
+  return getReservationDateInput(value, TIME_ZONE) ?? "1970-01-01";
 }
 
 export function parseRoomOverviewDateKey(value: string | undefined, fallback = roomOverviewDateKey()) {

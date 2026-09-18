@@ -110,13 +110,13 @@ export function MonthlyReservationCalendar({
                 {room.reservations.map((reservation, index) => {
                   const placement = getRoomStatusReservationPlacement(reservation, rangeStart, dayCount);
                   if (!placement) return null;
-                  const width = Math.max(24, placement.durationDays * DAY_WIDTH - 8);
+                  const width = placement.durationDays * DAY_WIDTH;
                   return (
                     <ReservationBar
                       key={reservation.id}
                       {...reservation}
                       roomName={room.name}
-                      left={placement.leftDays * DAY_WIDTH + 4}
+                      left={placement.leftDays * DAY_WIDTH}
                       top={9 + index % 2 * 34}
                       width={width} />);
 

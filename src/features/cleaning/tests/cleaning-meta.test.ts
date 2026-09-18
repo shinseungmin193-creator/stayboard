@@ -56,7 +56,7 @@ test("the cleaning repository applies the selected-date status policy before pri
   assert.match(repository, /getCleaningListStatusesForDate\(dateInput, getCleaningDateInput\(referenceAt, timeZone\)\)/);
   assert.match(repository, /buildSelectedDateCleaningTaskWhere\(\{[\s\S]*?statuses: listStatuses/);
   assert.match(taskQuery, /\{ status: \{ in: \[\.\.\.input\.statuses\] \} \}/);
-  assert.match(taskQuery, /includeCompleted[\s\S]*?status: "COMPLETED"[\s\S]*?scheduledDate: \{ gt: input\.start, lte: input\.end \}/);
+  assert.match(taskQuery, /includeCompleted[\s\S]*?status: "COMPLETED"[\s\S]*?scheduledDate: \{ gte: input\.start, lt: input\.end \}/);
   assert.doesNotMatch(taskQuery, /status: "CANCELLED"/);
   assert.match(repository, /orderBy: \[\{ scheduledDate: "asc" \}, \{ id: "asc" \}\]/);
   assert.match(repository, /buildCompletedCleaningHistoryWhere/);

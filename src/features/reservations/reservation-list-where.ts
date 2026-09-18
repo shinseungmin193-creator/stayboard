@@ -15,8 +15,8 @@ function displayStatusWhere(
 ): Prisma.ReservationWhereInput {
   const { start, end } = getDashboardTodayRange(businessDate);
   if (status === "CHECK_IN_TODAY") return { startDate: { gte: start, lt: end } };
-  if (status === "CHECK_OUT_TODAY") return { startDate: { lt: start }, endDate: { gt: start, lte: end } };
-  if (status === "STAYING") return { startDate: { lt: start }, endDate: { gt: end } };
+  if (status === "CHECK_OUT_TODAY") return { startDate: { lt: end }, endDate: { gte: start, lt: end } };
+  if (status === "STAYING") return { startDate: { lt: start }, endDate: { gte: end } };
   return { startDate: { gte: end } };
 }
 

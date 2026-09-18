@@ -1,5 +1,7 @@
 import { DEFAULT_TIMEZONE } from "./constants";
 
+const dateInputFormatters = new Map<string, Intl.DateTimeFormat>();
+
 export function isValidDateInput(value: string | null | undefined): value is string {
   if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
   const [year, month, day] = value.split("-").map(Number);
@@ -19,12 +21,18 @@ export function resolveTimeZone(timeZone = DEFAULT_TIMEZONE) {
 }
 
 export function getZonedDateInput(now = new Date(), timeZone = DEFAULT_TIMEZONE) {
-  const parts = new Intl.DateTimeFormat("en", {
-    timeZone: resolveTimeZone(timeZone),
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).formatToParts(now);
+  const resolvedTimeZone = resolveTimeZone(timeZone);
+  let formatter = dateInputFormatters.get(resolvedTimeZone);
+  if (!formatter) {
+    formatter = new Intl.DateTimeFormat("en", {
+      timeZone: resolvedTimeZone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    });
+    dateInputFormatters.set(resolvedTimeZone, formatter);
+  }
+  const parts = formatter.formatToParts(now);
   const value = (type: Intl.DateTimeFormatPartTypes) => parts.find((part) => part.type === type)?.value ?? "";
   return `${value("year")}-${value("month")}-${value("day")}`;
 }

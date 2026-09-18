@@ -2,6 +2,7 @@ import "server-only";
 
 import { buildOperationalReservationWhere } from "@/features/reservations/operational-reservation-where";
 import type { Prisma } from "@/lib/generated/prisma/client";
+import { isSameReservationDate } from "@/features/reservations/reservation-date";
 
 export const ACTIVE_CLEANING_TASK_STATUSES = ["PENDING", "IN_PROGRESS"] as const;
 export const DASHBOARD_CLEANING_TASK_STATUSES = ["PENDING", "IN_PROGRESS", "COMPLETED"] as const;
@@ -17,7 +18,7 @@ export function buildCheckoutCleaningTaskWhere(input: {
   return {
     AND: [
       { status: { in: [...input.statuses] } },
-      { scheduledDate: { gt: input.start, lte: input.end } },
+      { scheduledDate: { gte: input.start, lt: input.end } },
       {
         room: {
           is: {
@@ -32,7 +33,7 @@ export function buildCheckoutCleaningTaskWhere(input: {
         reservation: {
           is: {
             ...buildOperationalReservationWhere(),
-            endDate: { gt: input.start, lte: input.end },
+            endDate: { gte: input.start, lt: input.end },
           },
         },
       },
@@ -66,7 +67,7 @@ export function buildSelectedDateCleaningTaskWhere(input: {
               operationalWhere,
               {
                 status: "COMPLETED",
-                scheduledDate: { gt: input.start, lte: input.end },
+                scheduledDate: { gte: input.start, lt: input.end },
                 room: { is: input.roomWhere ?? {} },
               },
             ],
@@ -84,6 +85,6 @@ export function isCleaningTaskAlignedWithReservation(input: {
     input.reservation
     && Number.isFinite(input.scheduledDate.getTime())
     && Number.isFinite(input.reservation.endDate.getTime())
-    && input.scheduledDate.getTime() === input.reservation.endDate.getTime(),
+    && isSameReservationDate(input.scheduledDate, input.reservation.endDate),
   );
 }

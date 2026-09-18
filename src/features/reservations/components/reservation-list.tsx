@@ -1,6 +1,5 @@
 "use client";import { useTranslations, useLocale } from "next-intl";
 
-import { differenceInCalendarDays } from "date-fns";
 import { AlertTriangle, ChevronRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -10,6 +9,7 @@ import { getProviderLabel, getProviderVisual } from "../provider-visuals";
 import { CompactReservationCard } from "./compact-reservation-card";
 import { ReservationStatusBadge } from "./reservation-status-badge";
 import type { ReservationDisplayStatus } from "../reservation-display-status";
+import { getReservationNightCount } from "../reservation-date";
 
 
 
@@ -24,7 +24,7 @@ export function ReservationList({ reservations, onSelect, contextualStatus }: {r
         <div className="divide-y">
           {reservations.map((reservation) => {
             const provider = getProviderVisual(reservation.provider);
-            const nights = Math.max(1, differenceInCalendarDays(new Date(reservation.endDate), new Date(reservation.startDate)));
+            const nights = getReservationNightCount({ startDate: new Date(reservation.startDate), endDate: new Date(reservation.endDate) });
             return (
               <button key={reservation.id} type="button" onClick={() => onSelect(reservation)} className="grid min-h-14 w-full grid-cols-[minmax(8rem,1fr)_minmax(11rem,1.5fr)_minmax(11rem,1.5fr)_minmax(8rem,1fr)_7rem_2rem] items-center gap-3 px-4 py-2 text-left text-sm transition hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring">
                 <span className="flex min-w-0 items-center gap-2"><ReservationStatusBadge status={contextualStatus?.status ?? reservation.displayStatus} label={contextualStatus?.label} /><strong className="truncate">{reservation.roomName}</strong>{reservation.activeConflictCount > 0 && <AlertTriangle className="size-4 shrink-0 text-destructive" />}</span>

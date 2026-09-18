@@ -1,5 +1,5 @@
 import { loadEnvConfig } from "@next/env";
-import { Client } from "pg";
+import { Client, types } from "pg";
 import { getZonedDateInput, getZonedMidnight, isValidDateInput, shiftDateInput } from "../src/lib/zoned-date";
 
 interface CheckoutReservationRow {
@@ -33,6 +33,10 @@ interface CleaningTaskRow {
   status: string;
 }
 
+// Prisma stores DateTime as PostgreSQL timestamp without time zone while treating
+// the stored value as UTC. Match Prisma's interpretation in this standalone script.
+types.setTypeParser(1114, (value) => new Date(`${value.replace(" ", "T")}Z`));
+
 const argumentsList = process.argv.slice(2);
 const dateArgument = argumentsList.find((argument) => argument.startsWith("--date="));
 const dateInput = dateArgument?.slice("--date=".length) ?? getZonedDateInput(new Date());
@@ -41,6 +45,7 @@ if (argumentsList.some((argument) => !argument.startsWith("--date=")) || !isVali
 }
 const start = getZonedMidnight(dateInput);
 const end = getZonedMidnight(shiftDateInput(dateInput, 1));
+const databaseTimestamp = (value: Date) => value.toISOString().replace("T", " ").replace("Z", "");
 
 function groupedDuplicates(
   reservations: readonly CheckoutReservationRow[],
@@ -81,9 +86,9 @@ async function main() {
       JOIN "Room" room ON room.id = reservation."roomId"
       JOIN "Property" property ON property.id = reservation."propertyId"
       JOIN "Company" company ON company.id = property."companyId"
-      WHERE reservation."endDate" > $1 AND reservation."endDate" <= $2
+      WHERE reservation."endDate" >= $1 AND reservation."endDate" < $2
       ORDER BY property.name, room.name, reservation."startDate", reservation.id
-    `, [start, end])).rows;
+    `, [databaseTimestamp(start), databaseTimestamp(end)])).rows;
     const operational = reservations.filter((reservation) => (
       (reservation.status === "CONFIRMED" || reservation.status === "TENTATIVE")
       && ["AIRBNB", "BOOKING", "AGODA"].includes(reservation.provider)
@@ -95,9 +100,9 @@ async function main() {
     const tasks = (await client.query<CleaningTaskRow>(`
       SELECT id, "reservationId", "roomId", "propertyId", "scheduledDate", status::text AS status
       FROM "CleaningTask"
-      WHERE "scheduledDate" > $1 AND "scheduledDate" <= $2
+      WHERE "scheduledDate" >= $1 AND "scheduledDate" < $2
       ORDER BY "scheduledDate", id
-    `, [start, end])).rows;
+    `, [databaseTimestamp(start), databaseTimestamp(end)])).rows;
     const tasksByReservation = new Map<string, CleaningTaskRow[]>();
     for (const task of tasks) {
       if (!task.reservationId) continue;
@@ -108,7 +113,7 @@ async function main() {
 
     console.log(JSON.stringify({
       date: dateInput,
-      range: { start: start.toISOString(), end: end.toISOString(), checkoutBoundary: "endDate > start && endDate <= end" },
+      range: { start: start.toISOString(), end: end.toISOString(), checkoutBoundary: "endDate >= start && endDate < end" },
       counts: {
         rowsEndingInRange: reservations.length,
         operationalCheckouts: operational.length,

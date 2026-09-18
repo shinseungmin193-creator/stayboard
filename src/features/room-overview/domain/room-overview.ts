@@ -2,6 +2,13 @@ import type { CalendarProviderType, ReservationStatus, RoomOperationalStatus, Sy
 import { getReservationDisplayName } from "../../reservations/reservation-display";
 import { ACTIVE_OTA_RESERVATION_STATUSES } from "../../reservations/reservation.constants";
 import type { ReservationConflictPeer } from "../../reservation-conflicts/domain/reservation-conflict";
+import {
+  getReservationDateOrdinal,
+  isReservationCheckInOnDate,
+  isReservationCheckOutOnDate,
+  isReservationOccupiedOnDate,
+  isValidReservationDateRange,
+} from "../../reservations/reservation-date";
 
 export type RoomReservationState = "VACANT" | "CHECK_IN_TODAY" | "OCCUPIED" | "CHECK_OUT_TODAY" | "CONFLICT";
 export type RoomOverviewStatus = RoomReservationState;
@@ -77,7 +84,7 @@ export interface RoomOperationalScheduleReservation extends RoomOverviewReservat
 }
 
 export function isValidReservation(reservation: RoomOverviewReservation) {
-  return Number.isFinite(reservation.startDate.getTime()) && Number.isFinite(reservation.endDate.getTime()) && reservation.startDate < reservation.endDate;
+  return isValidReservationDateRange(reservation);
 }
 
 function isOperationalReservation(reservation: RoomOverviewReservation) {
@@ -88,13 +95,14 @@ function isOperationalReservation(reservation: RoomOverviewReservation) {
 }
 
 export function getReservationOperationalDay(reservation: RoomOverviewReservation, todayStart: Date, todayEnd: Date): ReservationOperationalDay {
+  void todayEnd;
   if (!isOperationalReservation(reservation)) {
     return { isTodayCheckIn: false, isTodayCheckOut: false, isOccupied: false };
   }
   return {
-    isTodayCheckIn: reservation.startDate >= todayStart && reservation.startDate < todayEnd,
-    isTodayCheckOut: reservation.endDate > todayStart && reservation.endDate <= todayEnd,
-    isOccupied: reservation.startDate < todayStart && reservation.endDate > todayStart,
+    isTodayCheckIn: isReservationCheckInOnDate(reservation, todayStart),
+    isTodayCheckOut: isReservationCheckOutOnDate(reservation, todayStart),
+    isOccupied: isReservationOccupiedOnDate(reservation, todayStart),
   };
 }
 
@@ -115,7 +123,11 @@ export function selectCurrentReservation(reservations: RoomOverviewReservation[]
 }
 
 export function selectNextReservation(reservations: RoomOverviewReservation[], todayEnd: Date) {
-  return reservations.filter(isOperationalReservation).filter((item) => item.startDate >= todayEnd).sort((a, b) => a.startDate.getTime() - b.startDate.getTime())[0] ?? null;
+  const nextDay = getReservationDateOrdinal(todayEnd);
+  return reservations.filter(isOperationalReservation).filter((item) => {
+    const start = getReservationDateOrdinal(item.startDate);
+    return nextDay !== null && start !== null && start >= nextDay;
+  }).sort((a, b) => a.startDate.getTime() - b.startDate.getTime())[0] ?? null;
 }
 
 export function getRoomOverviewGuestName(reservation: RoomOverviewReservation | null) {
@@ -126,11 +138,22 @@ export function buildRoomOperationalSchedule<T extends RoomOverviewReservation>(
   const entries = reservations
     .filter(isOperationalReservation)
     .map((reservation) => ({ reservation, day: getReservationOperationalDay(reservation, todayStart, todayEnd) }));
+  const today = getReservationDateOrdinal(todayStart);
+  const nextDay = getReservationDateOrdinal(todayEnd);
+  const rangeEndDay = getReservationDateOrdinal(rangeEnd);
+  const isNextDateInRange = (value: Date) => {
+    const ordinal = getReservationDateOrdinal(value);
+    return ordinal !== null && nextDay !== null && rangeEndDay !== null && ordinal >= nextDay && ordinal < rangeEndDay;
+  };
+  const isNextCheckoutInRange = (value: Date) => {
+    const ordinal = getReservationDateOrdinal(value);
+    return ordinal !== null && today !== null && rangeEndDay !== null && ordinal > today && ordinal <= rangeEndDay;
+  };
   return {
     todayCheckIns: entries.filter((entry) => entry.day.isTodayCheckIn).map((entry) => entry.reservation),
     todayCheckOuts: entries.filter((entry) => entry.day.isTodayCheckOut).map((entry) => entry.reservation),
-    nextCheckIns: entries.filter((entry) => entry.reservation.startDate >= todayEnd && entry.reservation.startDate < rangeEnd).map((entry) => entry.reservation),
-    nextCheckOuts: entries.filter((entry) => entry.reservation.endDate > todayEnd && entry.reservation.endDate <= rangeEnd).map((entry) => entry.reservation),
+    nextCheckIns: entries.filter((entry) => isNextDateInRange(entry.reservation.startDate)).map((entry) => entry.reservation),
+    nextCheckOuts: entries.filter((entry) => isNextCheckoutInRange(entry.reservation.endDate)).map((entry) => entry.reservation),
   };
 }
 

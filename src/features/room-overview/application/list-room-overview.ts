@@ -1,4 +1,4 @@
-import { addDays, differenceInCalendarDays } from "date-fns";
+import { addDays } from "date-fns";
 import type { CalendarProviderType, RoomOperationalStatus, SyncStatus } from "@/lib/generated/prisma/enums";
 import { getDashboardTodayRange } from "@/features/dashboard/dashboard-time";
 import { buildRoomOperationalSchedule, calculateRoomOverviewStatus, isValidReservation, matchesRoomOperationalStatus, selectCurrentReservation, selectNextReservation, sortRoomOverviewCards, summarizeRoomOverview, type RoomOverviewCard, type RoomOverviewReservation, type RoomOverviewStatus } from "../domain/room-overview";
@@ -7,6 +7,7 @@ import { formatRoomDisplayName } from "@/features/rooms/room-display";
 import type { AccessScope } from "@/features/access-control";
 import type { CalendarRangeDays } from "../domain/room-overview-mobile";
 import { calculateOverlapRange, getReservationConflictPeers, isCurrentReservationConflict } from "@/features/reservation-conflicts/domain/reservation-conflict";
+import { getReservationDateDifference } from "@/features/reservations/reservation-date";
 
 export interface RoomOverviewFilters { propertyId?: string; query?: string; status?: RoomOverviewStatus; operationalStatus?: RoomOperationalStatus; provider?: CalendarProviderType; syncStatus?: SyncStatus; companyIds?: readonly string[]; accessScope?: AccessScope }
 
@@ -40,7 +41,7 @@ export async function listRoomOverview(filters: RoomOverviewFilters, now = new D
       status: calculateRoomOverviewStatus({ reservations, activeConflictCount: currentConflicts.length, todayStart, todayEnd }),
       currentReservation,
       nextReservation,
-      nextReservationLeadDays: nextReservation ? Math.max(0, differenceInCalendarDays(nextReservation.startDate, todayStart)) : null,
+      nextReservationLeadDays: nextReservation ? Math.max(0, getReservationDateDifference(todayStart, nextReservation.startDate) ?? 0) : null,
       reservationCount: reservations.filter((item) => item.status !== "CANCELLED" && item.status !== "BLOCKED" && isValidReservation(item)).length,
       activeConflictCount: currentConflicts.length,
       pendingMemoCount: row._count.roomNotes,

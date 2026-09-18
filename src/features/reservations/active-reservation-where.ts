@@ -10,5 +10,5 @@ function buildActiveReservationStateWhere(): Prisma.ReservationWhereInput {
 
 export function buildActiveReservationBaseWhere(businessDate: Date): Prisma.ReservationWhereInput {
   const { start } = getDashboardTodayRange(businessDate);
-  return { ...buildActiveReservationStateWhere(), endDate: { gt: start } };
+  return { ...buildActiveReservationStateWhere(), endDate: { gte: start } };
 }

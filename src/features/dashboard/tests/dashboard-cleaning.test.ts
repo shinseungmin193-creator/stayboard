@@ -68,6 +68,14 @@ test("오늘 체크아웃 후 당일 체크인이 없으면 객실을 여유 청
   assert.deepEqual(counts(result), { priority: 0, flexible: 1 });
 });
 
+test("9/17~9/18 1박 예약은 9/18 오늘 체크아웃과 청소에 포함한다", () => {
+  const checkout = reservation("CONFIRMED", "2026-09-16T15:00:00Z", "2026-09-17T15:00:00Z");
+  const dayStart = new Date("2026-09-17T15:00:00Z");
+  const dayEnd = new Date("2026-09-18T15:00:00Z");
+  assert.equal(buildRoomOperationalSchedule([checkout], dayStart, dayEnd, new Date("2026-09-25T15:00:00Z")).todayCheckOuts.length, 1);
+  assert.deepEqual(counts(summarizeDashboardCleaning([room(checkout)], dayStart, dayEnd)), { priority: 0, flexible: 1 });
+});
+
 test("BLOCKED, UNKNOWN, CANCELLED 일정은 체크아웃과 체크인 계산에서 제외한다", () => {
   const excludedStatuses = ["BLOCKED", "UNKNOWN", "CANCELLED"];
   const rooms = excludedStatuses.map((status) => room(reservation(status, "2026-07-22T06:00:00Z", "2026-07-25T01:00:00Z")));
@@ -96,7 +104,7 @@ test("오늘 청소 13건을 미완료 11건과 완료 2건으로 같은 데이�
 test("취소되거나 예약과 일정이 맞지 않는 청소 작업은 대시보드 합계에서 제외한다", () => {
   const cancelled = cleaningTask("CANCELLED");
   const misaligned = cleaningTask("PENDING");
-  misaligned.reservation.endDate = new Date("2026-07-25T02:00:00Z");
+  misaligned.reservation.endDate = new Date("2026-07-26T02:00:00Z");
   const result = summarizeDashboardCleaningTasks([cancelled, misaligned], start, end);
   assert.deepEqual({ total: result.total, active: result.active, completed: result.completed }, { total: 0, active: 0, completed: 0 });
 });
@@ -150,7 +158,7 @@ test("체크인·체크아웃과 청소 합계는 동일한 운영 예약·영�
   assert.match(dashboard, /roomOverview\.operationalSchedule\.todayCheckOuts\.length/);
   assert.match(cleaning, /buildCheckoutCleaningTaskWhere/);
   assert.match(cleaning, /summarizeDashboardCleaningTasks/);
-  assert.match(cleaningWhere, /scheduledDate: \{ gt: input\.start, lte: input\.end \}/);
+  assert.match(cleaningWhere, /scheduledDate: \{ gte: input\.start, lt: input\.end \}/);
   assert.match(cleaningWhere, /reservation: \{[\s\S]*buildOperationalReservationWhere/);
 });
 

@@ -1,6 +1,7 @@
 import type { RoomOverviewCard, RoomOverviewReservation } from "@/features/room-overview/domain/room-overview";
 import { classifyCleaningPriority } from "../cleaning/domain/cleaning-priority";
 import { ACTIVE_OTA_RESERVATION_STATUSES } from "../reservations/reservation.constants";
+import { isReservationCheckOutOnDate, isSameReservationDate } from "../reservations/reservation-date";
 
 const ACTIVE_RESERVATION_STATUSES = new Set<string>(ACTIVE_OTA_RESERVATION_STATUSES);
 
@@ -33,7 +34,7 @@ function isCleaningTaskAlignedWithReservation(task: DashboardCleaningTask) {
     task.reservation
     && Number.isFinite(task.scheduledDate.getTime())
     && Number.isFinite(task.reservation.endDate.getTime())
-    && task.scheduledDate.getTime() === task.reservation.endDate.getTime(),
+    && isSameReservationDate(task.scheduledDate, task.reservation.endDate),
   );
 }
 
@@ -86,7 +87,7 @@ export function summarizeDashboardCleaning(rooms: readonly DashboardCleaningRoom
   const flexibleRooms: Array<Pick<DashboardCleaningRoom, "id" | "name" | "propertyName">> = [];
   for (const room of rooms) {
     const reservations = room.reservations.filter(isActiveReservation);
-    const checkouts = reservations.filter((reservation) => reservation.endDate > todayStart && reservation.endDate <= todayEnd);
+    const checkouts = reservations.filter((reservation) => isReservationCheckOutOnDate(reservation, todayStart));
     for (const checkout of checkouts) {
       const priority = classifyCleaningPriority(checkout.endDate, reservations.map((reservation) => reservation.startDate), todayStart, todayEnd);
       const item = { id: `${room.id}:${checkout.id}`, name: room.name, propertyName: room.propertyName };

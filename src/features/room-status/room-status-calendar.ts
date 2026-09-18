@@ -6,6 +6,7 @@ import { ACTIVE_OTA_RESERVATION_STATUSES } from "../reservations/reservation.con
 import { buildOperationalReservationWhere } from "../reservations/operational-reservation-where";
 import { buildReservationOverlapWhere, reservationOverlapsRange } from "../reservations/reservation-range-overlap";
 import { isCalendarProviderType } from "../../providers/calendar/types";
+import { getReservationDateInput, getReservationDateOrdinal } from "../reservations/reservation-date";
 
 export const ROOM_STATUS_TIME_ZONE = DEFAULT_TIMEZONE;
 
@@ -20,10 +21,6 @@ export interface RoomStatusReservationPlacement {
   endDateInput: string;
   leftDays: number;
   durationDays: number;
-}
-
-function differenceInDateInputs(left: string, right: string) {
-  return (Date.parse(`${left}T00:00:00Z`) - Date.parse(`${right}T00:00:00Z`)) / 86_400_000;
 }
 
 function isMonthInput(value: string | null | undefined): value is string {
@@ -76,10 +73,14 @@ export function getRoomStatusReservationPlacement(
   rangeStart: string,
   dayCount: number,
 ): RoomStatusReservationPlacement | null {
-  const startDateInput = getZonedDateInput(reservation.startDate, ROOM_STATUS_TIME_ZONE);
-  const endDateInput = getZonedDateInput(reservation.endDate, ROOM_STATUS_TIME_ZONE);
-  const leftDays = Math.max(0, differenceInDateInputs(startDateInput, rangeStart));
-  const endDays = Math.min(dayCount, differenceInDateInputs(endDateInput, rangeStart));
+  const startDateInput = getReservationDateInput(reservation.startDate, ROOM_STATUS_TIME_ZONE);
+  const endDateInput = getReservationDateInput(reservation.endDate, ROOM_STATUS_TIME_ZONE);
+  const rangeStartOrdinal = getReservationDateOrdinal(getZonedMidnight(rangeStart, ROOM_STATUS_TIME_ZONE), ROOM_STATUS_TIME_ZONE);
+  const startOrdinal = getReservationDateOrdinal(reservation.startDate, ROOM_STATUS_TIME_ZONE);
+  const endOrdinal = getReservationDateOrdinal(reservation.endDate, ROOM_STATUS_TIME_ZONE);
+  if (!startDateInput || !endDateInput || rangeStartOrdinal === null || startOrdinal === null || endOrdinal === null) return null;
+  const leftDays = Math.max(0, startOrdinal - rangeStartOrdinal);
+  const endDays = Math.min(dayCount, endOrdinal - rangeStartOrdinal);
   if (endDays <= 0 || leftDays >= dayCount || endDays <= leftDays) return null;
   return { startDateInput, endDateInput, leftDays, durationDays: endDays - leftDays };
 }

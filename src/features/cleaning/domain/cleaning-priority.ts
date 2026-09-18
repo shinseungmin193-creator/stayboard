@@ -1,3 +1,5 @@
+import { isSameReservationDate } from "../../reservations/reservation-date";
+
 export type CleaningPriority = "urgent" | "flexible";
 
 export function classifyCleaningPriority(
@@ -6,17 +8,16 @@ export function classifyCleaningPriority(
   operationalDayStart: Date,
   operationalDayEnd: Date,
 ): CleaningPriority | null {
+  void operationalDayEnd;
   if (
     !Number.isFinite(checkoutAt.getTime())
-    || checkoutAt <= operationalDayStart
-    || checkoutAt > operationalDayEnd
+    || !isSameReservationDate(checkoutAt, operationalDayStart)
   ) {
     return null;
   }
 
   return checkInDates.some((checkInAt) => (
     Number.isFinite(checkInAt.getTime())
-    && checkInAt >= operationalDayStart
-    && checkInAt < operationalDayEnd
+    && isSameReservationDate(checkInAt, operationalDayStart)
   )) ? "urgent" : "flexible";
 }

@@ -1,4 +1,10 @@
 import type { CalendarProviderType, ReservationStatus } from "@/lib/generated/prisma/enums";
+import {
+  doReservationDateRangesOverlap,
+  getReservationDateOrdinal,
+  getReservationDateOverlap,
+  isValidReservationDateRange,
+} from "../../reservations/reservation-date";
 
 export interface ConflictCandidate {
   id: string;
@@ -37,7 +43,7 @@ export interface ReservationConflictPeer {
 }
 
 export function isValidReservationRange(reservation: Pick<ConflictCandidate, "startDate" | "endDate">): boolean {
-  return Number.isFinite(reservation.startDate.getTime()) && Number.isFinite(reservation.endDate.getTime()) && reservation.startDate < reservation.endDate;
+  return isValidReservationDateRange(reservation);
 }
 
 export function isConflictEligibleReservation(reservation: Pick<ConflictCandidate, "status" | "startDate" | "endDate">): boolean {
@@ -45,7 +51,7 @@ export function isConflictEligibleReservation(reservation: Pick<ConflictCandidat
 }
 
 export function doReservationRangesOverlap(left: ConflictCandidate, right: ConflictCandidate): boolean {
-  return left.id !== right.id && left.roomId === right.roomId && isConflictEligibleReservation(left) && isConflictEligibleReservation(right) && left.startDate < right.endDate && left.endDate > right.startDate;
+  return left.id !== right.id && left.roomId === right.roomId && isConflictEligibleReservation(left) && isConflictEligibleReservation(right) && doReservationDateRangesOverlap(left, right);
 }
 
 export function isCurrentReservationConflict(conflict: StoredReservationConflict): boolean {
@@ -83,16 +89,20 @@ export function normalizeConflictPair(leftId: string, rightId: string): [string,
 
 export function calculateOverlapRange(left: ConflictCandidate, right: ConflictCandidate): Pick<ReservationConflictPair, "overlapStart" | "overlapEnd"> | null {
   if (!doReservationRangesOverlap(left, right)) return null;
-  return { overlapStart: new Date(Math.max(left.startDate.getTime(), right.startDate.getTime())), overlapEnd: new Date(Math.min(left.endDate.getTime(), right.endDate.getTime())) };
+  return getReservationDateOverlap(left, right);
 }
 
 export function findReservationConflictPairs(reservations: ConflictCandidate[]): ReservationConflictPair[] {
-  const sorted = reservations.filter(isConflictEligibleReservation).sort((left, right) => left.startDate.getTime() - right.startDate.getTime() || left.endDate.getTime() - right.endDate.getTime() || (left.id < right.id ? -1 : left.id > right.id ? 1 : 0));
+  const sorted = reservations.filter(isConflictEligibleReservation).sort((left, right) => (getReservationDateOrdinal(left.startDate) ?? 0) - (getReservationDateOrdinal(right.startDate) ?? 0) || (getReservationDateOrdinal(left.endDate) ?? 0) - (getReservationDateOrdinal(right.endDate) ?? 0) || (left.id < right.id ? -1 : left.id > right.id ? 1 : 0));
   const active: ConflictCandidate[] = [];
   const pairs: ReservationConflictPair[] = [];
   for (const target of sorted) {
     let write = 0;
-    for (const candidate of active) if (candidate.endDate > target.startDate) active[write++] = candidate;
+    const targetStart = getReservationDateOrdinal(target.startDate);
+    for (const candidate of active) {
+      const candidateEnd = getReservationDateOrdinal(candidate.endDate);
+      if (targetStart !== null && candidateEnd !== null && candidateEnd > targetStart) active[write++] = candidate;
+    }
     active.length = write;
     for (const candidate of active) {
       const overlap = calculateOverlapRange(candidate, target);

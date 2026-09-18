@@ -1,7 +1,6 @@
 "use client";import { useTranslations } from "next-intl";
 
 import Link from "next/link";
-import { differenceInCalendarDays, format } from "date-fns";
 import { AlertTriangle, ArrowUpRight, CalendarDays, Clock3, List } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -12,16 +11,17 @@ import { getReservationSourceStatusLabel } from "@/features/reservations/reserva
 import { cn } from "@/lib/utils";
 import type { RoomOverviewCard, RoomOverviewReservation } from "../domain/room-overview";
 import { RoomStatusRoomSyncButton } from "./room-status-room-sync-button";
+import { getReservationDateInput, getReservationNightCount } from "@/features/reservations/reservation-date";
 
 
 
 export function ReservationDetailSheet({ room, reservation, canSync, open, onOpenChange }: {room: RoomOverviewCard | null;reservation: RoomOverviewReservation | null;canSync: boolean;open: boolean;onOpenChange: (open: boolean) => void;}) {const i18n = useTranslations();const syncLabels = { SUCCESS: i18n("sync.statuses.SUCCESS"), RUNNING: i18n("sync.statuses.RUNNING"), FAILED: i18n("sync.statuses.FAILED"), TIMEOUT: i18n("sync.statuses.TIMEOUT") } as const;
   if (!room || !reservation) return null;
   const provider = getProviderVisual(reservation.provider);
-  const nights = Math.max(1, differenceInCalendarDays(reservation.endDate, reservation.startDate));
+  const nights = getReservationNightCount(reservation);
   const sync = room.syncStates.find((item) => item.provider === reservation.provider);
-  const dateFrom = format(reservation.startDate, "yyyy-MM-dd");
-  const dateTo = format(reservation.endDate, "yyyy-MM-dd");
+  const dateFrom = getReservationDateInput(reservation.startDate) ?? "";
+  const dateTo = getReservationDateInput(reservation.endDate) ?? "";
   const reservationHref = `/reservations?roomId=${room.id}&from=${dateFrom}&to=${dateTo}&provider=${reservation.provider}`;
   const calendarHref = `/room-overview?view=calendar&propertyId=${room.propertyId}&date=${dateFrom}`;
 
@@ -45,11 +45,11 @@ export function ReservationDetailSheet({ room, reservation, canSync, open, onOpe
 
         <section className="space-y-1.5" aria-labelledby="reservation-provider-id"><h3 id="reservation-provider-id" className="text-xs font-semibold">{i18n("auto.m0466")}</h3><p className="break-all rounded-lg border bg-muted/25 p-2.5 font-mono text-[11px] text-muted-foreground">{reservation.providerReservationId?.trim() || i18n("auto.m0400")}</p></section>
 
-        {reservation.activeConflicts.length > 0 && <div className="space-y-2 rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-xs text-destructive"><p className="flex items-center gap-2 font-semibold"><AlertTriangle className="size-4" />{i18n("conflict.label")}</p><p>{i18n("conflict.overlapDescription")}</p><ul className="space-y-1">{reservation.activeConflicts.map((peer) => <li key={peer.conflictId} className="font-medium">{getProviderLabel(peer.provider, i18n)} {format(peer.startDate, "yyyy-MM-dd")}–{format(peer.endDate, "yyyy-MM-dd")}</li>)}</ul></div>}
+        {reservation.activeConflicts.length > 0 && <div className="space-y-2 rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-xs text-destructive"><p className="flex items-center gap-2 font-semibold"><AlertTriangle className="size-4" />{i18n("conflict.label")}</p><p>{i18n("conflict.overlapDescription")}</p><ul className="space-y-1">{reservation.activeConflicts.map((peer) => <li key={peer.conflictId} className="font-medium">{getProviderLabel(peer.provider, i18n)} {getReservationDateInput(peer.startDate)}–{getReservationDateInput(peer.endDate)}</li>)}</ul></div>}
 
         <section className="space-y-2" aria-labelledby="same-room-reservations">
           <h3 id="same-room-reservations" className="text-xs font-semibold">{i18n("auto.m0468")}</h3>
-          <div className="space-y-1.5">{room.reservations.map((item) => {const visual = getProviderVisual(item.provider);return <div key={item.id} className={cn("flex w-full items-center gap-2 rounded-lg border p-2 text-left text-xs", item.id === reservation.id && "border-primary bg-primary/5")}><Badge variant="outline" className={cn("shrink-0", visual.className)}>{item.provider === "OTHER" ? getProviderLabel(item.provider, i18n) : visual.shortLabel}</Badge><span className="min-w-0 flex-1 truncate">{getReservationDisplayName(item, i18n("auto.m0397"))}</span><span className="shrink-0 text-[10px] text-muted-foreground">{format(item.startDate, "M/d")}–{format(item.endDate, "M/d")}</span></div>;})}</div>
+          <div className="space-y-1.5">{room.reservations.map((item) => {const visual = getProviderVisual(item.provider);return <div key={item.id} className={cn("flex w-full items-center gap-2 rounded-lg border p-2 text-left text-xs", item.id === reservation.id && "border-primary bg-primary/5")}><Badge variant="outline" className={cn("shrink-0", visual.className)}>{item.provider === "OTHER" ? getProviderLabel(item.provider, i18n) : visual.shortLabel}</Badge><span className="min-w-0 flex-1 truncate">{getReservationDisplayName(item, i18n("auto.m0397"))}</span><span className="shrink-0 text-[10px] text-muted-foreground">{getReservationDateInput(item.startDate)?.slice(5).replace("-", "/")}–{getReservationDateInput(item.endDate)?.slice(5).replace("-", "/")}</span></div>;})}</div>
         </section>
       </div>
 

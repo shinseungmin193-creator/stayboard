@@ -14,13 +14,13 @@ export function buildReservationListDateWhere(
     return { startDate: { gte: filters.from, lt: filters.toExclusive } };
   }
   if (filters.dateMode === "checkout") {
-    return { endDate: { gt: filters.from, lte: filters.toExclusive } };
+    return { endDate: { gte: filters.from, lt: filters.toExclusive } };
   }
   if (filters.dateField === "checkIn") {
     return { startDate: { gte: filters.from, lt: filters.toExclusive } };
   }
   if (filters.dateField === "checkOut") {
-    return { endDate: { gt: filters.from, lte: filters.toExclusive } };
+    return { endDate: { gte: filters.from, lt: filters.toExclusive } };
   }
   return buildReservationOverlapWhere({
     viewStart: filters.from,

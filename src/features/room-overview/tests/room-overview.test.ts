@@ -16,9 +16,9 @@ test("예약이 없거나 미래 예약만 있으면 VACANT다", () => { assert.
 test("과거 예약만 있으면 객실 운영 상태는 VACANT를 유지한다", () => assert.equal(status([reservation({ startDate: new Date("2026-07-01T00:00:00+09:00"), endDate: new Date("2026-07-05T00:00:00+09:00") })]), "VACANT"));
 test("오늘 체크인 상태를 계산한다", () => assert.equal(status([reservation({ startDate: todayStart })]), "CHECK_IN_TODAY"));
 test("현재 투숙 상태를 계산한다", () => assert.equal(status([reservation({ startDate: new Date("2026-07-23T00:00:00+09:00"), endDate: new Date("2026-07-26T00:00:00+09:00") })]), "OCCUPIED"));
-test("오늘 체크아웃 상태를 계산한다", () => assert.equal(status([reservation({ startDate: new Date("2026-07-22T00:00:00+09:00"), endDate: todayEnd })]), "CHECK_OUT_TODAY"));
-test("오늘 종료 경계의 체크아웃을 모든 운영 계산에서 오늘로 분류한다", () => {
-  const item = reservation({ startDate: new Date("2026-07-22T00:00:00+09:00"), endDate: todayEnd });
+test("오늘 체크아웃 상태를 계산한다", () => assert.equal(status([reservation({ startDate: new Date("2026-07-22T00:00:00+09:00"), endDate: todayStart })]), "CHECK_OUT_TODAY"));
+test("오늘 시작 경계의 체크아웃을 모든 운영 계산에서 오늘로 분류한다", () => {
+  const item = reservation({ startDate: new Date("2026-07-22T00:00:00+09:00"), endDate: todayStart });
   const day = getReservationOperationalDay(item, todayStart, todayEnd);
   const schedule = buildRoomOperationalSchedule([item], todayStart, todayEnd, new Date("2026-08-01T00:00:00+09:00"));
 
@@ -33,9 +33,9 @@ test("UNKNOWN은 운영 상태에서 제외하고 TENTATIVE는 실제 예약으�
 });
 test("ACTIVE 충돌이 모든 상태보다 우선한다", () => assert.equal(status([reservation({ startDate: todayStart })], 1), "CONFLICT"));
 test("CANCELLED와 잘못된 날짜는 상태 계산에서 제외한다", () => { assert.equal(status([reservation({ status: "CANCELLED", startDate: todayStart })]), "VACANT"); assert.equal(status([reservation({ startDate: new Date(Number.NaN) })]), "VACANT"); });
-test("여러 예약에서는 체크아웃 우선순위를 적용한다", () => assert.equal(status([reservation({ startDate: todayStart }), reservation({ id: "r2", startDate: new Date("2026-07-20T00:00:00+09:00"), endDate: todayEnd })]), "CHECK_OUT_TODAY"));
+test("여러 예약에서는 체크아웃 우선순위를 적용한다", () => assert.equal(status([reservation({ startDate: todayStart }), reservation({ id: "r2", startDate: new Date("2026-07-20T00:00:00+09:00"), endDate: todayStart })]), "CHECK_OUT_TODAY"));
 test("오늘 체크아웃과 체크인이 겹치는 turnover는 체크아웃 우선순위를 유지한다", () => {
-  const checkingOut = reservation({ id: "out", startDate: new Date("2026-07-20T00:00:00+09:00"), endDate: todayEnd });
+  const checkingOut = reservation({ id: "out", startDate: new Date("2026-07-20T00:00:00+09:00"), endDate: todayStart });
   const checkingIn = reservation({ id: "in", startDate: todayStart, endDate: new Date("2026-07-27T00:00:00+09:00") });
   assert.equal(status([checkingIn, checkingOut]), "CHECK_OUT_TODAY");
 });

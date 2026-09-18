@@ -1,4 +1,5 @@
 import type { RoomOperationalStatus } from "@/lib/generated/prisma/enums";
+import { isReservationCheckOutOnDate, isValidReservationDateRange } from "../reservations/reservation-date";
 
 export const ROOM_OPERATIONAL_STATUS_VALUES = ["NONE", "CLEANING_REQUIRED", "INSPECTION_REQUIRED"] as const satisfies readonly RoomOperationalStatus[];
 export const ROOM_OPERATIONAL_STATUS_META = {
@@ -18,5 +19,5 @@ export const ROOM_OPERATION_POLICY = { autoMarkCleaningRequired: false } as cons
 
 export function shouldMarkCleaningRequired(input: { operationalStatus: RoomOperationalStatus; reservations: Array<{ status: string; startDate: Date; endDate: Date }>; todayStart: Date; todayEnd: Date }) {
   if (!ROOM_OPERATION_POLICY.autoMarkCleaningRequired || input.operationalStatus !== "NONE") return false;
-  return input.reservations.some((item) => item.status !== "CANCELLED" && item.status !== "BLOCKED" && Number.isFinite(item.startDate.getTime()) && Number.isFinite(item.endDate.getTime()) && item.startDate < item.endDate && item.endDate > input.todayStart && item.endDate <= input.todayEnd);
+  return input.reservations.some((item) => item.status !== "CANCELLED" && item.status !== "BLOCKED" && isValidReservationDateRange(item) && isReservationCheckOutOnDate(item, input.todayStart));
 }

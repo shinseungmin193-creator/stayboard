@@ -1,6 +1,5 @@
 ﻿"use client";import { useTranslations, useLocale } from "next-intl";
 
-import { differenceInCalendarDays } from "date-fns";
 import { AlertTriangle, ChevronRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -9,6 +8,7 @@ import { getReservationDisplayName } from "../reservation-display";
 import { getProviderLabel, getProviderVisual } from "../provider-visuals";
 import { ReservationStatusBadge } from "./reservation-status-badge";
 import type { ReservationDisplayStatus } from "../reservation-display-status";
+import { getReservationNightCount } from "../reservation-date";
 
 
 
@@ -18,7 +18,7 @@ function compactDate(value: string, localeTag: string) {const dateFormatter = ne
 
 export function CompactReservationCard({ reservation, onSelect, contextualStatus }: {reservation: ReservationViewModel;onSelect: (reservation: ReservationViewModel) => void;contextualStatus?: {status: ReservationDisplayStatus;label: string;};}) {const locale = useLocale(),localeTag = locale === "ja" ? "ja-JP" : "ko-KR";const i18n = useTranslations();
   const provider = getProviderVisual(reservation.provider);
-  const nights = Math.max(1, differenceInCalendarDays(new Date(reservation.endDate), new Date(reservation.startDate)));
+  const nights = getReservationNightCount({ startDate: new Date(reservation.startDate), endDate: new Date(reservation.endDate) });
   return (
     <button
       type="button"

@@ -64,6 +64,24 @@ test("현재가 체크아웃 당일이어도 선택 범위의 Booking 예약을 
   assert.equal(isReservationVisibleInRoomStatusRange(booking, viewedRange), true);
 });
 
+test("1박과 2박 예약은 체크아웃 날짜 경계까지 정확한 막대 길이를 사용한다", () => {
+  assert.deepEqual(getRoomStatusReservationPlacement(
+    reservation("2026-09-17T00:00:00+09:00", "2026-09-18T00:00:00+09:00"),
+    "2026-09-01",
+    30,
+  ), {
+    startDateInput: "2026-09-17",
+    endDateInput: "2026-09-18",
+    leftDays: 16,
+    durationDays: 1,
+  });
+  assert.equal(getRoomStatusReservationPlacement(
+    reservation("2026-09-17T00:00:00+09:00", "2026-09-19T00:00:00+09:00"),
+    "2026-09-01",
+    30,
+  )?.durationDays, 2);
+});
+
 test("오늘이 9월 18일이어도 9월 캘린더는 과거·경계·미래 overlap 예약을 모두 표시한다", () => {
   const septemberRange = getRoomStatusCalendarRange("2026-09", new Date("2026-09-18T12:00:00+09:00"));
   assert.equal(isReservationVisibleInRoomStatusRange(reservation("2026-09-01T00:00:00+09:00", "2026-09-03T00:00:00+09:00"), septemberRange), true);
@@ -121,9 +139,11 @@ test("월 URL과 서버 repository가 같은 명시적 범위를 사용한다", 
   assert.match(page, /rangeEnd: calendarRange\.rangeEnd/);
   assert.match(repository, /where: buildRoomStatusReservationWhere\(input\)/);
   assert.doesNotMatch(repository, /new Date\(\)|endDate: \{ gte:|startDate: \{ gte:/);
-  assert.match(domain, /getZonedDateInput\(reservation\.startDate, ROOM_STATUS_TIME_ZONE\)/);
-  assert.match(domain, /getZonedDateInput\(reservation\.endDate, ROOM_STATUS_TIME_ZONE\)/);
+  assert.match(domain, /getReservationDateInput\(reservation\.startDate, ROOM_STATUS_TIME_ZONE\)/);
+  assert.match(domain, /getReservationDateInput\(reservation\.endDate, ROOM_STATUS_TIME_ZONE\)/);
   assert.match(calendar, /viewportRef\.current\.scrollLeft = 0/);
+  assert.match(calendar, /const width = placement\.durationDays \* DAY_WIDTH/);
+  assert.match(calendar, /left=\{placement\.leftDays \* DAY_WIDTH\}/);
   assert.doesNotMatch(calendar, /scrollLeft = Math\.max\(0, todayIndex/);
   assert.doesNotMatch(calendar, /reservation\.startDate\.getFullYear|reservation\.endDate\.getFullYear/);
 });
