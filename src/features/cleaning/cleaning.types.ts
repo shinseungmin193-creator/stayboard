@@ -94,6 +94,7 @@ export interface CleaningSectionData {
 
 export interface CleaningPageData {
   sections: Record<CleaningSection, CleaningSectionData>;
+  completed: CleaningSectionData;
   history: CleaningSectionData;
   summary: { urgent: number; flexible: number; unassigned: number; completed: number };
   referenceAt: string;

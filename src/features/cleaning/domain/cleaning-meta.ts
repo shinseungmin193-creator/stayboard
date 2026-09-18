@@ -2,15 +2,11 @@ import type { CleaningPriority } from "./cleaning-priority";
 
 export const CLEANING_SECTIONS = ["urgent", "flexible"] as const;
 export const CLEANING_LIST_STATUSES = ["PENDING", "IN_PROGRESS"] as const;
-export const PAST_CLEANING_LIST_STATUSES = [...CLEANING_LIST_STATUSES, "COMPLETED"] as const;
+export const CLEANING_DISPLAY_SECTIONS = [...CLEANING_SECTIONS, "completed"] as const;
 
 export type CleaningSection = (typeof CLEANING_SECTIONS)[number];
-export type CleaningListStatus = (typeof PAST_CLEANING_LIST_STATUSES)[number];
+export type CleaningDisplaySection = (typeof CLEANING_DISPLAY_SECTIONS)[number];
 export type CleaningDisplayStatus = "unassigned" | "waiting" | "inProgress" | "completed" | "cancelled";
-
-export function getCleaningListStatusesForDate(selectedDate: string, todayDate: string): readonly CleaningListStatus[] {
-  return selectedDate < todayDate ? PAST_CLEANING_LIST_STATUSES : CLEANING_LIST_STATUSES;
-}
 
 export function isCleaningSection(value: string | undefined): value is CleaningSection {
   return CLEANING_SECTIONS.includes(value as CleaningSection);
@@ -32,6 +28,14 @@ const SECTION_META = {
     border: "border-amber-200 dark:border-amber-900/70",
     background: "bg-amber-50 dark:bg-amber-950/30",
     button: "bg-amber-500 text-white hover:bg-amber-600",
+  },
+  completed: {
+    labelKey: "sections.completed",
+    icon: "circle-check",
+    accent: "text-emerald-700 dark:text-emerald-300",
+    border: "border-emerald-200 dark:border-emerald-900/70",
+    background: "bg-emerald-50/70 dark:bg-emerald-950/25",
+    button: "bg-emerald-600 text-white hover:bg-emerald-700",
   },
 } as const;
 
@@ -63,7 +67,7 @@ const STATUS_META = {
   },
 } as const;
 
-export function getCleaningSectionTone(section: CleaningSection) {
+export function getCleaningSectionTone(section: CleaningDisplaySection) {
   return SECTION_META[section];
 }
 

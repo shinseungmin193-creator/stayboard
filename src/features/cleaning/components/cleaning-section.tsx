@@ -1,17 +1,17 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { Clock3, Sparkles } from "lucide-react";
+import { CircleCheck, Clock3, Sparkles } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import type { UserRole } from "@/features/access-control";
 import { cn } from "@/lib/utils";
 import type { CleaningSectionData, CleaningTaskViewModel } from "../cleaning.types";
-import { getCleaningSectionTone, type CleaningSection as CleaningSectionName } from "../domain/cleaning-meta";
+import { getCleaningSectionTone, type CleaningDisplaySection, type CleaningSection as CleaningSectionName } from "../domain/cleaning-meta";
 import type { CleaningWorkflowMode } from "./cleaning-workflow-dialog";
 import { CleaningTaskCard } from "./cleaning-task-card";
 
-const icons = { urgent: Sparkles, flexible: Clock3 } as const;
+const icons = { urgent: Sparkles, flexible: Clock3, completed: CircleCheck } as const;
 
 export function CleaningSection({
   section,
@@ -29,7 +29,7 @@ export function CleaningSection({
   onCancelStart,
   onWorkflow,
 }: {
-  section: CleaningSectionName;
+  section: CleaningDisplaySection;
   data: CleaningSectionData;
   selected: boolean;
   role: UserRole;
@@ -38,7 +38,7 @@ export function CleaningSection({
   timeZone: string;
   locale: string;
   pendingTaskId: string | null;
-  onViewAll: (section: CleaningSectionName | "all") => void;
+  onViewAll?: (section: CleaningSectionName | "all") => void;
   onOpenDetails: (task: CleaningTaskViewModel, focus?: "photos" | "note" | "logs") => void;
   onOpenRoomNotes: (task: CleaningTaskViewModel) => void;
   onCancelStart: (task: CleaningTaskViewModel) => void;
@@ -55,7 +55,7 @@ export function CleaningSection({
           <h2 id={`cleaning-section-${section}`} className="truncate">{t(tone.labelKey)}</h2>
           <span className="rounded-full bg-background/80 px-2 py-0.5 text-xs font-bold tabular-nums text-foreground">{data.totalCount}</span>
         </div>
-        {(selected || data.totalCount > data.items.length) && <Button type="button" variant="ghost" size="xs" onClick={() => onViewAll(selected ? "all" : section)}>{selected ? t("sections.allSections") : t("sections.viewAll")}</Button>}
+        {section !== "completed" && onViewAll && (selected || data.totalCount > data.items.length) && <Button type="button" variant="ghost" size="xs" onClick={() => onViewAll(selected ? "all" : section)}>{selected ? t("sections.allSections") : t("sections.viewAll")}</Button>}
       </header>
       {data.items.length > 0 ? <div className="space-y-2.5">{data.items.map((task) => <CleaningTaskCard key={task.id} task={task} role={role} currentUserId={currentUserId} referenceAt={referenceAt} timeZone={timeZone} locale={locale} pending={pendingTaskId === task.id} onOpenDetails={onOpenDetails} onOpenRoomNotes={onOpenRoomNotes} onCancelStart={onCancelStart} onWorkflow={onWorkflow} />)}</div> : <div className="rounded-2xl border border-dashed bg-muted/15 px-4 py-8 text-center text-sm text-muted-foreground">{t(`sections.empty.${section}`)}</div>}
     </section>

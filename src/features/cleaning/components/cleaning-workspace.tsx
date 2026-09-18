@@ -67,6 +67,7 @@ export function CleaningWorkspace({
   const selectedDateLabel = formatCleaningSelectedDate({ date: filters.date, locale, timeZone: data.timeZone });
   const tasksById = new Map([
     ...CLEANING_SECTIONS.flatMap((section) => data.sections[section].items),
+    ...data.completed.items,
     ...data.history.items,
   ].map((task) => [task.id, task]));
   const detailTask = detail ? tasksById.get(detail.taskId) ?? null : null;
@@ -178,6 +179,7 @@ export function CleaningWorkspace({
 
       {filters.tab === "ongoing" ? <div className="space-y-5">
         {sections.map((section) => <CleaningSection key={section} section={section} data={data.sections[section]} selected={filters.section === section} role={role} currentUserId={currentUserId} referenceAt={data.referenceAt} timeZone={data.timeZone} locale={localeTag} pendingTaskId={pendingTaskId} onViewAll={(nextSection) => navigate({ section: nextSection, page: 1 })} onOpenDetails={(task, focus) => setDetail({ taskId: task.id, focus: focus ?? null })} onOpenRoomNotes={(task) => setRoomNotesTaskId(task.id)} onCancelStart={(task) => setStartCancellationTaskId(task.id)} onWorkflow={(task, mode) => setWorkflow({ taskId: task.id, mode })} />)}
+        {filters.section === "all" && <CleaningSection section="completed" data={data.completed} selected={false} role={role} currentUserId={currentUserId} referenceAt={data.referenceAt} timeZone={data.timeZone} locale={localeTag} pendingTaskId={pendingTaskId} onOpenDetails={(task, focus) => setDetail({ taskId: task.id, focus: focus ?? null })} onOpenRoomNotes={(task) => setRoomNotesTaskId(task.id)} onCancelStart={(task) => setStartCancellationTaskId(task.id)} onWorkflow={(task, mode) => setWorkflow({ taskId: task.id, mode })} />}
       </div> : <CleaningHistoryList data={data.history} locale={localeTag} timeZone={data.timeZone} referenceAt={data.referenceAt} onOpenDetails={(task, focus) => setDetail({ taskId: task.id, focus: focus ?? null })} />}
 
       {paginationData && paginationData.totalPages > 1 && <nav className="flex items-center justify-center gap-2" aria-label={t("pagination.label")}>
