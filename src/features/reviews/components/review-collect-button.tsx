@@ -1,11 +1,10 @@
 "use client";
 
-import { useTransition } from "react";
+import { useRef, useTransition } from "react";
 import { LoaderCircle, RefreshCw } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import type { ReviewFetchStatus } from "../domain/review-collection-state";
+import { isReviewFetchLoading, type ReviewFetchStatus } from "../domain/review-collection-state";
 import type { ReviewProviderType } from "../domain/listing-provider";
 import { collectReviewsAction, type ReviewCollectActionResult } from "../review.actions";
 
@@ -23,9 +22,9 @@ export function ReviewCollectButton({
   onFinished: (result: ReviewCollectActionResult) => void;
 }) {
   const t = useTranslations();
-  const router = useRouter();
-  const [pending, startTransition] = useTransition();
-  const collecting = pending || status === "LOADING";
+  const requestInFlight = useRef(false);
+  const [, startTransition] = useTransition();
+  const collecting = isReviewFetchLoading(status);
   const label = collecting
     ? t("reviews.states.collecting")
     : status === "FAILED"
@@ -35,16 +34,21 @@ export function ReviewCollectButton({
         : t("reviews.actions.load");
 
   const collect = () => {
-    if (collecting) return;
+    if (requestInFlight.current || collecting) return;
+    requestInFlight.current = true;
     onStarted();
     startTransition(async () => {
+      let result: ReviewCollectActionResult = {
+        status: "FAILED",
+        message: t("reviews.states.requestFailed"),
+      };
       try {
-        const result = await collectReviewsAction({ roomId, provider });
-        onFinished(result);
+        result = await collectReviewsAction({ roomId, provider });
       } catch {
-        onFinished({ status: "FAILED", message: t("reviews.states.requestFailed") });
+        // The initialized failure result is applied in finally.
       } finally {
-        router.refresh();
+        requestInFlight.current = false;
+        onFinished(result);
       }
     });
   };

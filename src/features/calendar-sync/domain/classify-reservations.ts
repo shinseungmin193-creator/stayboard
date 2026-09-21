@@ -2,22 +2,27 @@ import type { ExistingReservation, NormalizedReservation } from "./normalized-re
 
 const nullableDateEqual = (left: Date | null, right: Date | null) => left?.getTime() === right?.getTime();
 export function reservationFieldsEqual(left: ExistingReservation, right: NormalizedReservation): boolean { return left.providerReservationId === right.providerReservationId && left.guestName === right.guestName && left.startDate.getTime() === right.startDate.getTime() && left.endDate.getTime() === right.endDate.getTime() && left.status === right.status && left.summary === right.summary && left.description === right.description && nullableDateEqual(left.providerCreatedAt, right.providerCreatedAt) && nullableDateEqual(left.providerUpdatedAt, right.providerUpdatedAt); }
-export interface ReservationClassification { create: NormalizedReservation[]; update: Array<{ id: string; reservation: NormalizedReservation }>; unchanged: ExistingReservation[]; missingDeletionIds: string[] }
+export interface ReservationClassification {
+  create: NormalizedReservation[];
+  update: Array<{ id: string; reservation: NormalizedReservation }>;
+  unchanged: ExistingReservation[];
+  blockedDeletionIds: string[];
+  staleCancellationIds: string[];
+}
 export interface MissingReservationReconciliation {
   observedUids: ReadonlySet<string>;
   blockedUids: ReadonlySet<string>;
   fullyParsed: boolean;
-  /** Missing past events are commonly pruned by OTA feeds and must remain as history. */
-  preserveEndedBefore: Date;
+  /** Asia/Tokyo business-date midnight. Only endDate < this boundary is historical. */
+  historicalBefore: Date;
 }
 export function classifyReservations(existing: ExistingReservation[], incoming: NormalizedReservation[], reconciliation?: MissingReservationReconciliation): ReservationClassification {
   const existingByUid = new Map(existing.map((reservation) => [reservation.rawUid, reservation])); const incomingByUid = new Map<string, NormalizedReservation>(); incoming.forEach((reservation) => { if (!incomingByUid.has(reservation.rawUid)) incomingByUid.set(reservation.rawUid, reservation); });
-  const result: ReservationClassification = { create: [], update: [], unchanged: [], missingDeletionIds: [] };
+  const result: ReservationClassification = { create: [], update: [], unchanged: [], blockedDeletionIds: [], staleCancellationIds: [] };
   incomingByUid.forEach((reservation, uid) => {
     const current = existingByUid.get(uid);
-    if (!current) {
-      if (reservation.status !== "CANCELLED") result.create.push(reservation);
-    } else if (reservationFieldsEqual(current, reservation)) result.unchanged.push(current);
+    if (!current) result.create.push(reservation);
+    else if (reservationFieldsEqual(current, reservation)) result.unchanged.push(current);
     else result.update.push({ id: current.id, reservation });
   });
   if (reconciliation?.fullyParsed) {
@@ -28,15 +33,15 @@ export function classifyReservations(existing: ExistingReservation[], incoming: 
       // UNKNOWN remains observed-but-preserved so uncertain provider data never
       // deletes an existing reservation.
       if (reconciliation.blockedUids.has(reservation.rawUid)) {
-        result.missingDeletionIds.push(reservation.id);
+        result.blockedDeletionIds.push(reservation.id);
         continue;
       }
       if (reconciliation.observedUids.has(reservation.rawUid)) continue;
-      if (reservation.endDate <= reconciliation.preserveEndedBefore) {
+      if (reservation.endDate < reconciliation.historicalBefore || reservation.status === "CANCELLED") {
         result.unchanged.push(reservation);
         continue;
       }
-      result.missingDeletionIds.push(reservation.id);
+      result.staleCancellationIds.push(reservation.id);
     }
   }
   return result;

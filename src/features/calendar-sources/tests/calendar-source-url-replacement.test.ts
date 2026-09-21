@@ -212,13 +212,14 @@ test("빈 새 feed의 source 교체 계획은 대상 예약을 제거하고 생�
   assert.deepEqual(result, { removeReservationIds: ["booking-a-1"], createReservations: [] });
 });
 
-test("새 feed에 취소 이벤트만 있으면 기존 sync lifecycle처럼 신규 Reservation을 만들지 않는다", () => {
+test("새 feed의 명시적 취소 이벤트도 취소 이력으로 생성한다", () => {
   const result = planCalendarSourceReservationReplacement(
     "booking-a",
     [],
     [{ ...incomingReservation, status: "CANCELLED" }],
   );
-  assert.deepEqual(result.createReservations, []);
+  assert.equal(result.createReservations.length, 1);
+  assert.equal(result.createReservations[0].status, "CANCELLED");
 });
 
 test("URL 교체 transaction은 source-scoped 삭제·즉시 sync·마스킹 감사를 한 원자 작업으로 수행한다", () => {

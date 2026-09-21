@@ -28,7 +28,7 @@ export interface CalendarSourceSummary {
   id: string; roomId: string; roomName: string; propertyId: string; propertyName: string; provider: CalendarProviderType; name: string; maskedUrl: string; isActive: boolean; connectionStatus: CalendarConnectionStatus; safetyReasonCodes: CalendarFeedQuarantineReason[]; lastSyncedAt: Date | null;
   latestSyncStatus: SyncStatus | null; latestSyncStartedAt: Date | null; latestSyncCompletedAt: Date | null; latestFetchedCount: number; latestCreatedCount: number; latestUpdatedCount: number; latestCancelledCount: number;
   latestReservationEventCount: number; latestBlockedCount: number; latestUnknownCount: number; latestFailedEventCount: number; latestRetryCount: number; latestHttpStatus: number | null; latestErrorCode: string | null; latestErrorMessage: string | null; latestErrorDetails: string | null; latestDurationMs: number | null; isSyncing: boolean; isWarning: boolean;
-  currentReservationCount: number; currentVisibleReservationCount: number; healthStatus: CalendarSyncHealthStatus; warningReasons: CalendarSyncWarningReason[];
+  activeReservationCount: number; historicalReservationCount: number; cancelledReservationCount: number; totalReservationCount: number; healthStatus: CalendarSyncHealthStatus; warningReasons: CalendarSyncWarningReason[];
 }
 
 export interface SyncRunHistoryItem { id: string; startedAt: Date; finishedAt: Date | null; executionMode: SyncExecutionMode; targetCount: number; successCount: number; failedCount: number; status: RoomCalendarStatus; actorName: string; errorSummary: string | null }

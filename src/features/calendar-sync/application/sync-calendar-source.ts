@@ -15,6 +15,7 @@ import { getCalendarSyncHealth } from "../domain/sync-health";
 import { createCalendarFeedFingerprint, readCalendarFeedFingerprint } from "../domain/calendar-feed-fingerprint";
 import { CalendarFeedQuarantinedError, validateCalendarFeedTransition, type CalendarFeedSafetyDiagnostics } from "../domain/calendar-feed-safety";
 import { findCalendarFeedSafetyContext } from "../infrastructure/calendar-feed-safety.repository";
+import { getZonedDayRange } from "@/lib/zoned-date";
 
 export class CalendarSyncError extends Error {
   constructor(message: string) {
@@ -42,6 +43,7 @@ export async function syncCalendarSource(calendarSourceId: string, signal?: Abor
     const provider = calendarProviderRegistry.get(providerType);
     const normalizer = reservationNormalizerRegistry.get(providerType);
     const startedAt = new Date();
+    const historicalBefore = getZonedDayRange(startedAt).start;
     await markStaleRunningSyncLogs(source.id, startedAt);
     const syncLog = await createRunningSyncLog(source.id, source.provider, startedAt, syncRunId);
     let fetchedCount = 0;
@@ -138,6 +140,7 @@ export async function syncCalendarSource(calendarSourceId: string, signal?: Abor
         completedAt,
         feedFingerprint: fingerprint,
         safetyDiagnostics,
+        historicalBefore,
       });
 
       const health = getCalendarSyncHealth({
@@ -149,8 +152,8 @@ export async function syncCalendarSource(calendarSourceId: string, signal?: Abor
         unknownEventCount: eventCounts.unknownEventCount,
         failedEventCount: eventCounts.failedEventCount,
         previousSuccessfulReservationEventCount: previous?.reservationEventCount ?? null,
-        expectedPersistedReservationCount: persisted.expectedSourceOperationalReservationCount,
-        persistedReservationCount: persisted.currentSourceOperationalReservationCount,
+        expectedPersistedReservationCount: persisted.expectedSourceActiveReservationCount,
+        persistedReservationCount: persisted.currentSourceActiveReservationCount,
       });
 
       return {

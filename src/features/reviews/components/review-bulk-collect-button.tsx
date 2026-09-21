@@ -3,22 +3,23 @@
 import { useState, useTransition } from "react";
 import { LoaderCircle, RefreshCw } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { collectReviewListingsAction } from "../review.actions";
 
 export function ReviewBulkCollectButton({ listingIds }: { listingIds: string[] }) {
   const t = useTranslations();
-  const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState<{ text: string; success: boolean } | null>(null);
   const collect = () => {
     if (pending || !listingIds.length) return;
     setMessage(null);
     startTransition(async () => {
-      const result = await collectReviewListingsAction({ listingIds });
-      setMessage({ text: result.message, success: result.success });
-      router.refresh();
+      try {
+        const result = await collectReviewListingsAction({ listingIds });
+        setMessage({ text: result.message, success: result.success });
+      } catch {
+        setMessage({ text: t("reviews.states.requestFailed"), success: false });
+      }
     });
   };
   return <div className="flex flex-col items-stretch gap-1 sm:items-end">

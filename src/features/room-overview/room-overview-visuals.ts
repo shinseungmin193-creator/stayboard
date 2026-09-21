@@ -68,7 +68,7 @@ export const ROOM_STATUS_THEME = {
     titleClass: "text-gray-950 dark:text-gray-50",
     headerClass: "bg-gray-700 text-white dark:bg-gray-700 dark:text-gray-50",
     bodyClass: "border-gray-200 bg-gray-50 dark:border-gray-800 dark:bg-gray-900/60",
-    badgeClass: "border-gray-300 bg-gray-50 text-gray-800 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200",
+    badgeClass: "border-red-500 bg-red-100 font-semibold text-red-800 shadow-sm dark:border-red-500 dark:bg-red-950/70 dark:text-red-100",
     icon: Wrench,
   },
   CLEANING_REQUIRED: {
@@ -80,6 +80,8 @@ export const ROOM_STATUS_THEME = {
     icon: BrushCleaning,
   },
 } as const satisfies Record<RoomOverviewVisualStatus, RoomStatusTheme>;
+
+export const ROOM_INSPECTION_BORDER_CLASS = "border-2 border-red-500/80 hover:border-red-600 dark:border-red-500/80 dark:hover:border-red-400";
 
 const OPERATIONAL_STATUS_THEME = {
   NONE: null,

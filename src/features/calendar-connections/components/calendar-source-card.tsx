@@ -19,13 +19,13 @@ import { getProviderLabel } from "@/features/reservations/provider-visuals";
 function SyncStatus({ source }: {source: CalendarSourceSummary;}) {const i18n = useTranslations();
   if (source.isSyncing) return <Badge variant="outline" className="gap-1 border-blue-500/30 text-blue-700 dark:text-blue-300"><RefreshCcw className="animate-spin" />{i18n("sync.statuses.RUNNING")}</Badge>;
   if (source.connectionStatus === "RECONNECT_REQUIRED") return <Badge variant="outline" className="gap-1 border-amber-500/40 bg-amber-500/10 text-amber-800 dark:text-amber-300"><AlertTriangle />{i18n("calendarStatus.RECONNECT_REQUIRED")}</Badge>;
-  if (source.isWarning) return <Badge variant="outline" className="gap-1 border-amber-500/35 bg-amber-500/10 text-amber-800 dark:text-amber-300"><AlertTriangle />{i18n("sync.health.warningWithReservations", { count: source.currentVisibleReservationCount })}</Badge>;
+  if (source.isWarning) return <Badge variant="outline" className="gap-1 border-amber-500/35 bg-amber-500/10 text-amber-800 dark:text-amber-300"><AlertTriangle />{i18n("sync.health.warningWithReservations", { count: source.activeReservationCount })}</Badge>;
   if (source.latestSyncStatus === "SUCCESS") {
     const label = source.latestFetchedCount === 0
       ? i18n("sync.health.emptyCalendar")
       : source.latestReservationEventCount === 0
         ? i18n("sync.health.noReservations")
-        : i18n("sync.health.successWithReservations", { count: source.currentVisibleReservationCount });
+        : i18n("sync.health.successWithReservations", { count: source.activeReservationCount });
     return <Badge variant="outline" className="gap-1 border-emerald-500/30 text-emerald-700 dark:text-emerald-300"><CheckCircle2 />{label}</Badge>;
   }
   if (source.latestSyncStatus === "FAILED" || source.latestSyncStatus === "TIMEOUT") return <Badge variant="destructive" className="gap-1"><XCircle />{source.latestSyncStatus === "TIMEOUT" ? i18n("sync.statuses.TIMEOUT") : i18n("auto.m0208")}</Badge>;
@@ -58,8 +58,10 @@ export function CalendarSourceCard({ source, rooms, showActions = true, canManag
           <div><dt className="text-muted-foreground">{i18n("auto.m0213")}</dt><dd className="mt-0.5 font-medium">{formatDate(source.latestSyncCompletedAt ?? source.lastSyncedAt)}</dd></div>
           <div><dt className="text-muted-foreground">{i18n("technical.vevent")}</dt><dd className="mt-0.5 font-medium tabular-nums">{source.latestFetchedCount}</dd></div>
           <div><dt className="text-muted-foreground">{i18n("auto.m0214")}</dt><dd className="mt-0.5 font-medium tabular-nums">{source.latestReservationEventCount}</dd></div>
-          <div><dt className="text-muted-foreground">{i18n("sync.health.dbReservations")}</dt><dd className="mt-0.5 font-medium tabular-nums">{source.currentReservationCount}</dd></div>
-          <div><dt className="text-muted-foreground">{i18n("sync.health.visibleReservations")}</dt><dd className="mt-0.5 font-medium tabular-nums">{source.currentVisibleReservationCount}</dd></div>
+          <div><dt className="text-muted-foreground">{i18n("sync.health.activeReservations")}</dt><dd className="mt-0.5 font-medium tabular-nums">{source.activeReservationCount}</dd></div>
+          <div><dt className="text-muted-foreground">{i18n("sync.health.historicalReservations")}</dt><dd className="mt-0.5 font-medium tabular-nums">{source.historicalReservationCount}</dd></div>
+          <div><dt className="text-muted-foreground">{i18n("sync.health.cancelledReservations")}</dt><dd className="mt-0.5 font-medium tabular-nums">{source.cancelledReservationCount}</dd></div>
+          <div><dt className="text-muted-foreground">{i18n("sync.health.totalReservations")}</dt><dd className="mt-0.5 font-medium tabular-nums">{source.totalReservationCount}</dd></div>
           <div><dt className="text-muted-foreground">{i18n("auto.m0215")}</dt><dd className="mt-0.5 font-medium tabular-nums">{source.latestCreatedCount}</dd></div>
           <div><dt className="text-muted-foreground">{i18n("auto.m0216")}</dt><dd className="mt-0.5 font-medium tabular-nums">{source.latestUpdatedCount}</dd></div>
           <div><dt className="text-muted-foreground">{i18n("auto.m0217")}</dt><dd className="mt-0.5 font-medium tabular-nums">{source.latestCancelledCount}</dd></div>

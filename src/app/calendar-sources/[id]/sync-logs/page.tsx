@@ -56,6 +56,15 @@ export default async function SyncLogsPage({
         title={i18n("auto.m0019")}
         description={`${source.room.property.name} · ${formatRoomDisplayName(source.room)} · ${source.name}`}
         action={<Button nativeButton={false} render={<Link href="/calendar-sources" />} variant="outline">{i18n("auto.m0020")}</Button>} />
+
+      <Card className="p-4">
+        <dl className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
+          <div><dt className="text-muted-foreground">{i18n("sync.health.activeReservations")}</dt><dd className="mt-1 font-semibold tabular-nums">{source.reservationCounts.active}</dd></div>
+          <div><dt className="text-muted-foreground">{i18n("sync.health.historicalReservations")}</dt><dd className="mt-1 font-semibold tabular-nums">{source.reservationCounts.historical}</dd></div>
+          <div><dt className="text-muted-foreground">{i18n("sync.health.cancelledReservations")}</dt><dd className="mt-1 font-semibold tabular-nums">{source.reservationCounts.cancelled}</dd></div>
+          <div><dt className="text-muted-foreground">{i18n("sync.health.totalReservations")}</dt><dd className="mt-1 font-semibold tabular-nums">{source.reservationCounts.total}</dd></div>
+        </dl>
+      </Card>
       
       <Card className="overflow-x-auto">
         <Table>
@@ -78,14 +87,12 @@ export default async function SyncLogsPage({
                 unknownEventCount: log.unknownEventCount,
                 failedEventCount: log.failedEventCount,
                 previousSuccessfulReservationEventCount: previousSuccessfulLog?.reservationEventCount ?? null,
-                expectedPersistedReservationCount: index === 0 && result.page === 1 && log.status === "SUCCESS" ? log.reservationEventCount : null,
-                persistedReservationCount: index === 0 && result.page === 1 && log.status === "SUCCESS" ? source._count.reservations : null,
               });
               const warning = health.status === "WARNING";
               const reflectedCount = log.createdCount + log.updatedCount;
               const excludedCount = log.blockedEventCount + log.unknownEventCount + log.failedEventCount;
               const healthLabel = warning
-                ? i18n("sync.health.warningWithReservations", { count: index === 0 && result.page === 1 ? source._count.reservations : log.reservationEventCount })
+                ? i18n("sync.health.warningWithReservations", { count: index === 0 && result.page === 1 ? source.reservationCounts.active : log.reservationEventCount })
                 : log.status === "SUCCESS" && log.fetchedCount === 0
                   ? i18n("sync.health.emptyCalendar")
                   : log.status === "SUCCESS" && log.reservationEventCount === 0

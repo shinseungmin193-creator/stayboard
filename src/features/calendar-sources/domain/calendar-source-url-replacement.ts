@@ -42,7 +42,7 @@ export function planCalendarSourceReservationReplacement(
     removeReservationIds: existingReservations
       .filter((reservation) => reservation.calendarSourceId === calendarSourceId)
       .map((reservation) => reservation.id),
-    createReservations: incomingReservations.filter((reservation) => reservation.status !== "CANCELLED"),
+    createReservations: [...incomingReservations],
   };
 }
 

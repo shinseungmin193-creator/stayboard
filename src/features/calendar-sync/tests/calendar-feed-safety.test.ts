@@ -83,11 +83,11 @@ test("정상 Booking 피드는 저장 허용 상태다", () => {
   assert.equal(validate().status, "SAFE");
 });
 
-test("활성 예약이 있는데 빈 피드가 오면 격리한다", () => {
+test("정상 파싱된 빈 VCALENDAR는 현재·미래 stale 정리를 위해 허용한다", () => {
   const sourceReservations = Array.from({ length: 5 }, (_, index) => stored(`future-${index}@booking.com`, 12 + index * 3));
   const result = validate({ fetchedEventCount: 0, counts: counts({ parsedEventCount: 0, reservationEventCount: 0, blockedEventCount: 0, skippedEventCount: 0 }), fingerprint: fingerprint("BOOKING", { totalEventCount: 0, parsedEventCount: 0, reservationCount: 0, blockedCount: 0, uidNamespaceFingerprint: null, organizerDomainFingerprint: null, providerIdentityRatio: 0 }), sourceReservations, roomReservations: sourceReservations, incomingReservations: [] });
-  assert.equal(result.status, "QUARANTINED");
-  if (result.status === "QUARANTINED") assert.ok(result.reasonCodes.includes("EMPTY_FEED_WITH_ACTIVE_RESERVATIONS"));
+  assert.equal(result.status, "SAFE");
+  assert.equal(result.diagnostics.missingFutureReservationCount, 5);
 });
 
 test("기존 미래 예약이 대량으로 사라지면 격리한다", () => {

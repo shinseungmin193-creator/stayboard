@@ -3,11 +3,11 @@ import { AlertTriangle, ArrowUpRight, CalendarDays, Clock3, Wrench } from "lucid
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
-import type { RoomOverviewCard as RoomOverviewCardData } from "../domain/room-overview";
+import { requiresRoomInspection, type RoomOverviewCard as RoomOverviewCardData } from "../domain/room-overview";
 import { cn } from "@/lib/utils";
 import { RoomOverviewStatusHeader } from "./room-overview-status-header";
 import { formatRoomDisplayName } from "@/features/rooms/room-display";
-import { getRoomStatusThemeStatus, ROOM_STATUS_THEME } from "../room-overview-visuals";
+import { getRoomStatusThemeStatus, ROOM_INSPECTION_BORDER_CLASS, ROOM_STATUS_THEME } from "../room-overview-visuals";
 import styles from "./room-overview-visuals.module.css";
 import { RoomOverviewGuestInfo } from "./room-overview-guest-info";
 import { getReservationDisplayName } from "@/features/reservations/reservation-display";
@@ -30,7 +30,8 @@ export function RoomOverviewCard({ card, canUpdateOperationalStatus = true }: {c
   const guestName = reservation ? getReservationDisplayName(reservation, "") || null : null;
   const currentProvider = card.currentReservation?.provider ?? null;
   const syncAlert = card.syncStates.filter(isSyncAlert).sort((a, b) => b.startedAt.getTime() - a.startedAt.getTime())[0];
-  const hasCardAlerts = Boolean(syncAlert || card.activeConflictCount || card.pendingMemoCount);
+  const inspectionRequired = requiresRoomInspection(card);
+  const hasCardAlerts = Boolean(syncAlert || card.activeConflictCount || inspectionRequired);
   const reservationsHref = `/reservations?roomId=${card.id}`;
   const roomNotesHref = `/room-notes?propertyId=${card.propertyId}&roomId=${card.id}`;
   const currentHref = reservation ? `${reservationsHref}&from=${getZonedDateInput(reservation.startDate)}&to=${getZonedDateInput(reservation.endDate)}` : reservationsHref;
@@ -41,8 +42,10 @@ export function RoomOverviewCard({ card, canUpdateOperationalStatus = true }: {c
         "relative gap-0 overflow-hidden py-0 shadow-sm ring-0 transition-[transform,border-color,box-shadow] hover:-translate-y-0.5 hover:shadow-md motion-reduce:transform-none motion-reduce:transition-none",
         styles.roomCard,
         theme.bodyClass,
+        inspectionRequired && themeStatus !== "CONFLICT" && ROOM_INSPECTION_BORDER_CLASS,
       )}
       data-room-status-theme={themeStatus}
+      data-room-inspection-required={inspectionRequired ? "true" : undefined}
       aria-label={i18n("auto.m0474", { value0: card.propertyName, value1: formatRoomDisplayName(card) })}>
       
       <RoomOverviewStatusHeader
@@ -69,7 +72,7 @@ export function RoomOverviewCard({ card, canUpdateOperationalStatus = true }: {c
       <CardContent className={cn("flex flex-1 flex-col gap-2.5", styles.roomCardSection)}>
         {reservation ? <RoomOverviewGuestInfo reservation={reservation} guestName={guestName} reservationCount={card.reservationCount} isNextReservation={!card.currentReservation} /> : null}
         {hasCardAlerts && <div className="flex flex-wrap items-center gap-1.5 border-t pt-1.5 text-[10px] text-muted-foreground xl:text-xs">
-          {card.pendingMemoCount > 0 && <Link href={roomNotesHref} aria-label={`${i18n("roomStatus.INSPECTION_REQUIRED")} ${card.pendingMemoCount}`} className="rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring"><Badge variant="outline" className={cn("h-5 gap-1 px-1.5 text-[9px] xl:text-[10px]", ROOM_STATUS_THEME.INSPECTION_REQUIRED.badgeClass)}><Wrench className="size-3" />{i18n("roomStatus.INSPECTION_REQUIRED")} {card.pendingMemoCount}</Badge></Link>}
+          {inspectionRequired && <Link href={roomNotesHref} aria-label={`${i18n("roomStatus.INSPECTION_REQUIRED")} ${card.pendingMemoCount}`} className="rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring"><Badge variant="outline" className={cn("h-6 gap-1 px-2 text-[10px] xl:text-xs", ROOM_STATUS_THEME.INSPECTION_REQUIRED.badgeClass)}><Wrench className="size-3.5" />{i18n("roomStatus.INSPECTION_REQUIRED")} {card.pendingMemoCount}</Badge></Link>}
           {syncAlert && <span data-room-overview-sync-warning className="flex min-w-0 items-center gap-1 font-medium text-destructive"><Clock3 className="size-3 shrink-0 xl:size-3.5" /><span className="truncate">{getProviderLabel(syncAlert.provider, i18n)} {syncLabel[syncAlert.status]}</span></span>}
           {card.activeConflictCount > 0 && <span className="ml-auto flex shrink-0 items-center gap-1 font-medium text-destructive"><AlertTriangle className="size-3" />{i18n("conflict.count", { count: card.activeConflictCount })}</span>}
         </div>}

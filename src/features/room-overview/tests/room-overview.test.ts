@@ -70,7 +70,7 @@ test("객실 상태 테마는 7개 상태의 색상·아이콘·다크 모드를
     CHECK_OUT_TODAY: { color: "orange", icon: ArrowUpFromLine },
     OCCUPIED: { color: "purple", icon: BedDouble },
     CONFLICT: { color: "red", icon: AlertTriangle },
-    INSPECTION_REQUIRED: { color: "gray", icon: Wrench },
+    INSPECTION_REQUIRED: { color: "gray", badgeColor: "red", icon: Wrench },
     CLEANING_REQUIRED: { color: "amber", icon: BrushCleaning },
   } as const;
 
@@ -78,7 +78,7 @@ test("객실 상태 테마는 7개 상태의 색상·아이콘·다크 모드를
     const theme = ROOM_STATUS_THEME[status as keyof typeof ROOM_STATUS_THEME];
     assert.match(theme.headerClass, new RegExp(`bg-${expectation.color}-`));
     assert.match(theme.bodyClass, new RegExp(`bg-${expectation.color}-`));
-    assert.match(theme.badgeClass, new RegExp(`border-${expectation.color}-`));
+    assert.match(theme.badgeClass, new RegExp(`border-${"badgeColor" in expectation ? expectation.badgeColor : expectation.color}-`));
     assert.match(`${theme.headerClass} ${theme.bodyClass} ${theme.badgeClass}`, /dark:/);
     assert.equal(theme.icon, expectation.icon);
   }
@@ -99,15 +99,36 @@ test("객실 카드 점검 배지는 OPEN 메모 count를 사용하고 정상 �
   assert.match(repository, /roomNotes: \{ some: \{ status: OPEN_ROOM_NOTE_STATUS \} \}/);
   assert.match(repository, /_count: \{ select: \{ roomNotes: \{ where: \{ status: OPEN_ROOM_NOTE_STATUS \} \} \} \}/);
   assert.doesNotMatch(repository, /prisma\.roomNote\.(findMany|count)/);
-  assert.match(desktopCard, /card\.pendingMemoCount > 0/);
+  assert.match(desktopCard, /requiresRoomInspection\(card\)/);
   assert.match(desktopCard, /\/room-notes\?propertyId=/);
   assert.doesNotMatch(desktopCard, /i18n\("sync\.normal"\)/);
   assert.doesNotMatch(desktopCard, /i18n\("conflict\.none"\)/);
   assert.match(desktopCard, /sync\.status === "FAILED" \|\| sync\.status === "TIMEOUT"/);
   assert.match(desktopCard, /card\.activeConflictCount > 0/);
-  assert.match(mobileCard, /room\.pendingMemoCount > 0/);
+  assert.match(mobileCard, /requiresRoomInspection\(room\)/);
   assert.match(mobileCard, /sync\.error/);
   assert.match(mobileCard, /room\.activeConflictCount > 0/);
+});
+
+test("점검 필요 카드는 상태 배경을 유지하면서 PC·모바일에서 빨간 테두리와 강조 badge를 사용한다", () => {
+  const visuals = readFileSync("src/features/room-overview/room-overview-visuals.ts", "utf8");
+  const desktopCard = readFileSync("src/features/room-overview/components/room-overview-card.tsx", "utf8");
+  const mobileCard = readFileSync("src/features/room-overview/components/compact-room-status-card.tsx", "utf8");
+
+  assert.match(visuals, /ROOM_INSPECTION_BORDER_CLASS = "border-2 border-red-500\/80[^\"]+dark:border-red-500\/80/);
+  assert.match(ROOM_STATUS_THEME.INSPECTION_REQUIRED.badgeClass, /border-red-500/);
+  assert.match(ROOM_STATUS_THEME.INSPECTION_REQUIRED.badgeClass, /dark:bg-red-950/);
+  assert.match(desktopCard, /inspectionRequired && themeStatus !== "CONFLICT" && ROOM_INSPECTION_BORDER_CLASS/);
+  assert.match(mobileCard, /inspectionRequired && room\.activeConflictCount === 0 && ROOM_INSPECTION_BORDER_CLASS/);
+  assert.match(desktopCard, /data-room-inspection-required/);
+  assert.match(mobileCard, /data-room-inspection-required/);
+});
+
+test("점검 필요 요약 수는 빨간 테두리 대상 카드 수와 동일한 공통 판정을 사용한다", () => {
+  const cards = [card({ id: "normal" }), card({ id: "one", pendingMemoCount: 1 }), card({ id: "many", pendingMemoCount: 3 }), card({ id: "conflict", status: "CONFLICT", pendingMemoCount: 2 })];
+  const summary = summarizeRoomOverview(cards);
+  assert.equal(summary.operationalStatuses.INSPECTION_REQUIRED, cards.filter(requiresRoomInspection).length);
+  assert.equal(summary.operationalStatuses.INSPECTION_REQUIRED, 3);
 });
 
 test("PC와 모바일 객실 카드는 공통 테마의 Header·Body·Badge·아이콘을 사용한다", () => {

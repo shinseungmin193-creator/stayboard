@@ -55,19 +55,37 @@ interface PersistReservationSyncInput {
   completedAt: Date;
   feedFingerprint: CalendarFeedFingerprint;
   safetyDiagnostics: CalendarFeedSafetyDiagnostics;
+  historicalBefore: Date;
 }
 
 const OPERATIONAL_RESERVATION_STATUSES = new Set(["CONFIRMED", "TENTATIVE"]);
 
-export function expectedOperationalReservationCount(
+export function expectedActiveReservationCount(
   existing: readonly ExistingReservation[],
   classification: ReturnType<typeof classifyReservations>,
+  historicalBefore: Date,
 ): number {
-  const statuses = new Map(existing.map((reservation) => [reservation.id, reservation.status]));
-  for (const id of classification.missingDeletionIds) statuses.delete(id);
-  classification.update.forEach((item) => statuses.set(item.id, item.reservation.status));
-  const retainedCount = [...statuses.values()].filter((status) => OPERATIONAL_RESERVATION_STATUSES.has(status)).length;
-  const createdCount = classification.create.filter((reservation) => OPERATIONAL_RESERVATION_STATUSES.has(reservation.status)).length;
+  const reservations = new Map(existing.map((reservation) => [reservation.id, {
+    status: reservation.status,
+    endDate: reservation.endDate,
+  }]));
+  for (const id of classification.blockedDeletionIds) reservations.delete(id);
+  for (const id of classification.staleCancellationIds) {
+    const reservation = reservations.get(id);
+    if (reservation) reservations.set(id, { ...reservation, status: "CANCELLED" });
+  }
+  classification.update.forEach((item) => reservations.set(item.id, {
+    status: item.reservation.status,
+    endDate: item.reservation.endDate,
+  }));
+  const retainedCount = [...reservations.values()].filter((reservation) => (
+    OPERATIONAL_RESERVATION_STATUSES.has(reservation.status)
+    && reservation.endDate >= historicalBefore
+  )).length;
+  const createdCount = classification.create.filter((reservation) => (
+    OPERATIONAL_RESERVATION_STATUSES.has(reservation.status)
+    && reservation.endDate >= historicalBefore
+  )).length;
   return retainedCount + createdCount;
 }
 
@@ -88,11 +106,12 @@ export async function persistReservationSync(input: PersistReservationSyncInput)
       observedUids: new Set(input.observedUids),
       blockedUids: new Set(input.blockedUids),
       fullyParsed: input.fullyParsed,
-      preserveEndedBefore: input.syncStartedAt,
+      historicalBefore: input.historicalBefore,
     });
-    const expectedSourceOperationalReservationCount = expectedOperationalReservationCount(existing, classification);
+    const expectedSourceActiveReservationCount = expectedActiveReservationCount(existing, classification, input.historicalBefore);
     const statusById = new Map(existing.map((reservation) => [reservation.id, reservation.status]));
     const explicitCancelledCount = classification.update.filter((item) => item.reservation.status === "CANCELLED" && statusById.get(item.id) !== "CANCELLED").length;
+    const createdCancelledCount = classification.create.filter((reservation) => reservation.status === "CANCELLED").length;
     const created = classification.create.length ? await tx.reservation.createMany({ data: classification.create.map((reservation) => ({ ...reservationPersistenceData(reservation), rawUid: reservation.rawUid, calendarSourceId: input.calendarSourceId, createdBySyncLogId: input.syncLogId, propertyId: input.propertyId, roomId: input.roomId, provider: input.provider })), skipDuplicates: true }) : { count: 0 };
     const updatedCount = classification.update.length
       ? await tx.$executeRaw(Prisma.sql`
@@ -137,9 +156,19 @@ export async function persistReservationSync(input: PersistReservationSyncInput)
             AND reservation."calendarSourceId" = ${input.calendarSourceId}
         `)
       : 0;
+    const staleCancelled = classification.staleCancellationIds.length
+      ? await tx.reservation.updateMany({
+          where: {
+            id: { in: classification.staleCancellationIds },
+            calendarSourceId: input.calendarSourceId,
+            status: { not: "CANCELLED" },
+          },
+          data: { status: "CANCELLED" },
+        })
+      : { count: 0 };
     const removed = await removeCalendarSourceReservations(tx, {
       calendarSourceId: input.calendarSourceId,
-      reservationIds: classification.missingDeletionIds,
+      reservationIds: classification.blockedDeletionIds,
     });
     await syncCleaningTasksForCalendarSource(tx, {
       calendarSourceId: input.calendarSourceId,
@@ -148,19 +177,20 @@ export async function persistReservationSync(input: PersistReservationSyncInput)
       roomId: input.roomId,
     });
     const conflicts = await detectRoomReservationConflicts(tx, input.roomId);
-    const currentSourceOperationalReservationCount = await tx.reservation.count({
+    const currentSourceActiveReservationCount = await tx.reservation.count({
       where: {
         calendarSourceId: input.calendarSourceId,
         status: { in: ["CONFIRMED", "TENTATIVE"] },
+        endDate: { gte: input.historicalBefore },
       },
     });
-    if (currentSourceOperationalReservationCount !== expectedSourceOperationalReservationCount) {
+    if (currentSourceActiveReservationCount !== expectedSourceActiveReservationCount) {
       throw new ReservationPersistenceInvariantError(
-        expectedSourceOperationalReservationCount,
-        currentSourceOperationalReservationCount,
+        expectedSourceActiveReservationCount,
+        currentSourceActiveReservationCount,
       );
     }
-    const cancelledCount = explicitCancelledCount + removed.reservationCount;
+    const cancelledCount = explicitCancelledCount + createdCancelledCount + staleCancelled.count + removed.reservationCount;
     await tx.syncLog.update({ where: { id: input.syncLogId }, data: { status: "SUCCESS", completedAt: input.completedAt, durationMs: input.completedAt.getTime() - input.syncStartedAt.getTime(), fetchedCount: input.fetchedCount, ...input.eventCounts, unknownEventDetails: input.unknownEventDetails, eventDiagnostics: input.eventDiagnostics, feedFingerprint: input.feedFingerprint as unknown as Prisma.InputJsonValue, safetyDiagnostics: input.safetyDiagnostics as unknown as Prisma.InputJsonValue, quarantined: false, createdCount: created.count, updatedCount, cancelledCount, errorCode: null, errorMessage: null, errorDetails: null } });
     await tx.calendarSource.update({ where: { id: input.calendarSourceId }, data: { lastSyncedAt: input.completedAt, connectionStatus: "NORMAL", safetyReasonCodes: Prisma.JsonNull, feedFingerprint: input.feedFingerprint as unknown as Prisma.InputJsonValue, feedFingerprintUpdatedAt: input.completedAt } });
     return {
@@ -168,8 +198,8 @@ export async function persistReservationSync(input: PersistReservationSyncInput)
       updatedCount,
       unchangedCount: classification.unchanged.length,
       cancelledCount,
-      expectedSourceOperationalReservationCount,
-      currentSourceOperationalReservationCount,
+      expectedSourceActiveReservationCount,
+      currentSourceActiveReservationCount,
       ...conflicts,
     };
   });

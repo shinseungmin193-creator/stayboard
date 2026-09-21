@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { prisma } from "@/lib/prisma";
 import { roomScopeWhere, type AccessScope } from "@/features/access-control";
 import type { Prisma } from "@/lib/generated/prisma/client";
+import { findCalendarSourceReservationCounts } from "./infrastructure/calendar-source-reservation-counts.repository";
 
 export const SYNC_LOG_PAGE_SIZE = 25;
 
@@ -40,14 +41,13 @@ export async function listRecentFailedSyncLogs(input: { since: Date; requestedPa
 
 export async function listCalendarSourceSyncLogs(calendarSourceId: string, requestedPage: number, companyIds?: readonly string[]) {
   const sourceWhere = { id: calendarSourceId, room: companyIds ? { property: { companyId: { in: [...companyIds] } } } : undefined };
-  const [source, totalCount] = await Promise.all([
+  const [rawSource, totalCount] = await Promise.all([
     prisma.calendarSource.findFirst({
       where: sourceWhere,
       select: {
         id: true,
         name: true,
         provider: true,
-        _count: { select: { reservations: { where: { status: { in: ["CONFIRMED", "TENTATIVE"] } } } } },
         room: { select: { name: true, property: { select: { name: true } } } },
       },
     }),
@@ -55,6 +55,10 @@ export async function listCalendarSourceSyncLogs(calendarSourceId: string, reque
   ]);
   const totalPages = Math.max(1, Math.ceil(totalCount / SYNC_LOG_PAGE_SIZE));
   const page = Math.min(Math.max(1, requestedPage), totalPages);
+  const reservationCounts = rawSource
+    ? (await findCalendarSourceReservationCounts([rawSource.id])).get(rawSource.id) ?? { active: 0, historical: 0, cancelled: 0, total: 0 }
+    : null;
+  const source = rawSource && reservationCounts ? { ...rawSource, reservationCounts } : null;
   const rawRows = source ? await prisma.syncLog.findMany({
     where: { calendarSourceId },
     select: {

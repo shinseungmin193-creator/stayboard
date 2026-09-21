@@ -57,7 +57,7 @@ test("Booking.com 실제형 fixture의 마스킹 예약·차단·취소·UNKNOWN
   assert.equal(getDashboardDateInput(result.reservations[0].startDate), "2026-07-26");
   assert.equal(getDashboardDateInput(result.reservations[0].endDate), "2026-07-28");
   const persistence = classifyReservations([], result.reservations);
-  assert.equal(persistence.create.length, 1);
+  assert.equal(persistence.create.length, 2);
   assert.equal(getCalendarProviderLabel("BOOKING"), "Booking.com");
 });
 
@@ -84,10 +84,10 @@ test("Booking·Agoda 실데이터형 fixture는 parse→classify→저장 계획
       observedUids: new Set(classified.observedUids),
       blockedUids: new Set(classified.blockedUids),
       fullyParsed: parsed.issues.length === 0,
-      preserveEndedBefore: new Date("2026-01-01"),
+      historicalBefore: new Date("2026-01-01"),
     });
-    assert.equal(persistence.create.length, 1, fixture.name);
-    assert.equal(persistence.create[0].status, "CONFIRMED", fixture.name);
+    assert.equal(persistence.create.length, 2, fixture.name);
+    assert.deepEqual(persistence.create.map((reservation) => reservation.status), ["CONFIRMED", "CANCELLED"], fixture.name);
     assert.equal(persistence.update.length, 0, fixture.name);
 
     const emptyParsed = parseIcsCalendar(readFileSync(`src/features/calendar-sync/tests/fixtures/${fixture.emptyName}.ics`, "utf8"));
@@ -98,7 +98,7 @@ test("Booking·Agoda 실데이터형 fixture는 parse→classify→저장 계획
       observedUids: new Set(),
       blockedUids: new Set(),
       fullyParsed: true,
-      preserveEndedBefore: new Date("2026-01-01"),
+      historicalBefore: new Date("2026-01-01"),
     }).create.length, 0, fixture.emptyName);
   }
 });
@@ -244,7 +244,7 @@ test("분류만으로는 BLOCKED·UNKNOWN·누락 UID를 변경하지 않고 완
   const unknown = existing({ id: "unknown", rawUid: "unknown", providerReservationId: "unknown" });
   const missing = existing({ id: "missing", rawUid: "missing", providerReservationId: "missing" });
   const result = classifyReservations([blocked, unknown, missing], []);
-  assert.deepEqual(result, { create: [], update: [], unchanged: [], missingDeletionIds: [] });
+  assert.deepEqual(result, { create: [], update: [], unchanged: [], blockedDeletionIds: [], staleCancellationIds: [] });
 });
 
 test("캘린더 전체 파싱 실패 시 동기화가 중단되어 기존 예약을 보존한다", () => {

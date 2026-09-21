@@ -366,7 +366,7 @@ export async function replaceCalendarSourceUrlTransaction(input: {
         quarantined: false,
         createdCount: created.count,
         updatedCount: 0,
-        cancelledCount: 0,
+        cancelledCount: replacement.createReservations.filter((reservation) => reservation.status === "CANCELLED").length,
         errorCode: null,
         errorMessage: null,
         errorDetails: null,

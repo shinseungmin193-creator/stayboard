@@ -5,11 +5,10 @@ import type { RoomCalendarFilters } from "../types/room-calendar-summary";
 import { CALENDAR_PROVIDER_TYPES } from "@/providers/calendar";
 import { roomScopeWhere } from "@/features/access-control/infrastructure/prisma-scope";
 import { buildOperationalReservationWhere } from "@/features/reservations/operational-reservation-where";
-import { ACTIVE_OTA_RESERVATION_STATUSES } from "@/features/reservations/reservation.constants";
-import { buildActiveReservationBaseWhere } from "@/features/reservations/active-reservation-where";
+import { findCalendarSourceReservationCounts } from "@/features/calendar-sync/infrastructure/calendar-source-reservation-counts.repository";
 
-export function findRoomCalendarRows(filters: RoomCalendarFilters) {
-  return prisma.room.findMany({
+export async function findRoomCalendarRows(filters: RoomCalendarFilters) {
+  const rooms = await prisma.room.findMany({
     where: {
       ...(roomScopeWhere(filters.accessScope) ?? {}),
       id: filters.roomId,
@@ -33,20 +32,6 @@ export function findRoomCalendarRows(filters: RoomCalendarFilters) {
           connectionStatus: true,
           safetyReasonCodes: true,
           lastSyncedAt: true,
-          _count: {
-            select: {
-              reservations: {
-                where: {
-                  status: { in: [...ACTIVE_OTA_RESERVATION_STATUSES] },
-                  provider: { in: [...CALENDAR_PROVIDER_TYPES] },
-                },
-              },
-            },
-          },
-          reservations: {
-            where: buildActiveReservationBaseWhere(new Date()),
-            select: { id: true },
-          },
         },
         orderBy: [{ isActive: "desc" }, { provider: "asc" }, { name: "asc" }],
       },
@@ -64,4 +49,14 @@ export function findRoomCalendarRows(filters: RoomCalendarFilters) {
     },
     orderBy: [{ property: { name: "asc" } }, { sortOrder: "asc" }, { name: "asc" }],
   });
+
+  const sourceIds = rooms.flatMap((room) => room.calendarSources.map((source) => source.id));
+  const countsBySource = await findCalendarSourceReservationCounts(sourceIds);
+  return rooms.map((room) => ({
+    ...room,
+    calendarSources: room.calendarSources.map((source) => ({
+      ...source,
+      reservationCounts: countsBySource.get(source.id) ?? { active: 0, historical: 0, cancelled: 0, total: 0 },
+    })),
+  }));
 }

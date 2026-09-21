@@ -2,7 +2,6 @@ export const CALENDAR_SYNC_WARNING_REASONS = [
   "UNCLASSIFIED_NONEMPTY_FEED",
   "UNKNOWN_EVENTS",
   "FAILED_EVENTS",
-  "RESERVATION_COUNT_DROPPED_TO_ZERO",
   "PERSISTENCE_COUNT_MISMATCH",
 ] as const;
 
@@ -42,10 +41,6 @@ export function getCalendarSyncHealth(input: CalendarSyncHealthInput): CalendarS
   ) reasons.push("UNCLASSIFIED_NONEMPTY_FEED");
   if (input.unknownEventCount > 0) reasons.push("UNKNOWN_EVENTS");
   if (input.failedEventCount > 0) reasons.push("FAILED_EVENTS");
-  if (
-    (input.previousSuccessfulReservationEventCount ?? 0) > 0
-    && input.reservationEventCount === 0
-  ) reasons.push("RESERVATION_COUNT_DROPPED_TO_ZERO");
   if (
     input.expectedPersistedReservationCount !== undefined
     && input.expectedPersistedReservationCount !== null

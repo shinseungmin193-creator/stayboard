@@ -7,6 +7,18 @@ export type ReviewFetchStatus =
   | "EMPTY"
   | "FAILED";
 
+export function isReviewFetchLoading(status: ReviewFetchStatus): boolean {
+  return status === "LOADING";
+}
+
+export function resolveReviewCollectStatus(
+  resultStatus: Exclude<ReviewFetchStatus, "IDLE">,
+  persistedStatus: ReviewFetchStatus | null,
+): Exclude<ReviewFetchStatus, "IDLE"> {
+  if (resultStatus !== "LOADING") return resultStatus;
+  return persistedStatus && persistedStatus !== "IDLE" ? persistedStatus : "LOADING";
+}
+
 type RegisteredReviewCollectionInput = {
   rating: string | null;
   reviewCount: number | null;

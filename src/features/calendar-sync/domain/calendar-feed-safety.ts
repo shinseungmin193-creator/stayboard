@@ -5,6 +5,7 @@ import { getCalendarFeedSafetyThresholds } from "../calendar-feed-safety.constan
 import type { CalendarFeedFingerprint } from "./calendar-feed-fingerprint";
 import type { CalendarEventClassificationCounts } from "./classify-calendar-events";
 import type { NormalizedReservation } from "./normalized-reservation";
+import { getZonedDayRange } from "../../../lib/zoned-date";
 
 export const CALENDAR_FEED_QUARANTINE_REASONS = [
   "EMPTY_FEED_WITH_ACTIVE_RESERVATIONS",
@@ -122,7 +123,8 @@ export function validateCalendarFeedTransition(input: {
   const currentConflictKeys = conflictKeys(input.roomReservations);
   const previewConflictKeys = conflictKeys(previewRoomReservations(input));
   const newConflictCount = [...previewConflictKeys].filter((key) => !currentConflictKeys.has(key)).length;
-  const futureReservations = input.sourceReservations.filter((reservation) => (reservation.status === "CONFIRMED" || reservation.status === "TENTATIVE") && reservation.endDate > input.now);
+  const todayStart = getZonedDayRange(input.now).start;
+  const futureReservations = input.sourceReservations.filter((reservation) => (reservation.status === "CONFIRMED" || reservation.status === "TENTATIVE") && reservation.endDate >= todayStart);
   const incomingUids = new Set(input.incomingReservations.map((reservation) => reservation.rawUid));
   const missingFutureReservationCount = futureReservations.filter((reservation) => !incomingUids.has(reservation.rawUid)).length;
   const disappearanceRatio = ratio(missingFutureReservationCount, futureReservations.length);
@@ -138,8 +140,9 @@ export function validateCalendarFeedTransition(input: {
   const reasons: CalendarFeedQuarantineReason[] = [];
 
   if (thresholds.enabled) {
-    if (input.fetchedEventCount === 0 && futureReservations.length > 0) reasons.push("EMPTY_FEED_WITH_ACTIVE_RESERVATIONS");
-    if (!input.baselineReset && futureReservations.length >= thresholds.minimumExistingReservationsForDisappearance && disappearanceRatio >= thresholds.massDisappearanceRatio) reasons.push("MASS_RESERVATION_DISAPPEARANCE");
+    // A syntactically valid, fully parsed zero-event VCALENDAR is an authoritative
+    // empty feed. Download, HTML, and parsing failures never reach this policy.
+    if (!input.baselineReset && input.fetchedEventCount > 0 && futureReservations.length >= thresholds.minimumExistingReservationsForDisappearance && disappearanceRatio >= thresholds.massDisappearanceRatio) reasons.push("MASS_RESERVATION_DISAPPEARANCE");
 
     const absoluteIdentityDrift = input.fetchedEventCount > 0 && input.fingerprint.providerIdentityRatio < thresholds.minimumProviderIdentityRatio;
     const baselineFingerprint = input.baselineFingerprint;

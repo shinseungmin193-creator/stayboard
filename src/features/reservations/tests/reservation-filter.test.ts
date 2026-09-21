@@ -359,10 +359,10 @@ test("존재하지 않는 현재성 필드 대신 완전 파싱·관찰 UID로 s
   const conflictRepository = readFileSync(paths[2], "utf8");
   const classificationSource = readFileSync("src/features/calendar-sync/domain/classify-reservations.ts", "utf8");
   assert.match(conflictRepository, /buildOperationalReservationWhere\(\)/);
-  assert.match(syncSource, /classification\.missingDeletionIds/);
+  assert.match(syncSource, /classification\.staleCancellationIds/);
   assert.match(syncSource, /UPDATE "Reservation" AS reservation/);
   assert.doesNotMatch(syncSource, /for \(const item of classification\.update\)/);
   assert.match(syncSource, /fullyParsed: input\.fullyParsed/);
   assert.match(classificationSource, /reconciliation\.observedUids\.has\(reservation\.rawUid\)/);
-  assert.match(classificationSource, /result\.missingDeletionIds\.push\(reservation\.id\)/);
+  assert.match(classificationSource, /result\.staleCancellationIds\.push\(reservation\.id\)/);
 });

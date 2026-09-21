@@ -9,7 +9,7 @@ import { roomListingRegistrationSchema } from "@/features/rooms/room.schemas";
 import type { ActionResult } from "@/lib/action-result";
 import { logServerError } from "@/lib/prisma-errors";
 import { ListingUrlError, REVIEW_PROVIDER_TYPES } from "./domain/listing-provider";
-import { getReviewFetchStatus, type ReviewFetchStatus } from "./domain/review-collection-state";
+import { getReviewFetchStatus, resolveReviewCollectStatus, type ReviewFetchStatus } from "./domain/review-collection-state";
 import { REVIEW_SYNC_MAX_LISTINGS_PER_REQUEST } from "./review.constants";
 import type { ReviewListingSummary } from "./review.types";
 import { findReviewListingSummary, findReviewSyncTarget, findReviewSyncTargets } from "./server/review.repository";
@@ -101,7 +101,7 @@ export async function collectReviewsAction(input: unknown): Promise<ReviewCollec
     const result = await collectReviews({ target, actorUserId: context.userId });
     const listing = await findReviewListingSummary(context, parsed.data);
     const persistedStatus = listing ? getReviewFetchStatus(listing) : null;
-    const status = persistedStatus && persistedStatus !== "IDLE" ? persistedStatus : result.status;
+    const status = resolveReviewCollectStatus(result.status, persistedStatus);
     const message = status === "EMPTY"
       ? "리뷰 정보를 확인했습니다. 등록된 리뷰가 없습니다."
       : status === "SUCCESS"

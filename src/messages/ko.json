@@ -373,6 +373,10 @@
       "warningWithReservations": "주의 · 예약 {count}건",
       "dbReservations": "현재 DB 예약",
       "visibleReservations": "예약 화면 표시",
+      "activeReservations": "현재/미래 활성 예약",
+      "historicalReservations": "과거 보존 예약",
+      "cancelledReservations": "취소 예약",
+      "totalReservations": "DB 전체",
       "warningDescription": "통신은 완료됐지만 예약 데이터 확인이 필요합니다.",
       "reasons": {
         "UNCLASSIFIED_NONEMPTY_FEED": "VEVENT가 있지만 예약·차단·취소로 모두 분류되지 않았습니다.",

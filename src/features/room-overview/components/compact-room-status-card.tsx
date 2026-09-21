@@ -5,8 +5,9 @@ import { AlertTriangle, Check, Clock3, WifiOff, Wrench } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { getProviderVisual } from "@/features/reservations/provider-visuals";
-import type { RoomOverviewCard } from "../domain/room-overview";
+import { requiresRoomInspection, type RoomOverviewCard } from "../domain/room-overview";
 import { formatMobileRoomDate, getMobileRoomStatusVisual, getMobileSyncLabel } from "../room-overview-mobile-visuals";
+import { ROOM_INSPECTION_BORDER_CLASS, ROOM_STATUS_THEME } from "../room-overview-visuals";
 
 export function CompactRoomStatusCard({
   room,
@@ -26,7 +27,8 @@ export function CompactRoomStatusCard({
   const status = getMobileRoomStatusVisual(room, i18n);
   const StatusIcon = status.icon;
   const sync = getMobileSyncLabel(room, i18n);
-  const hasCardAlerts = sync.error || room.activeConflictCount > 0 || room.pendingMemoCount > 0;
+  const inspectionRequired = requiresRoomInspection(room);
+  const hasCardAlerts = sync.error || room.activeConflictCount > 0 || inspectionRequired;
   const visibleProviders = room.providers.slice(0, 2);
 
   return (
@@ -34,14 +36,16 @@ export function CompactRoomStatusCard({
       type="button"
       onClick={onActivate}
       aria-pressed={selectionMode ? selected : undefined}
-      aria-label={`${room.propertyName} ${room.name} ${status.label}`}
+      aria-label={`${room.propertyName} ${room.name} ${status.label}${inspectionRequired ? ` ${i18n("roomStatus.INSPECTION_REQUIRED")} ${room.pendingMemoCount}` : ""}`}
       className={cn(
         "relative flex min-h-[9.25rem] min-w-0 flex-col overflow-hidden rounded-xl border p-0 text-left shadow-sm outline-none transition-[border-color,box-shadow,transform] [content-visibility:auto] [contain-intrinsic-size:auto_148px] hover:-translate-y-0.5 hover:shadow-md focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transform-none motion-reduce:transition-none",
         status.bodyClass,
-        room.activeConflictCount > 0 && "border-destructive/70",
         selected && "border-primary bg-primary/5 ring-2 ring-primary/30",
+        room.activeConflictCount > 0 && "border-destructive/70",
+        inspectionRequired && room.activeConflictCount === 0 && ROOM_INSPECTION_BORDER_CLASS,
       )}
       data-room-status-theme={status.status}
+      data-room-inspection-required={inspectionRequired ? "true" : undefined}
     >
       <div className={cn("flex min-w-0 items-start gap-1.5 px-2.5 py-2", status.headerClass)}>
         <div className="flex min-w-0 flex-1 items-start gap-1.5">
@@ -100,7 +104,7 @@ export function CompactRoomStatusCard({
       </div>
 
       {hasCardAlerts && <div className="mx-2.5 mt-auto flex min-w-0 flex-wrap items-center gap-1 border-t border-current/10 py-1.5 text-[9px] text-muted-foreground">
-        {room.pendingMemoCount > 0 && <Badge variant="outline" className="h-5 gap-0.5 border-gray-300 bg-gray-50 px-1 text-[9px] text-gray-800 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200"><Wrench className="size-3" />{i18n("roomStatus.INSPECTION_REQUIRED")} {room.pendingMemoCount}</Badge>}
+        {inspectionRequired && <Badge variant="outline" className={cn("h-6 gap-1 px-1.5 text-[10px]", ROOM_STATUS_THEME.INSPECTION_REQUIRED.badgeClass)}><Wrench className="size-3.5" />{i18n("roomStatus.INSPECTION_REQUIRED")} {room.pendingMemoCount}</Badge>}
         {sync.error && <span className="flex min-w-0 items-center gap-1 font-medium text-destructive">
           <Clock3 className="size-3 shrink-0" /><span className="truncate">{sync.label}</span>
         </span>}

@@ -373,6 +373,10 @@
       "warningWithReservations": "注意・予約{count}件",
       "dbReservations": "現在のDB予約",
       "visibleReservations": "予約画面の表示",
+      "activeReservations": "現在・未来の有効予約",
+      "historicalReservations": "保存済みの過去予約",
+      "cancelledReservations": "キャンセル予約",
+      "totalReservations": "DB全体",
       "warningDescription": "通信は完了しましたが、予約データの確認が必要です。",
       "reasons": {
         "UNCLASSIFIED_NONEMPTY_FEED": "VEVENTがありますが、予約・ブロック・キャンセルとしてすべて分類されていません。",

@@ -14,8 +14,8 @@ export interface CalendarSyncResult extends CalendarEventClassificationCounts {
   updatedCount: number;
   unchangedCount: number;
   cancelledCount: number;
-  expectedSourceOperationalReservationCount: number;
-  currentSourceOperationalReservationCount: number;
+  expectedSourceActiveReservationCount: number;
+  currentSourceActiveReservationCount: number;
   activeConflictCount: number;
   createdConflictCount: number;
   resolvedConflictCount: number;

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createReviewFingerprint, shouldCreateReviewSnapshot } from "../domain/review-data";
-import { getReviewFetchStatus } from "../domain/review-collection-state";
+import { getReviewFetchStatus, isReviewFetchLoading, resolveReviewCollectStatus } from "../domain/review-collection-state";
 import { parseProviderReviewPage, parseStructuredReviewData } from "../domain/structured-review-data";
 import { runIsolatedReviewSyncBatch } from "../domain/review-sync-batch";
 
@@ -176,4 +176,29 @@ test("진행·실패 상태는 이전 성공 snapshot보다 우선해 충돌 표
   }, now), "LOADING");
   assert.equal(getReviewFetchStatus({ ...previousSuccess, latestSyncStatus: "FAILED" }, now), "FAILED");
   assert.equal(getReviewFetchStatus({ ...previousSuccess, reviewCount: 0, latestSyncStatus: "FAILED" }, now), "FAILED");
+});
+
+test("리뷰 8개 수집의 SUCCESS 결과는 DB 재조회 상태와 무관하게 LOADING을 종료한다", () => {
+  const listingStatus = getReviewFetchStatus({
+    ...collectionStateFixture,
+    rating: "5",
+    reviewCount: 8,
+    collectedAt: new Date("2026-09-21T03:00:00.000Z"),
+    latestSyncStatus: "SUCCESS",
+    latestSyncStartedAt: new Date("2026-09-21T02:59:00.000Z"),
+  });
+
+  assert.equal(listingStatus, "SUCCESS");
+  assert.equal(isReviewFetchLoading(listingStatus), false);
+  assert.equal(resolveReviewCollectStatus("SUCCESS", "LOADING"), "SUCCESS");
+});
+
+test("EMPTY와 FAILED도 종료 상태이며 진행 중 결과만 LOADING을 유지한다", () => {
+  assert.equal(isReviewFetchLoading("EMPTY"), false);
+  assert.equal(isReviewFetchLoading("FAILED"), false);
+  assert.equal(isReviewFetchLoading("LOADING"), true);
+  assert.equal(resolveReviewCollectStatus("EMPTY", "LOADING"), "EMPTY");
+  assert.equal(resolveReviewCollectStatus("FAILED", "LOADING"), "FAILED");
+  assert.equal(resolveReviewCollectStatus("LOADING", "SUCCESS"), "SUCCESS");
+  assert.equal(resolveReviewCollectStatus("LOADING", "IDLE"), "LOADING");
 });

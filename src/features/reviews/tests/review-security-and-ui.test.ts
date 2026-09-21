@@ -109,12 +109,28 @@ test("단건 리뷰 수집은 하나의 status로만 렌더링하고 이전 성�
   assert.match(status, /status === "FAILED"/);
   assert.match(status, /onStarted=\{\(\) => setRequestResult\(\{ status: "LOADING", message: "" \}\)\}/);
   assert.doesNotMatch(status, /리뷰 정보를 불러왔습니다/);
+  assert.match(button, /const collecting = isReviewFetchLoading\(status\)/);
+  assert.doesNotMatch(button, /pending \|\| status === "LOADING"/);
+  assert.match(button, /requestInFlight\.current \|\| collecting/);
+  assert.match(button, /finally \{[\s\S]*requestInFlight\.current = false;[\s\S]*onFinished\(result\)/);
+  assert.doesNotMatch(button, /router\.refresh\(\)/);
   assert.doesNotMatch(button, /role=\{message|text-emerald/);
   assert.match(action, /status: Exclude<ReviewFetchStatus, "IDLE">/);
+  assert.match(action, /resolveReviewCollectStatus\(result\.status, persistedStatus\)/);
   assert.match(service, /status: collected\.reviewCount === 0 \? "EMPTY" : "SUCCESS"/);
   assert.match(service, /status: "FAILED"/);
   assert.match(service, /status: "LOADING"/);
   assert.match(service, /errorCode: null,[\s\S]*errorMessage: null/);
+});
+
+test("현재 목록 갱신과 개별 수집은 중복 router refresh 없이 각 transition 종료를 사용한다", () => {
+  const button = readFileSync("src/features/reviews/components/review-collect-button.tsx", "utf8");
+  const bulkButton = readFileSync("src/features/reviews/components/review-bulk-collect-button.tsx", "utf8");
+
+  assert.doesNotMatch(button, /useRouter|router\.refresh/);
+  assert.doesNotMatch(bulkButton, /useRouter|router\.refresh/);
+  assert.match(button, /collectReviewsAction\(\{ roomId, provider \}\)/);
+  assert.match(bulkButton, /collectReviewListingsAction\(\{ listingIds \}\)/);
 });
 
 test("미등록 플랫폼 셀은 같은 화면에서 해당 객실·플랫폼 링크만 등록하고 즉시 최초 불러오기 상태로 바뀐다", () => {

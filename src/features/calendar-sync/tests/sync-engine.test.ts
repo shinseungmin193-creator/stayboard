@@ -23,18 +23,18 @@ test("Airbnb Normalizer가 예약과 차단 의미를 구분한다", () => {
   assert.equal(normalizer.classifyEvent(reserved), "RESERVATION");
   assert.equal(normalizer.classifyEvent(blocked), "BLOCKED");
 });
-test("신규·수정·동일 예약을 분류하고 검증 없는 누락 예약은 변경하지 않는다", () => { const current = existing(); const created = normalized({ rawUid: "new", providerReservationId: "new", summary: "New" }); const changed = normalized({ summary: "Changed" }); const missing = existing({ id: "missing", rawUid: "missing", providerReservationId: "missing" }); const same = existing({ id: "same", rawUid: "same", providerReservationId: "same" }); const incomingSame = normalized({ rawUid: "same", providerReservationId: "same" }); const result = classifyReservations([current, missing, same], [changed, created, incomingSame]); assert.equal(result.create.length, 1); assert.equal(result.update.length, 1); assert.equal(result.unchanged.length, 1); assert.equal(result.update.some((item) => item.id === missing.id), false); assert.deepEqual(result.missingDeletionIds, []); });
+test("신규·수정·동일 예약을 분류하고 검증 없는 누락 예약은 변경하지 않는다", () => { const current = existing(); const created = normalized({ rawUid: "new", providerReservationId: "new", summary: "New" }); const changed = normalized({ summary: "Changed" }); const missing = existing({ id: "missing", rawUid: "missing", providerReservationId: "missing" }); const same = existing({ id: "same", rawUid: "same", providerReservationId: "same" }); const incomingSame = normalized({ rawUid: "same", providerReservationId: "same" }); const result = classifyReservations([current, missing, same], [changed, created, incomingSame]); assert.equal(result.create.length, 1); assert.equal(result.update.length, 1); assert.equal(result.unchanged.length, 1); assert.equal(result.update.some((item) => item.id === missing.id), false); assert.deepEqual(result.staleCancellationIds, []); });
 test("필드 변경과 CANCELLED 예약 재등장을 update로 분류한다", () => { assert.equal(reservationFieldsEqual(existing(), normalized({ summary: "Changed" })), false); const result = classifyReservations([existing({ status: "CANCELLED" })], [normalized({ status: "CONFIRMED" })]); assert.equal(result.update.length, 1); });
-test("이미 취소된 누락 예약도 완전 파싱 확인 없이는 변경하지 않는다", () => { const result = classifyReservations([existing({ status: "CANCELLED" })], []); assert.deepEqual(result, { create: [], update: [], unchanged: [], missingDeletionIds: [] }); });
-test("기존 예약이 없는 CANCELLED 이벤트는 새 Reservation으로 만들지 않는다", () => { const result = classifyReservations([], [normalized({ status: "CANCELLED" })]); assert.equal(result.create.length, 0); assert.equal(result.update.length, 0); });
-test("안전 검증을 통과하지 않은 빈 ICS는 기존 활성 예약을 변경하지 않는다", () => { assert.deepEqual(classifyReservations([existing()], []), { create: [], update: [], unchanged: [], missingDeletionIds: [] }); });
-test("완전 파싱된 피드에서 사라진 UID는 source reconciliation 삭제 대상으로 분류한다", () => {
+test("이미 취소된 누락 예약도 완전 파싱 확인 없이는 변경하지 않는다", () => { const result = classifyReservations([existing({ status: "CANCELLED" })], []); assert.deepEqual(result, { create: [], update: [], unchanged: [], blockedDeletionIds: [], staleCancellationIds: [] }); });
+test("기존 예약이 없는 명시적 CANCELLED 이벤트도 취소 이력으로 생성한다", () => { const result = classifyReservations([], [normalized({ status: "CANCELLED" })]); assert.equal(result.create.length, 1); assert.equal(result.create[0].status, "CANCELLED"); });
+test("신뢰성 확인이 없는 빈 응답은 기존 활성 예약을 변경하지 않는다", () => { assert.deepEqual(classifyReservations([existing()], []), { create: [], update: [], unchanged: [], blockedDeletionIds: [], staleCancellationIds: [] }); });
+test("완전 파싱된 피드에서 사라진 현재·미래 UID는 source-scoped 취소 대상으로 분류한다", () => {
   const stale = existing({ id: "stale", rawUid: "old-uid", providerReservationId: "old-uid", startDate: new Date("2026-08-18"), endDate: new Date("2026-08-20") });
   const current = normalized({ rawUid: "new-uid", providerReservationId: "new-uid", startDate: new Date("2026-08-19"), endDate: new Date("2026-08-21") });
-  const result = classifyReservations([stale], [current], { observedUids: new Set(["new-uid"]), blockedUids: new Set(), fullyParsed: true, preserveEndedBefore: new Date("2026-08-17") });
-  assert.deepEqual(result.missingDeletionIds, ["stale"]);
+  const result = classifyReservations([stale], [current], { observedUids: new Set(["new-uid"]), blockedUids: new Set(), fullyParsed: true, historicalBefore: new Date("2026-08-17") });
+  assert.deepEqual(result.staleCancellationIds, ["stale"]);
 });
-test("완전 파싱에서 BLOCKED UID와 누락 UID는 삭제하고 UNKNOWN UID와 불완전 파싱은 보존한다", () => {
+test("완전 파싱에서 BLOCKED UID는 삭제하고 누락 UID는 취소하며 UNKNOWN UID와 불완전 파싱은 보존한다", () => {
   const values = [
     existing({ id: "observed", rawUid: "observed", providerReservationId: "observed", startDate: new Date("2026-08-18"), endDate: new Date("2026-08-20") }),
     existing({ id: "separate", rawUid: "separate", providerReservationId: "separate", startDate: new Date("2026-09-01"), endDate: new Date("2026-09-02") }),
@@ -45,20 +45,23 @@ test("완전 파싱에서 BLOCKED UID와 누락 UID는 삭제하고 UNKNOWN UID�
     observedUids: new Set(["observed", "new"]),
     blockedUids: new Set(["observed"]),
     fullyParsed: true,
-    preserveEndedBefore: new Date("2026-07-01"),
-  }).missingDeletionIds, ["observed", "separate", "past"]);
+    historicalBefore: new Date("2026-07-01"),
+  }), {
+    create: [incoming[0]], update: [], unchanged: [],
+    blockedDeletionIds: ["observed"], staleCancellationIds: ["separate", "past"],
+  });
   assert.deepEqual(classifyReservations([values[0]], incoming, {
     observedUids: new Set(["observed", "new"]),
     blockedUids: new Set(),
     fullyParsed: true,
-    preserveEndedBefore: new Date("2026-07-01"),
-  }).missingDeletionIds, []);
+    historicalBefore: new Date("2026-07-01"),
+  }).staleCancellationIds, []);
   assert.deepEqual(classifyReservations([values[0]], incoming, {
     observedUids: new Set(["new"]),
     blockedUids: new Set(["observed"]),
     fullyParsed: false,
-    preserveEndedBefore: new Date("2026-07-01"),
-  }).missingDeletionIds, []);
+    historicalBefore: new Date("2026-07-01"),
+  }).blockedDeletionIds, []);
 });
 
 test("OTA feed가 체크아웃 뒤 이벤트를 제거해도 과거 예약 이력은 보존한다", () => {
@@ -80,8 +83,28 @@ test("OTA feed가 체크아웃 뒤 이벤트를 제거해도 과거 예약 이�
     observedUids: new Set(),
     blockedUids: new Set(),
     fullyParsed: true,
-    preserveEndedBefore: new Date("2026-09-17T03:00:00.000Z"),
+    historicalBefore: new Date("2026-09-17T15:00:00.000Z"),
   });
-  assert.deepEqual(result.missingDeletionIds, ["future-missing"]);
+  assert.deepEqual(result.staleCancellationIds, ["future-missing"]);
   assert.equal(result.unchanged.some((item) => item.id === "checked-out"), true);
+});
+
+test("체크아웃이 오늘인 누락 예약은 과거가 아니므로 취소 대상으로 분류한다", () => {
+  const checkoutToday = existing({ id: "checkout-today", endDate: new Date("2026-09-20T15:00:00.000Z") });
+  const result = classifyReservations([checkoutToday], [], {
+    observedUids: new Set(), blockedUids: new Set(), fullyParsed: true,
+    historicalBefore: new Date("2026-09-20T15:00:00.000Z"),
+  });
+  assert.deepEqual(result.staleCancellationIds, ["checkout-today"]);
+});
+
+test("정상 파싱된 VEVENT 0 피드는 현재·미래 예약만 취소하고 과거 이력은 유지한다", () => {
+  const historical = existing({ id: "historical", rawUid: "historical", endDate: new Date("2026-09-19T15:00:00.000Z") });
+  const active = existing({ id: "active", rawUid: "active", endDate: new Date("2026-09-20T15:00:00.000Z") });
+  const result = classifyReservations([historical, active], [], {
+    observedUids: new Set(), blockedUids: new Set(), fullyParsed: true,
+    historicalBefore: new Date("2026-09-20T15:00:00.000Z"),
+  });
+  assert.deepEqual(result.staleCancellationIds, ["active"]);
+  assert.deepEqual(result.unchanged.map((reservation) => reservation.id), ["historical"]);
 });
