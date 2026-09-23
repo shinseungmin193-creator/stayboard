@@ -1,44 +1,41 @@
-"use client";import { useTranslations } from "next-intl";
+"use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
+import { useTranslations } from "next-intl";
 import { BedDouble } from "lucide-react";
+
 import { EmptyState } from "@/components/shared/empty-state";
 import type { RoomOverviewCard } from "../domain/room-overview";
 import { filterMobileRooms, sortMobileRooms, summarizeMobileRooms, type CalendarRangeDays, type MobileRoomFilters, type MobileRoomSortDirection, type MobileRoomSortField } from "../domain/room-overview-mobile";
+import { useRoomInspectionCounts } from "../hooks/use-room-inspection-counts";
 import { useRoomStatusFilters } from "../hooks/use-room-status-filters";
-import { useRoomTimelineRange } from "../hooks/use-room-timeline-range";
 import { useRoomStatusViewMode } from "../hooks/use-room-status-view-mode";
+import { useRoomTimelineRange } from "../hooks/use-room-timeline-range";
+import { ReservationDetailSheet } from "./reservation-detail-sheet";
 import { RoomDetailSheet } from "./room-detail-sheet";
+import { RoomInspectionDialog } from "./room-inspection-dialog";
 import { RoomSelectionActionBar } from "./room-selection-action-bar";
 import { RoomStatusCalendar } from "./room-status-calendar";
 import { RoomStatusCardGrid } from "./room-status-card-grid";
 import { RoomStatusList } from "./room-status-list";
 import { RoomStatusMobileToolbar } from "./room-status-mobile-toolbar";
-import { ReservationDetailSheet } from "./reservation-detail-sheet";
 
-export function MobileRoomStatusWorkspace({
-  rooms,
-  properties,
-  selectedDate,
-  today,
-  propertyId,
-  queryView,
-  calendarRange,
-  hasCalendarRangeQuery,
-  initialFilters,
-  canSync
-
-
-
-
-
-
-
-
-
-
-
-}: {rooms: RoomOverviewCard[];properties: Array<{id: string;name: string;isActive: boolean;}>;selectedDate: string;today: string;propertyId?: string;queryView?: string;calendarRange: CalendarRangeDays;hasCalendarRangeQuery: boolean;initialFilters: MobileRoomFilters;canSync: boolean;}) {const i18n = useTranslations();
+export function MobileRoomStatusWorkspace({ rooms: initialRooms, properties, selectedDate, today, propertyId, queryView, calendarRange, hasCalendarRangeQuery, initialFilters, canSync, canReadRoomNotes, canCompleteRoomNotes }: {
+  rooms: RoomOverviewCard[];
+  properties: Array<{ id: string; name: string; isActive: boolean }>;
+  selectedDate: string;
+  today: string;
+  propertyId?: string;
+  queryView?: string;
+  calendarRange: CalendarRangeDays;
+  hasCalendarRangeQuery: boolean;
+  initialFilters: MobileRoomFilters;
+  canSync: boolean;
+  canReadRoomNotes: boolean;
+  canCompleteRoomNotes: boolean;
+}) {
+  const i18n = useTranslations();
+  const { rooms, updatePendingMemoCount } = useRoomInspectionCounts(initialRooms);
   const { viewMode, setViewMode } = useRoomStatusViewMode(queryView);
   const { rangeDays, setRange } = useRoomTimelineRange(calendarRange, hasCalendarRangeQuery);
   const { filters, updateQuery, updateStatus, applyFilters, resetFilters } = useRoomStatusFilters({ initialFilters, initialPropertyId: propertyId });
@@ -47,12 +44,14 @@ export function MobileRoomStatusWorkspace({
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
   const [detailRoom, setDetailRoom] = useState<RoomOverviewCard | null>(null);
-  const [detailReservation, setDetailReservation] = useState<{room: RoomOverviewCard;reservation: RoomOverviewCard["reservations"][number];} | null>(null);
+  const [detailReservation, setDetailReservation] = useState<{ room: RoomOverviewCard; reservation: RoomOverviewCard["reservations"][number] } | null>(null);
+  const [inspectionRoomId, setInspectionRoomId] = useState<string | null>(null);
   const [todayScrollRequest, setTodayScrollRequest] = useState(0);
 
   const summary = useMemo(() => summarizeMobileRooms(rooms), [rooms]);
   const visibleRooms = useMemo(() => sortMobileRooms(filterMobileRooms(rooms, filters), sortField, sortDirection), [filters, rooms, sortDirection, sortField]);
   const selectedRooms = useMemo(() => rooms.filter((room) => selectedIds.has(room.id)), [rooms, selectedIds]);
+  const inspectionRoom = rooms.find((room) => room.id === inspectionRoomId) ?? null;
 
   const activateRoom = (room: RoomOverviewCard) => {
     if (!selectionMode) {
@@ -61,11 +60,21 @@ export function MobileRoomStatusWorkspace({
     }
     setSelectedIds((current) => {
       const next = new Set(current);
-      if (next.has(room.id)) next.delete(room.id);else
-      next.add(room.id);
+      if (next.has(room.id)) next.delete(room.id);
+      else next.add(room.id);
       return next;
     });
   };
+
+  const openInspection = (room: RoomOverviewCard) => {
+    setDetailRoom(null);
+    setInspectionRoomId(room.id);
+  };
+
+  const handlePendingMemoCountChange = useCallback((roomId: string, count: number) => {
+    updatePendingMemoCount(roomId, count);
+    setDetailRoom((current) => current?.id === roomId ? { ...current, pendingMemoCount: count } : current);
+  }, [updatePendingMemoCount]);
 
   const changeSelectionMode = (active: boolean) => {
     setSelectionMode(active);
@@ -102,18 +111,19 @@ export function MobileRoomStatusWorkspace({
         onFiltersApply={applyFilters}
         onFiltersReset={resetFilters}
         onSelectionModeChange={changeSelectionMode}
-        onCalendarTodayClick={() => setTodayScrollRequest((current) => current + 1)} />
-      
+        onCalendarTodayClick={() => setTodayScrollRequest((current) => current + 1)}
+      />
 
       {visibleRooms.length === 0 ? <div className="flex min-h-56 items-center rounded-xl border bg-card"><EmptyState icon={BedDouble} title={i18n("auto.m0092")} description={i18n("auto.m0463")} /></div> : <>
-        {viewMode === "card" && <RoomStatusCardGrid rooms={visibleRooms} selectionMode={selectionMode} selectedIds={selectedIds} onActivate={activateRoom} />}
+        {viewMode === "card" && <RoomStatusCardGrid rooms={visibleRooms} selectionMode={selectionMode} selectedIds={selectedIds} onActivate={activateRoom} onInspectionActivate={canReadRoomNotes ? openInspection : undefined} />}
         {viewMode === "list" && <RoomStatusList rooms={visibleRooms} sortField={sortField} sortDirection={sortDirection} selectionMode={selectionMode} selectedIds={selectedIds} onSort={changeSort} onActivate={activateRoom} />}
-        {viewMode === "calendar" && <RoomStatusCalendar rooms={visibleRooms} selectedDate={selectedDate} today={today} rangeDays={rangeDays} todayScrollRequest={todayScrollRequest} selectionMode={selectionMode} selectedIds={selectedIds} onRangeChange={setRange} onRoomActivate={activateRoom} onReservationActivate={(room, reservation) => {if (selectionMode) activateRoom(room);else setDetailReservation({ room, reservation });}} />}
+        {viewMode === "calendar" && <RoomStatusCalendar rooms={visibleRooms} selectedDate={selectedDate} today={today} rangeDays={rangeDays} todayScrollRequest={todayScrollRequest} selectionMode={selectionMode} selectedIds={selectedIds} onRangeChange={setRange} onRoomActivate={activateRoom} onReservationActivate={(room, reservation) => { if (selectionMode) activateRoom(room); else setDetailReservation({ room, reservation }); }} />}
       </>}
 
-      <RoomDetailSheet room={detailRoom} open={Boolean(detailRoom)} canSync={canSync} onOpenChange={(open) => {if (!open) setDetailRoom(null);}} />
-      <ReservationDetailSheet room={detailReservation?.room ?? null} reservation={detailReservation?.reservation ?? null} open={Boolean(detailReservation)} canSync={canSync} onOpenChange={(open) => {if (!open) setDetailReservation(null);}} />
+      <RoomDetailSheet room={detailRoom} open={Boolean(detailRoom)} canSync={canSync} canReadRoomNotes={canReadRoomNotes} onInspectionActivate={openInspection} onOpenChange={(open) => { if (!open) setDetailRoom(null); }} />
+      <ReservationDetailSheet room={detailReservation?.room ?? null} reservation={detailReservation?.reservation ?? null} open={Boolean(detailReservation)} canSync={canSync} onOpenChange={(open) => { if (!open) setDetailReservation(null); }} />
+      <RoomInspectionDialog room={inspectionRoom} open={Boolean(inspectionRoom)} canComplete={canCompleteRoomNotes} onOpenChange={(open) => { if (!open) setInspectionRoomId(null); }} onPendingMemoCountChange={handlePendingMemoCountChange} />
       <RoomSelectionActionBar rooms={selectedRooms} canSync={canSync} onShowDetail={() => setDetailRoom(selectedRooms[0] ?? null)} onClose={() => changeSelectionMode(false)} />
-    </div>);
-
+    </div>
+  );
 }

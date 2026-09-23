@@ -4,8 +4,7 @@ import { addDays, differenceInCalendarDays } from "date-fns";
 import type { ConflictFilters, ConflictListItem } from "@/features/reservation-conflicts/reservation-conflict.types";
 import type { ReservationFilters, ReservationListItem } from "@/features/reservations";
 import { getReservationDisplayStatus } from "@/features/reservations";
-import { RESERVATION_PAGE_SIZE } from "@/features/reservations/reservation.constants";
-import { isActiveReservationListItem } from "@/features/reservations/reservation-list-policy";
+import { ACTIVE_OTA_RESERVATION_STATUSES, RESERVATION_PAGE_SIZE } from "@/features/reservations/reservation.constants";
 import { compareReservationDefaultOrder } from "@/features/reservations/reservation-order";
 import type { RoomStatusRoom } from "@/features/room-status/room-status.types";
 import { isReservationVisibleInRoomStatusRange, type RoomStatusCalendarRange } from "@/features/room-status/room-status-calendar";
@@ -149,14 +148,16 @@ export function getDemoReservations(filters: ReservationFilters) {
     if (filters.propertyId && item.propertyId !== filters.propertyId) return false;
     if (filters.roomId && item.roomId !== filters.roomId) return false;
     if (filters.providers?.length && !filters.providers.includes(item.provider)) return false;
-    if (!filters.dateMode && !isActiveReservationListItem({ reservationStatus: item.status, endDate: item.endDate, businessDate: filters.businessDate })) return false;
-    if (filters.dateMode && item.status !== "CONFIRMED" && item.status !== "TENTATIVE") return false;
+    if (!ACTIVE_OTA_RESERVATION_STATUSES.includes(item.status as (typeof ACTIVE_OTA_RESERVATION_STATUSES)[number])) return false;
     const displayStatus = getReservationDisplayStatus({ reservationStatus: item.status, startDate: item.startDate, endDate: item.endDate, businessDate: filters.businessDate });
     if (filters.displayStatuses?.length && !filters.displayStatuses.some((status) => status === displayStatus)) return false;
     if (filters.hasConflict !== undefined && Boolean(item.activeConflictCount) !== filters.hasConflict) return false;
     if (filters.dateField === "checkIn" && !(item.startDate >= filters.from && item.startDate < filters.toExclusive)) return false;
     if (filters.dateField === "checkOut" && !(item.endDate >= filters.from && item.endDate < filters.toExclusive)) return false;
-    if ((!filters.dateField || filters.dateField === "stay") && !(item.startDate < filters.toExclusive && item.endDate >= filters.from)) return false;
+    if ((!filters.dateField || filters.dateField === "stay") && !(
+      item.startDate < filters.toExclusive
+      && (filters.defaultHistoryWindow ? item.endDate >= filters.from : item.endDate > filters.from)
+    )) return false;
     if (search && !`${item.id} ${item.guestName ?? ""} ${item.providerReservationId ?? ""} ${item.roomName} ${item.propertyName}`.toLocaleLowerCase("ko").includes(search)) return false;
     return true;
   });

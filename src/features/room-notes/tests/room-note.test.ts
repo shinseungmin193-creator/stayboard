@@ -72,6 +72,14 @@ test("상태 변경 액션은 클라이언트 입력을 믿지 않고 서버 권
   assert.match(access, /canAccessCompany\(context, note\.companyId\)/);
 });
 
+test("객실 현황 popup 조회는 클릭한 객실 한 곳만 서버 권한 검사 후 조회한다", () => {
+  const actions = read("src/features/room-notes/room-note.actions.ts");
+  assert.match(actions, /getPendingRoomNotesAction/);
+  assert.match(actions, /requireRoomAccess\(parsed\.data\.roomId, PERMISSIONS\.ROOM_NOTE_READ\)/);
+  assert.match(actions, /listOpenRoomNotesForRooms\(context, \[parsed\.data\.roomId\]\)/);
+  assert.doesNotMatch(actions.slice(actions.indexOf("getPendingRoomNotesAction"), actions.indexOf("createRoomNoteAction")), /userId|companyId|role/);
+});
+
 test("삭제 액션은 ROOM_NOTE_DELETE 권한을 서버에서 검사한다", () => {
   const actions = read("src/features/room-notes/room-note.actions.ts");
   assert.match(actions, /requireRoomNoteAccess\(parsed\.data\.id, PERMISSIONS\.ROOM_NOTE_DELETE\)/);

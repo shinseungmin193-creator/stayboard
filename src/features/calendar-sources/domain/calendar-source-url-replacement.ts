@@ -35,14 +35,34 @@ export interface PreparedCalendarSourceUrlReplacement {
 
 export function planCalendarSourceReservationReplacement(
   calendarSourceId: string,
-  existingReservations: readonly { id: string; calendarSourceId: string }[],
+  existingReservations: readonly {
+    id: string;
+    calendarSourceId: string;
+    rawUid: string;
+    endDate: Date;
+  }[],
   incomingReservations: readonly NormalizedReservation[],
+  historicalBefore: Date,
 ) {
+  const sourceReservations = existingReservations.filter(
+    (reservation) => reservation.calendarSourceId === calendarSourceId,
+  );
+  const retainedHistoricalReservations = sourceReservations.filter(
+    (reservation) => reservation.endDate < historicalBefore,
+  );
+  const retainedRawUids = new Set(
+    retainedHistoricalReservations.map((reservation) => reservation.rawUid),
+  );
   return {
-    removeReservationIds: existingReservations
-      .filter((reservation) => reservation.calendarSourceId === calendarSourceId)
+    removeReservationIds: sourceReservations
+      .filter((reservation) => reservation.endDate >= historicalBefore)
       .map((reservation) => reservation.id),
-    createReservations: [...incomingReservations],
+    retainedHistoricalReservationIds: retainedHistoricalReservations.map(
+      (reservation) => reservation.id,
+    ),
+    createReservations: incomingReservations.filter(
+      (reservation) => !retainedRawUids.has(reservation.rawUid),
+    ),
   };
 }
 

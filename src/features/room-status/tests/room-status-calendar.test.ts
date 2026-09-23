@@ -118,6 +118,17 @@ test("범위 밖 예약은 제외하고 미래 월 선택은 정상 표시한다
   assert.equal(isReservationVisibleInRoomStatusRange(reservation("2026-09-10T00:00:00+09:00", "2026-09-12T00:00:00+09:00"), september), true);
 });
 
+test("3개월보다 오래된 월도 직접 이동하면 DB 예약을 같은 overlap 정책으로 표시한다", () => {
+  const historicalMonth = getRoomStatusCalendarRange("2025-09", new Date("2026-09-21T12:00:00+09:00"));
+  assert.equal(isReservationVisibleInRoomStatusRange(
+    reservation("2025-09-10T00:00:00+09:00", "2025-09-12T00:00:00+09:00"),
+    historicalMonth,
+  ), true);
+  const where = buildRoomStatusReservationWhere(historicalMonth);
+  assert.deepEqual(where.startDate, { lt: historicalMonth.rangeEnd });
+  assert.deepEqual(where.endDate, { gt: historicalMonth.rangeStart });
+});
+
 test("취소 예약은 제외하고 OTA Provider 모두 동일한 overlap 규칙을 사용한다", () => {
   const providers = ["AIRBNB", "BOOKING", "AGODA"] as const;
   for (const provider of providers) {

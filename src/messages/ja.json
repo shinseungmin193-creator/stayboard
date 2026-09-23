@@ -197,6 +197,7 @@
     "checkIn": "チェックイン",
     "checkOut": "チェックアウト",
     "vacant": "空室",
+    "historyPolicyHint": "初期表示は直近3か月です。それ以前の予約も日付範囲を指定して確認できます。",
     "statuses": {
       "UPCOMING": "予約",
       "STAYING": "宿泊中",
@@ -472,6 +473,17 @@
       "deleted": "客室メモを削除しました。",
       "statusFailed": "客室メモのステータスを変更できませんでした。",
       "deleteFailed": "客室メモを削除できませんでした。"
+    },
+    "inspectionDialog": {
+      "title": "点検必要・{room}",
+      "description": "現在未対応の客室メモは{count}件です。",
+      "loading": "点検内容を読み込んでいます...",
+      "loadFailed": "点検内容を読み込めませんでした。",
+      "retry": "再試行",
+      "authorAndDate": "作成者: {author}・作成日: {date}",
+      "photoCount": "写真{count}枚",
+      "details": "詳細を見る",
+      "completionFailed": "客室メモを完了にできませんでした。"
     }
   },
   "cleaning": {

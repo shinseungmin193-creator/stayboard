@@ -21,6 +21,7 @@ import { detectRoomReservationConflicts } from "@/features/reservation-conflicts
 import { maskCalendarUrl } from "./calendar-source-url";
 import { planCalendarSourceReservationReplacement } from "./domain/calendar-source-url-replacement";
 import { removeCalendarSourceReservations } from "@/features/calendar-sync/infrastructure/calendar-source-reservation-removal";
+import { getZonedDayRange } from "@/lib/zoned-date";
 
 export interface CalendarSourceSyncState {
   sourceId: string;
@@ -287,9 +288,15 @@ export async function replaceCalendarSourceUrlTransaction(input: {
 
     const existingReservations = await tx.reservation.findMany({
       where: { calendarSourceId: source.id },
-      select: { id: true, calendarSourceId: true },
+      select: { id: true, calendarSourceId: true, rawUid: true, endDate: true },
     });
-    const replacement = planCalendarSourceReservationReplacement(source.id, existingReservations, input.reservations);
+    const historicalBefore = getZonedDayRange(input.now).start;
+    const replacement = planCalendarSourceReservationReplacement(
+      source.id,
+      existingReservations,
+      input.reservations,
+      historicalBefore,
+    );
     const removed = await removeCalendarSourceReservations(tx, {
       calendarSourceId: source.id,
       reservationIds: replacement.removeReservationIds,
@@ -325,12 +332,16 @@ export async function replaceCalendarSourceUrlTransaction(input: {
         })
       : { count: 0 };
     const expectedSourceOperationalReservationCount = replacement.createReservations.filter(
-      (reservation) => reservation.status === "CONFIRMED" || reservation.status === "TENTATIVE",
+      (reservation) => (
+        (reservation.status === "CONFIRMED" || reservation.status === "TENTATIVE")
+        && reservation.endDate >= historicalBefore
+      ),
     ).length;
     const currentSourceOperationalReservationCount = await tx.reservation.count({
       where: {
         calendarSourceId: source.id,
         status: { in: ["CONFIRMED", "TENTATIVE"] },
+        endDate: { gte: historicalBefore },
       },
     });
     if (currentSourceOperationalReservationCount !== expectedSourceOperationalReservationCount) {
@@ -395,6 +406,7 @@ export async function replaceCalendarSourceUrlTransaction(input: {
           previousCalendarUrl: maskCalendarUrl(source.calendarUrl),
           nextCalendarUrl: maskCalendarUrl(input.calendarUrl),
           removedReservationCount: removed.reservationCount,
+          retainedHistoricalReservationCount: replacement.retainedHistoricalReservationIds.length,
           createdReservationCount: created.count,
           removedConflictCount: removed.conflictCount,
           deletedCleaningTaskCount: removed.deletedCleaningTaskCount,
@@ -408,6 +420,7 @@ export async function replaceCalendarSourceUrlTransaction(input: {
       ...updated,
       warning: input.warning,
       removedReservationCount: removed.reservationCount,
+      retainedHistoricalReservationCount: replacement.retainedHistoricalReservationIds.length,
       createdReservationCount: created.count,
       fetchedCount: input.fetchedCount,
       ...conflicts,

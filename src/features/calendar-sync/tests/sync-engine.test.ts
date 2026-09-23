@@ -89,6 +89,25 @@ test("OTA feed가 체크아웃 뒤 이벤트를 제거해도 과거 예약 이�
   assert.equal(result.unchanged.some((item) => item.id === "checked-out"), true);
 });
 
+test("1년 전 예약도 정상 ICS에서 사라졌다는 이유만으로 삭제하거나 취소하지 않는다", () => {
+  const oneYearOld = existing({
+    id: "one-year-old",
+    rawUid: "one-year-old",
+    providerReservationId: "one-year-old",
+    startDate: new Date("2025-09-10T15:00:00.000Z"),
+    endDate: new Date("2025-09-12T15:00:00.000Z"),
+  });
+  const result = classifyReservations([oneYearOld], [], {
+    observedUids: new Set(),
+    blockedUids: new Set(),
+    fullyParsed: true,
+    historicalBefore: new Date("2026-09-20T15:00:00.000Z"),
+  });
+  assert.deepEqual(result.staleCancellationIds, []);
+  assert.deepEqual(result.blockedDeletionIds, []);
+  assert.deepEqual(result.unchanged.map((reservation) => reservation.id), ["one-year-old"]);
+});
+
 test("체크아웃이 오늘인 누락 예약은 과거가 아니므로 취소 대상으로 분류한다", () => {
   const checkoutToday = existing({ id: "checkout-today", endDate: new Date("2026-09-20T15:00:00.000Z") });
   const result = classifyReservations([checkoutToday], [], {

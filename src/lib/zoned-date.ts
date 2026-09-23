@@ -66,6 +66,24 @@ export function shiftDateInput(dateInput: string, days: number) {
   return current.toISOString().slice(0, 10);
 }
 
+/**
+ * Moves a calendar date by whole months without depending on the server's
+ * local timezone. Dates that do not exist in the target month are clamped to
+ * that month's final day (for example, May 31 - 3 months = February 28/29).
+ */
+export function shiftDateInputByMonths(dateInput: string, months: number) {
+  if (!isValidDateInput(dateInput) || !Number.isInteger(months)) {
+    throw new RangeError("A valid date input and an integer month offset are required.");
+  }
+  const [year, month, day] = dateInput.split("-").map(Number);
+  const targetMonthStart = new Date(Date.UTC(year, month - 1 + months, 1));
+  const targetYear = targetMonthStart.getUTCFullYear();
+  const targetMonth = targetMonthStart.getUTCMonth();
+  const targetMonthLastDay = new Date(Date.UTC(targetYear, targetMonth + 1, 0)).getUTCDate();
+  const targetDay = Math.min(day, targetMonthLastDay);
+  return new Date(Date.UTC(targetYear, targetMonth, targetDay)).toISOString().slice(0, 10);
+}
+
 export function getZonedDayRange(now = new Date(), timeZone = DEFAULT_TIMEZONE) {
   const dateInput = getZonedDateInput(now, timeZone);
   return {

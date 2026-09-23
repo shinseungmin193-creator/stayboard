@@ -100,7 +100,8 @@ test("객실 카드 점검 배지는 OPEN 메모 count를 사용하고 정상 �
   assert.match(repository, /_count: \{ select: \{ roomNotes: \{ where: \{ status: OPEN_ROOM_NOTE_STATUS \} \} \} \}/);
   assert.doesNotMatch(repository, /prisma\.roomNote\.(findMany|count)/);
   assert.match(desktopCard, /requiresRoomInspection\(card\)/);
-  assert.match(desktopCard, /\/room-notes\?propertyId=/);
+  assert.match(desktopCard, /RoomInspectionButton/);
+  assert.doesNotMatch(desktopCard, /<Link href=\{roomNotesHref\}/);
   assert.doesNotMatch(desktopCard, /i18n\("sync\.normal"\)/);
   assert.doesNotMatch(desktopCard, /i18n\("conflict\.none"\)/);
   assert.match(desktopCard, /sync\.status === "FAILED" \|\| sync\.status === "TIMEOUT"/);
@@ -129,6 +130,40 @@ test("점검 필요 요약 수는 빨간 테두리 대상 카드 수와 동일�
   const summary = summarizeRoomOverview(cards);
   assert.equal(summary.operationalStatuses.INSPECTION_REQUIRED, cards.filter(requiresRoomInspection).length);
   assert.equal(summary.operationalStatuses.INSPECTION_REQUIRED, 3);
+});
+
+test("점검 badge는 페이지 이동 대신 지연 조회 Dialog를 열고 상세 보기에서만 객실 메모 페이지로 이동한다", () => {
+  const desktopCard = readFileSync("src/features/room-overview/components/room-overview-card.tsx", "utf8");
+  const grid = readFileSync("src/features/room-overview/components/room-overview-card-grid.tsx", "utf8");
+  const dialog = readFileSync("src/features/room-overview/components/room-inspection-dialog.tsx", "utf8");
+  const mobileCard = readFileSync("src/features/room-overview/components/compact-room-status-card.tsx", "utf8");
+  const detailSheet = readFileSync("src/features/room-overview/components/room-detail-sheet.tsx", "utf8");
+
+  assert.match(desktopCard, /onInspectionActivate\?: \(room: RoomOverviewCardData\)/);
+  assert.match(grid, /setInspectionRoomId\(room\.id\)/);
+  assert.match(grid, /RoomInspectionDialog/);
+  assert.match(dialog, /getPendingRoomNotesAction\(\{ roomId: target\.id \}\)/);
+  assert.match(dialog, /status=open/);
+  assert.match(dialog, /CleaningPhotoUploader[\s\S]*readOnly/);
+  assert.match(mobileCard, /<article/);
+  assert.match(mobileCard, /data-room-inspection-trigger|RoomInspectionButton/);
+  assert.match(detailSheet, /onInspectionActivate\(room\)/);
+});
+
+test("popup 완료 처리는 기존 RoomNote action을 재사용하고 카드 count·border·요약을 즉시 갱신한다", () => {
+  const dialog = readFileSync("src/features/room-overview/components/room-inspection-dialog.tsx", "utf8");
+  const hook = readFileSync("src/features/room-overview/hooks/use-room-inspection-counts.ts", "utf8");
+  const mobileWorkspace = readFileSync("src/features/room-overview/components/mobile-room-status-workspace.tsx", "utf8");
+  const actions = readFileSync("src/features/room-notes/room-note.actions.ts", "utf8");
+
+  assert.match(dialog, /changeRoomNoteStatusAction\(\{ id: noteId, status: "COMPLETED" \}\)/);
+  assert.match(dialog, /currentNotes\.filter\(\(note\) => note\.id !== noteId\)/);
+  assert.match(dialog, /onPendingMemoCountChange\(currentRoom\.id, notes\.length\)/);
+  assert.match(dialog, /if \(!notes\.length\) close\(\)/);
+  assert.match(dialog, /router\.refresh\(\)/);
+  assert.match(hook, /pendingMemoCount: override\.count/);
+  assert.match(mobileWorkspace, /summarizeMobileRooms\(rooms\)/);
+  assert.match(actions, /revalidatePath\("\/room-overview"\)/);
 });
 
 test("PC와 모바일 객실 카드는 공통 테마의 Header·Body·Badge·아이콘을 사용한다", () => {

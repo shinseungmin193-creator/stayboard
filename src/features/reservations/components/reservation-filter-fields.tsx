@@ -131,6 +131,7 @@ export function ReservationFilterFields({
       <div className={cn("grid grid-cols-2 gap-2", compact && "lg:col-span-2")}>
         <div className="space-y-1.5"><Label htmlFor={compact ? "desktop-reservation-from" : "mobile-reservation-from"}>{i18n("auto.m0436")}</Label><input id={compact ? "desktop-reservation-from" : "mobile-reservation-from"} type="date" value={value.from ?? effectiveDateRange.from} max={value.to ?? effectiveDateRange.to} onChange={(event) => onChange({ ...value, from: event.target.value || null })} className={fieldClassName} /></div>
         <div className="space-y-1.5"><Label htmlFor={compact ? "desktop-reservation-to" : "mobile-reservation-to"}>{i18n("auto.m0437")}</Label><input id={compact ? "desktop-reservation-to" : "mobile-reservation-to"} type="date" value={value.to ?? effectiveDateRange.to} min={value.from ?? effectiveDateRange.from} onChange={(event) => onChange({ ...value, to: event.target.value || null })} className={fieldClassName} /></div>
+        {!value.from && !value.to && <p className="col-span-2 text-xs leading-5 text-muted-foreground">{i18n("reservation.historyPolicyHint")}</p>}
       </div>
 
       <div className={cn("space-y-2", compact && "lg:col-span-2")}>

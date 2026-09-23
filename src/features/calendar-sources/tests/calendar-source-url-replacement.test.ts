@@ -193,23 +193,58 @@ test("Booking 전용 연결 identity guard가 Airbnb와 Agoda URL 교체를 차�
 
 test("source 교체 계획은 대상 CalendarSource 예약만 제거하고 새 feed 예약만 생성한다", () => {
   const existing = [
-    { id: "booking-a-1", calendarSourceId: "booking-a" },
-    { id: "booking-a-2", calendarSourceId: "booking-a" },
-    { id: "booking-b-1", calendarSourceId: "booking-b" },
-    { id: "agoda-1", calendarSourceId: "agoda-c" },
+    { id: "booking-a-1", calendarSourceId: "booking-a", rawUid: "booking-a-1", endDate: new Date("2026-08-20T00:00:00.000Z") },
+    { id: "booking-a-2", calendarSourceId: "booking-a", rawUid: "booking-a-2", endDate: new Date("2026-08-21T00:00:00.000Z") },
+    { id: "booking-b-1", calendarSourceId: "booking-b", rawUid: "booking-b-1", endDate: new Date("2026-08-20T00:00:00.000Z") },
+    { id: "agoda-1", calendarSourceId: "agoda-c", rawUid: "agoda-1", endDate: new Date("2026-08-20T00:00:00.000Z") },
   ];
-  const result = planCalendarSourceReservationReplacement("booking-a", existing, [incomingReservation]);
+  const result = planCalendarSourceReservationReplacement(
+    "booking-a",
+    existing,
+    [incomingReservation],
+    new Date("2026-08-10T00:00:00.000Z"),
+  );
   assert.deepEqual(result.removeReservationIds, ["booking-a-1", "booking-a-2"]);
+  assert.deepEqual(result.retainedHistoricalReservationIds, []);
   assert.deepEqual(result.createReservations, [incomingReservation]);
 });
 
 test("빈 새 feed의 source 교체 계획은 대상 예약을 제거하고 생성 예약을 0건으로 둔다", () => {
   const result = planCalendarSourceReservationReplacement(
     "booking-a",
-    [{ id: "booking-a-1", calendarSourceId: "booking-a" }],
+    [{ id: "booking-a-1", calendarSourceId: "booking-a", rawUid: "booking-a-1", endDate: new Date("2026-08-20T00:00:00.000Z") }],
     [],
+    new Date("2026-08-10T00:00:00.000Z"),
   );
-  assert.deepEqual(result, { removeReservationIds: ["booking-a-1"], createReservations: [] });
+  assert.deepEqual(result, { removeReservationIds: ["booking-a-1"], retainedHistoricalReservationIds: [], createReservations: [] });
+});
+
+test("URL 교체도 종료된 과거 예약은 유지하고 현재·미래 예약만 source-scoped 교체한다", () => {
+  const historicalBefore = new Date("2026-09-20T15:00:00.000Z");
+  const historical = {
+    id: "historical",
+    calendarSourceId: "booking-a",
+    rawUid: "historical-uid",
+    endDate: new Date("2025-09-12T15:00:00.000Z"),
+  };
+  const current = {
+    id: "current",
+    calendarSourceId: "booking-a",
+    rawUid: "current-uid",
+    endDate: historicalBefore,
+  };
+  const result = planCalendarSourceReservationReplacement(
+    "booking-a",
+    [historical, current],
+    [
+      { ...incomingReservation, rawUid: historical.rawUid },
+      { ...incomingReservation, rawUid: "new-current" },
+    ],
+    historicalBefore,
+  );
+  assert.deepEqual(result.retainedHistoricalReservationIds, ["historical"]);
+  assert.deepEqual(result.removeReservationIds, ["current"]);
+  assert.deepEqual(result.createReservations.map((reservation) => reservation.rawUid), ["new-current"]);
 });
 
 test("새 feed의 명시적 취소 이벤트도 취소 이력으로 생성한다", () => {
@@ -217,6 +252,7 @@ test("새 feed의 명시적 취소 이벤트도 취소 이력으로 생성한다
     "booking-a",
     [],
     [{ ...incomingReservation, status: "CANCELLED" }],
+    new Date("2026-08-10T00:00:00.000Z"),
   );
   assert.equal(result.createReservations.length, 1);
   assert.equal(result.createReservations[0].status, "CANCELLED");
@@ -238,6 +274,7 @@ test("URL 교체 transaction은 source-scoped 삭제·즉시 sync·마스킹 감
   assert.match(replacement, /ReservationPersistenceInvariantError/);
   assert.match(replacement, /previousCalendarUrl: maskCalendarUrl/);
   assert.match(replacement, /removedReservationCount/);
+  assert.match(replacement, /retainedHistoricalReservationCount/);
   assert.match(replacement, /createdReservationCount/);
   const action = readFileSync("src/features/calendar-sources/calendar-source.actions.ts", "utf8");
   const actionStart = action.indexOf("export async function replaceCalendarSourceUrlAction");

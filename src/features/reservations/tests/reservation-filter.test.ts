@@ -5,7 +5,9 @@ import { reservationDateHref, reservationDateRangeLabel, shiftReservationDateInp
 import { getReservationFilterCount } from "../reservation-filter-count";
 import { EMPTY_RESERVATION_FILTERS, parseReservationFilters, serializeReservationFilters } from "../reservation-filter-query";
 import { getReservationDatePresetRange } from "../reservation-date-presets";
+import { getDefaultReservationHistoryBoundary } from "../reservation-history-policy";
 import { buildReservationListDateWhere } from "../reservation-list-date-where";
+import { shiftDateInputByMonths } from "../../../lib/zoned-date";
 import { applyQuickReservationFilter } from "../reservation-quick-filters";
 import {
   applyReservationDateNavigationToFilters,
@@ -158,6 +160,59 @@ test("숙박 기간 조회는 오늘이 2026-08-28이어도 선택 기간과 겹
     startDate: HISTORICAL_RANGE.toExclusive,
     endDate: utcDate("2026-08-30"),
   }), false);
+});
+
+test("예약 목록 기본 범위는 Asia/Tokyo 기준 최근 3 calendar months를 체크아웃 경계로 사용한다", () => {
+  const boundary = getDefaultReservationHistoryBoundary(
+    new Date("2026-09-21T12:00:00+09:00"),
+  );
+  assert.equal(boundary.todayInput, "2026-09-21");
+  assert.equal(boundary.fromInput, "2026-06-21");
+  assert.equal(boundary.from.toISOString(), "2026-06-20T15:00:00.000Z");
+
+  const where = buildReservationListDateWhere({
+    dateField: "stay",
+    from: boundary.from,
+    toExclusive: new Date("2027-03-21T15:00:00.000Z"),
+    defaultHistoryWindow: true,
+  });
+  assert.deepEqual(where, {
+    startDate: { lt: new Date("2027-03-21T15:00:00.000Z") },
+    endDate: { gte: boundary.from },
+  });
+
+  for (const reservation of [
+    { startDate: new Date("2026-09-09T15:00:00.000Z"), endDate: new Date("2026-09-11T15:00:00.000Z") },
+    { startDate: new Date("2026-06-30T15:00:00.000Z"), endDate: new Date("2026-07-02T15:00:00.000Z") },
+    { startDate: new Date("2026-06-19T15:00:00.000Z"), endDate: boundary.from },
+  ]) {
+    assert.equal(matchesReservationListDateWhere(where, reservation), true);
+  }
+  assert.equal(matchesReservationListDateWhere(where, {
+    startDate: new Date("2026-04-30T15:00:00.000Z"),
+    endDate: new Date("2026-05-02T15:00:00.000Z"),
+  }), false);
+});
+
+test("명시한 과거 날짜 범위는 기본 3개월 경계를 적용하지 않는다", () => {
+  const mayRange = {
+    from: new Date("2026-04-30T15:00:00.000Z"),
+    toExclusive: new Date("2026-05-31T15:00:00.000Z"),
+  };
+  const where = buildReservationListDateWhere({
+    dateField: "stay",
+    ...mayRange,
+    defaultHistoryWindow: false,
+  });
+  assert.equal(matchesReservationListDateWhere(where, {
+    startDate: new Date("2026-04-30T15:00:00.000Z"),
+    endDate: new Date("2026-05-02T15:00:00.000Z"),
+  }), true);
+});
+
+test("calendar month 계산은 월말을 대상 월의 마지막 날로 보정한다", () => {
+  assert.equal(shiftDateInputByMonths("2026-05-31", -3), "2026-02-28");
+  assert.equal(shiftDateInputByMonths("2028-05-31", -3), "2028-02-29");
 });
 
 test("체크인 기준은 startDate가 선택 범위 안에 있을 때만 포함한다", () => {
@@ -345,6 +400,14 @@ test("예약 이력 목록 정책은 대시보드·객실 현황·청소 운영 
     assert.match(source, /buildOperationalReservationWhere/);
     assert.doesNotMatch(source, /buildReservationListWhere/);
   }
+});
+
+test("기본 3개월 정책은 예약 목록에만 적용되고 직접 범위 UI로 장기 이력을 조회한다", () => {
+  const serverFilter = readFileSync("src/features/reservations/reservation-filter-server.ts", "utf8");
+  const filterFields = readFileSync("src/features/reservations/components/reservation-filter-fields.tsx", "utf8");
+  assert.match(serverFilter, /getDefaultReservationHistoryBoundary/);
+  assert.match(serverFilter, /defaultHistoryWindow/);
+  assert.match(filterFields, /reservation\.historyPolicyHint/);
 });
 
 test("존재하지 않는 현재성 필드 대신 완전 파싱·관찰 UID로 source 예약을 reconciliation 한다", () => {

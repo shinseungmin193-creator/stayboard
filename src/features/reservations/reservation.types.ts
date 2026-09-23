@@ -40,6 +40,8 @@ export interface ReservationFilters {
   dateMode?: ReservationDateMode;
   from: Date;
   toExclusive: Date;
+  /** True only when no explicit date range or date-navigation mode was supplied. */
+  defaultHistoryWindow?: boolean;
   hasConflict?: boolean;
   page: number;
   companyIds?: readonly string[];

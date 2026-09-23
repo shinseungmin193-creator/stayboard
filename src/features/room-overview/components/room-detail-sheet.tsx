@@ -1,7 +1,7 @@
 ﻿"use client";import { useTranslations } from "next-intl";
 
 import Link from "next/link";
-import { AlertTriangle, ArrowUpRight, CalendarDays, Clock3, List, WifiOff, Wrench } from "lucide-react";
+import { AlertTriangle, ArrowUpRight, CalendarDays, Clock3, List, WifiOff } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -12,8 +12,9 @@ import type { RoomOverviewCard } from "../domain/room-overview";
 import { getMobileRoomStatusVisual, getMobileSyncLabel } from "../room-overview-mobile-visuals";
 import { RoomStatusRoomSyncButton } from "./room-status-room-sync-button";
 import { getReservationDateInput, getReservationNightCount } from "@/features/reservations/reservation-date";
+import { RoomInspectionButton } from "./room-inspection-button";
 
-export function RoomDetailContent({ room, canSync }: {room: RoomOverviewCard;canSync: boolean;}) {const i18n = useTranslations();
+export function RoomDetailContent({ room, canSync, canReadRoomNotes, onInspectionActivate }: {room: RoomOverviewCard;canSync: boolean;canReadRoomNotes: boolean;onInspectionActivate: (room: RoomOverviewCard) => void;}) {const i18n = useTranslations();
   const reservation = room.currentReservation ?? room.nextReservation;
   const status = getMobileRoomStatusVisual(room, i18n);
   const StatusIcon = status.icon;
@@ -38,7 +39,7 @@ export function RoomDetailContent({ room, canSync }: {room: RoomOverviewCard;can
     </section>
 
     {room.activeConflictCount > 0 && <div className="mx-4 flex items-center gap-2 rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-xs font-medium text-destructive"><AlertTriangle className="size-4" />{i18n("reservation.overbooking")}{room.activeConflictCount}{i18n("auto.m0471")}</div>}
-    {room.pendingMemoCount > 0 && <Button nativeButton={false} render={<Link href={`/room-notes?propertyId=${room.propertyId}&roomId=${room.id}`} />} variant="outline" className="mx-4 justify-start border-gray-300 bg-gray-50 text-gray-800 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200"><Wrench />{i18n("roomStatus.INSPECTION_REQUIRED")} {room.pendingMemoCount}</Button>}
+    {room.pendingMemoCount > 0 && <RoomInspectionButton count={room.pendingMemoCount} onClick={canReadRoomNotes ? () => onInspectionActivate(room) : undefined} className="mx-4 flex min-h-10 justify-start rounded-lg border border-red-300 bg-red-50/70 px-3 dark:border-red-900 dark:bg-red-950/30" />}
 
     <section className="min-h-0 space-y-2 px-4" aria-labelledby="room-detail-reservations">
       <h3 id="room-detail-reservations" className="text-xs font-semibold">{i18n("auto.m0250")}</h3>
@@ -56,7 +57,7 @@ export function RoomDetailContent({ room, canSync }: {room: RoomOverviewCard;can
   </>;
 }
 
-export function RoomDetailSheet({ room, open, canSync, onOpenChange }: {room: RoomOverviewCard | null;open: boolean;canSync: boolean;onOpenChange: (open: boolean) => void;}) {const i18n = useTranslations();
+export function RoomDetailSheet({ room, open, canSync, canReadRoomNotes, onInspectionActivate, onOpenChange }: {room: RoomOverviewCard | null;open: boolean;canSync: boolean;canReadRoomNotes: boolean;onInspectionActivate: (room: RoomOverviewCard) => void;onOpenChange: (open: boolean) => void;}) {const i18n = useTranslations();
   return <Sheet open={open} onOpenChange={onOpenChange}>
     <SheetContent side="bottom" className="h-[82dvh] max-h-[82dvh] gap-3 overflow-hidden p-0" aria-label={i18n("auto.m0473")}>
       {room && <>
@@ -64,7 +65,7 @@ export function RoomDetailSheet({ room, open, canSync, onOpenChange }: {room: Ro
           <SheetTitle className="text-lg font-bold">{room.name}</SheetTitle>
           <SheetDescription>{room.propertyName}</SheetDescription>
         </SheetHeader>
-        <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto"><RoomDetailContent room={room} canSync={canSync} /></div>
+        <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto"><RoomDetailContent room={room} canSync={canSync} canReadRoomNotes={canReadRoomNotes} onInspectionActivate={onInspectionActivate} /></div>
       </>}
     </SheetContent>
   </Sheet>;
