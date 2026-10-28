@@ -8,7 +8,8 @@ export function AuthProvider({ children, session }: { children: React.ReactNode;
   return (
     <SessionProvider
       basePath={withBasePath("/api/auth")}
-      refetchOnWindowFocus={false}
+      refetchOnWindowFocus
+      refetchWhenOffline={false}
       session={session}
     >
       {children}

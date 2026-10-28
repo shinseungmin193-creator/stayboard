@@ -10,6 +10,7 @@ import { requireNextAuthSecret } from "../domain/auth-secret";
 import { usesSecureAuthCookies } from "../domain/cookie-policy";
 import { isNextAuthSessionCookie } from "../domain/session-cookie";
 import { isSessionSnapshotValid } from "../domain/session-policy";
+import { AUTH_SESSION_MAX_AGE_DAYS, AUTH_SESSION_MAX_AGE_SECONDS } from "../domain/session-lifetime";
 import { normalizeBasePath, resolveBasePath } from "../../../lib/base-path";
 
 const activeUser: LoginUserRecord = {
@@ -94,6 +95,19 @@ test("세션은 ACTIVE 상태와 로그인 시점 sessionVersion이 모두 일�
   assert.equal(isSessionSnapshotValid({ status: "SUSPENDED", isActive: false, sessionVersion: 3 }, 3), false);
   assert.equal(isSessionSnapshotValid({ status: "DELETED", isActive: false, sessionVersion: 3 }, 3), false);
   assert.equal(isSessionSnapshotValid(null, 3), false);
+});
+
+test("로그인 세션은 1년간 유지되고 앱으로 돌아올 때 갱신한다", () => {
+  assert.equal(AUTH_SESSION_MAX_AGE_DAYS, 365);
+  assert.equal(AUTH_SESSION_MAX_AGE_SECONDS, 365 * 24 * 60 * 60);
+
+  const config = readFileSync("src/features/auth/auth.config.ts", "utf8");
+  const provider = readFileSync("src/features/auth/components/auth-provider.tsx", "utf8");
+
+  assert.match(config, /maxAge: AUTH_SESSION_MAX_AGE_SECONDS/);
+  assert.doesNotMatch(config, /maxAge:\s*8\s*\*\s*60\s*\*\s*60/);
+  assert.match(provider, /refetchOnWindowFocus/);
+  assert.match(provider, /refetchWhenOffline=\{false\}/);
 });
 
 test("가입과 로그인은 같은 bcrypt 형식과 원본 비밀번호를 사용한다", async () => {

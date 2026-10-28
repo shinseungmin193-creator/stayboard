@@ -32,10 +32,11 @@ const INSPECTION_STATUS_STYLES = {
   COMPLETED: "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-200",
 } as const satisfies Record<Exclude<RoomInspectionStatus, "NONE">, string>;
 
-function InspectionStatusBadge({ status }: { status: RoomInspectionStatus }) {
+function InspectionStatusBadge({ status, pendingCount }: { status: RoomInspectionStatus; pendingCount: number }) {
   const i18n = useTranslations();
   if (status === "NONE") return <span className="text-xs text-muted-foreground">-</span>;
-  return <Badge variant="outline" className={cn("h-6 px-2 text-[10px] font-semibold", INSPECTION_STATUS_STYLES[status])}>{i18n(`roomOverviewList.inspectionStates.${status}`)}</Badge>;
+  const countLabel = status !== "COMPLETED" && pendingCount > 0 ? `(${pendingCount})` : "";
+  return <Badge variant="outline" className={cn("h-6 px-2 text-[10px] font-semibold", INSPECTION_STATUS_STYLES[status])}>{i18n(`roomOverviewList.inspectionStates.${status}`)}{countLabel}</Badge>;
 }
 
 function RoomStatusBadge({ room }: { room: RoomOverviewCard }) {
@@ -128,7 +129,7 @@ function RoomOverviewRow({
           {canCreateRoomNotes && <Button type="button" variant="outline" size="xs" className="h-6 gap-1 px-2 text-[10px]" onClick={() => onCreateRoomNote(room)}><Plus className="size-3" />{i18n("roomOverviewList.registerInspection")}</Button>}
         </div>
       </td>
-      <td className="px-2 py-1.5 text-center"><InspectionStatusBadge status={room.inspectionStatus} /></td>
+      <td className="px-2 py-1.5 text-center"><InspectionStatusBadge status={room.inspectionStatus} pendingCount={room.pendingMemoCount} /></td>
       <td className="px-2 py-1.5 text-xs" title={sync.label}>
         <span className={cn("mr-1.5 inline-block size-2 rounded-full", syncDotClass)} aria-hidden="true" />
         <span className={cn("tabular-nums", sync.error && "text-destructive")}>{latestSyncAt ? syncFormatter.format(latestSyncAt) : sync.label}</span>

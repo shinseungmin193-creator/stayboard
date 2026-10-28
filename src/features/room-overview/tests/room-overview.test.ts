@@ -452,6 +452,8 @@ test("PC 밀집 리스트는 불필요한 운영·메모·작업 열 없이 점�
   assert.doesNotMatch(list, /DropdownMenu|roomOverviewList\.memo|roomOverviewList\.actions|roomOverviewList\.operationalStatus/);
   assert.match(list, /registerInspection/);
   assert.match(list, /inspectionStates\.\$\{status\}/);
+  assert.match(list, /status !== "COMPLETED" && pendingCount > 0 \? `\(\$\{pendingCount\}\)` : ""/);
+  assert.match(list, /InspectionStatusBadge status=\{room\.inspectionStatus\} pendingCount=\{room\.pendingMemoCount\}/);
   assert.match(list, /canCreateRoomNotes && <Button/);
   assert.match(list, /roomOverviewList\.lastSync[\s\S]*<\/tr>/);
   assert.match(list, /getMobileSyncLabel\(room, i18n\)/);

@@ -12,6 +12,7 @@ import { withBasePath } from "@/lib/base-path";
 import { findLoginUserByIdentifier } from "./server/login-user.repository";
 import { logLoginRejection } from "./server/login-audit";
 import { isSessionSnapshotValid } from "./domain/session-policy";
+import { AUTH_SESSION_MAX_AGE_SECONDS } from "./domain/session-lifetime";
 
 export const authOptions: NextAuthOptions = {
   secret: requireNextAuthSecret(process.env.NEXTAUTH_SECRET),
@@ -55,7 +56,7 @@ export const authOptions: NextAuthOptions = {
       },
     }),
   ],
-  session: { strategy: "jwt", maxAge: 8 * 60 * 60 },
+  session: { strategy: "jwt", maxAge: AUTH_SESSION_MAX_AGE_SECONDS },
   pages: { signIn: withBasePath("/login") },
   callbacks: {
     async jwt({ token, user }) {
