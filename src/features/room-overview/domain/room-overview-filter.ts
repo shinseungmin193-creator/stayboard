@@ -1,4 +1,4 @@
-export const ROOM_OVERVIEW_SELECT_FILTER_KEYS = ["propertyId", "status", "provider", "syncStatus", "operationalStatus"] as const;
+export const ROOM_OVERVIEW_SELECT_FILTER_KEYS = ["propertyId", "status", "cleaningStatus", "syncStatus"] as const;
 export type RoomOverviewSelectFilterKey = (typeof ROOM_OVERVIEW_SELECT_FILTER_KEYS)[number];
 
 export function updateRoomOverviewFilterParams(current: URLSearchParams, key: RoomOverviewSelectFilterKey | "query", value: string) {

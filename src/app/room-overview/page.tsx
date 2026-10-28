@@ -1,26 +1,20 @@
 ﻿import { getTranslations } from "next-intl/server";import type { RoomOperationalStatus, SyncStatus } from "@/lib/generated/prisma/enums";
-import { BedDouble } from "lucide-react";
-import { EmptyState } from "@/components/shared/empty-state";
 import { AccessDenied, authorizeAccess, authorizeSidebarMenuAccess, companyScopeIds, getCurrentAccessContext, hasPermission, PERMISSIONS } from "@/features/access-control";
 import { DEMO_PROPERTY_OPTIONS, getDemoRoomOverview } from "@/features/demo";
 import { RoomOverviewDeveloperSettingsBoundary } from "@/features/developer-settings";
 import { listPropertyOptions } from "@/features/properties";
-import { listRoomOverview, ROOM_OVERVIEW_STATUS_PRIORITY, type RoomOverviewStatus } from "@/features/room-overview";
-import { RoomOverviewCardGrid } from "@/features/room-overview/components/room-overview-card-grid";
-import { RoomOverviewSchedule } from "@/features/room-overview/components/room-overview-schedule";
-import { RoomOverviewSettingsLayout } from "@/features/room-overview/components/room-overview-settings-layout";
-import { RoomOverviewToolbar } from "@/features/room-overview/components/room-overview-toolbar";
+import { listRoomOverview, ROOM_OVERVIEW_STATUS_PRIORITY, type RoomOverviewCleaningFilter, type RoomOverviewStatus } from "@/features/room-overview";
+import { RoomOverviewDesktopWorkspace } from "@/features/room-overview/components/room-overview-desktop-workspace";
 import { MobileRoomStatusWorkspace } from "@/features/room-overview/components/mobile-room-status-workspace";
 import { MOBILE_ROOM_OTA_FILTERS, MOBILE_ROOM_STATUS_FILTERS, MOBILE_ROOM_SYNC_FILTERS, parseCalendarRangeDays, parseRoomOverviewDateKey, roomOverviewDateInstant, roomOverviewDateKey, type MobileRoomFilters } from "@/features/room-overview/domain/room-overview-mobile";
-import { isCalendarProviderType } from "@/providers/calendar";
 
 export const dynamic = "force-dynamic";
 export async function generateMetadata() { const i18n = await getTranslations(); return { title: i18n("navigation.items.room-overview") }; }
 
 const syncStatuses = ["RUNNING", "SUCCESS", "FAILED", "TIMEOUT"] as const;
-const operationalStatuses = ["NONE", "CLEANING_REQUIRED", "INSPECTION_REQUIRED"] as const;
+const cleaningStatuses = ["INCOMPLETE", "COMPLETED"] as const;
 
-export default async function RoomOverviewPage({ searchParams }: {searchParams: Promise<Record<string, string | string[] | undefined>>;}) {const i18n = await getTranslations();
+export default async function RoomOverviewPage({ searchParams }: {searchParams: Promise<Record<string, string | string[] | undefined>>;}) {
   const params = await searchParams;
   const value = (key: string) => typeof params[key] === "string" ? params[key] : undefined;
   const context = await getCurrentAccessContext();
@@ -30,7 +24,7 @@ export default async function RoomOverviewPage({ searchParams }: {searchParams: 
   const rawPropertyId = value("propertyId");
   const propertyId = properties.some((item) => item.id === rawPropertyId && item.isActive) ? rawPropertyId : undefined;
   const rawStatus = value("status");
-  const rawProvider = value("provider");
+  const rawCleaningStatus = value("cleaningStatus");
   const rawSyncStatus = value("syncStatus");
   const rawOperationalStatus = value("operationalStatus");
   const today = roomOverviewDateKey();
@@ -41,12 +35,16 @@ export default async function RoomOverviewPage({ searchParams }: {searchParams: 
     propertyId,
     query: value("query"),
     status: ROOM_OVERVIEW_STATUS_PRIORITY.includes(rawStatus as RoomOverviewStatus) ? rawStatus as RoomOverviewStatus : undefined,
-    operationalStatus: operationalStatuses.includes(rawOperationalStatus as RoomOperationalStatus) ? rawOperationalStatus as RoomOperationalStatus : undefined,
-    provider: rawProvider && isCalendarProviderType(rawProvider) ? rawProvider : undefined,
+    cleaningStatus: cleaningStatuses.includes(rawCleaningStatus as RoomOverviewCleaningFilter) ? rawCleaningStatus as RoomOverviewCleaningFilter : undefined,
+    operationalStatus: rawOperationalStatus === "INSPECTION_REQUIRED" ? rawOperationalStatus as RoomOperationalStatus : undefined,
     syncStatus: syncStatuses.includes(rawSyncStatus as SyncStatus) ? rawSyncStatus as SyncStatus : undefined
   };
-  const result = context ? await listRoomOverview({ ...filters, companyIds: companyScopeIds(context), accessScope: context.scope }, selectedDateInstant, calendarRange) : getDemoRoomOverview(filters, selectedDateInstant);
-  const currentParams = Object.entries(params).flatMap(([key, item]) => typeof item === "string" && item ? [[key, item] as [string, string]] : []);
+  const result = context ? await listRoomOverview({ ...filters, companyIds: companyScopeIds(context), accessScope: context.scope }, selectedDateInstant, calendarRange, false) : getDemoRoomOverview(filters, selectedDateInstant);
+  const currentParams = Object.entries(params).flatMap(([key, item]) => {
+    if (key === "provider") return [];
+    if (key === "operationalStatus" && item !== "INSPECTION_REQUIRED") return [];
+    return typeof item === "string" && item ? [[key, item] as [string, string]] : [];
+  });
   const rawMobileStatus = value("mobileStatus");
   const rawOta = value("ota");
   const rawSyncError = value("syncError");
@@ -59,20 +57,33 @@ export default async function RoomOverviewPage({ searchParams }: {searchParams: 
   const canSync = hasPermission(context?.role, PERMISSIONS.SYNC_RUN);
   const roomNoteAccess = context ? await authorizeAccess(PERMISSIONS.ROOM_NOTE_READ) : null;
   const canReadRoomNotes = roomNoteAccess?.allowed ?? false;
+  const canCreateRoomNotes = canReadRoomNotes && hasPermission(context?.role, PERMISSIONS.ROOM_NOTE_CREATE);
+  const canUpdateRoomNotes = canReadRoomNotes && hasPermission(context?.role, PERMISSIONS.ROOM_NOTE_UPDATE);
+  const canDeleteRoomNotes = canReadRoomNotes && hasPermission(context?.role, PERMISSIONS.ROOM_NOTE_DELETE);
   const canCompleteRoomNotes = canReadRoomNotes && hasPermission(context?.role, PERMISSIONS.ROOM_NOTE_COMPLETE);
+  const requestedInspectionRoomId = value("openMemo") === "true" && result.allCards.some((room) => room.id === value("roomId")) ? value("roomId") : undefined;
 
   return (
     <RoomOverviewDeveloperSettingsBoundary enabled={context?.actualRole === "DEVELOPER"}>
       <div className="space-y-4 xl:space-y-2">
-        <MobileRoomStatusWorkspace key={propertyId ?? "all-properties"} rooms={result.allCards} properties={properties} selectedDate={selectedDate} today={today} propertyId={propertyId} queryView={value("view")} calendarRange={calendarRange} hasCalendarRangeQuery={Boolean(value("range"))} initialFilters={mobileFilters} canSync={canSync} canReadRoomNotes={canReadRoomNotes} canCompleteRoomNotes={canCompleteRoomNotes} />
-        <div className="hidden xl:block">
-          <RoomOverviewToolbar properties={properties} filters={filters} summary={result.summary} currentParams={currentParams} canSync={canSync} />
-          <RoomOverviewSettingsLayout
-            schedulePanel={<RoomOverviewSchedule schedule={result.operationalSchedule} conflicts={result.conflicts} />}>
-            
-            <section className="min-w-0" aria-label={i18n("auto.m0091")}>{result.cards.length ? <RoomOverviewCardGrid cards={result.cards} canUpdateOperationalStatus={hasPermission(context?.role, PERMISSIONS.ROOM_OPERATIONAL_STATUS_UPDATE)} canReadRoomNotes={canReadRoomNotes} canCompleteRoomNotes={canCompleteRoomNotes} /> : <div className="flex min-h-80 items-center rounded-xl border bg-card"><EmptyState icon={BedDouble} title={i18n("auto.m0092")} description={i18n("auto.m0093")} /></div>}</section>
-          </RoomOverviewSettingsLayout>
-        </div>
+        <MobileRoomStatusWorkspace key={propertyId ?? "all-properties"} rooms={result.allCards} properties={properties} selectedDate={selectedDate} today={today} propertyId={propertyId} queryView={value("view")} calendarRange={calendarRange} hasCalendarRangeQuery={Boolean(value("range"))} initialFilters={mobileFilters} canSync={canSync} canReadRoomNotes={canReadRoomNotes} canCreateRoomNotes={canCreateRoomNotes} canUpdateRoomNotes={canUpdateRoomNotes} canDeleteRoomNotes={canDeleteRoomNotes} canCompleteRoomNotes={canCompleteRoomNotes} initialInspectionRoomId={requestedInspectionRoomId} />
+        <RoomOverviewDesktopWorkspace
+          initialRooms={result.allCards}
+          initialVisibleRooms={result.cards}
+          properties={properties}
+          filters={filters}
+          currentParams={currentParams}
+          selectedDate={selectedDate}
+          today={today}
+          canSync={canSync}
+          canUpdateOperationalStatus={hasPermission(context?.role, PERMISSIONS.ROOM_OPERATIONAL_STATUS_UPDATE)}
+          canReadRoomNotes={canReadRoomNotes}
+          canCreateRoomNotes={canCreateRoomNotes}
+          canUpdateRoomNotes={canUpdateRoomNotes}
+          canDeleteRoomNotes={canDeleteRoomNotes}
+          canCompleteRoomNotes={canCompleteRoomNotes}
+          initialInspectionRoomId={requestedInspectionRoomId}
+        />
       </div>
     </RoomOverviewDeveloperSettingsBoundary>);
 

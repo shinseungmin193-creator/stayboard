@@ -77,14 +77,13 @@ export function DeveloperSettingsForm({ staffMobileNavigation }: { staffMobileNa
         <NumberControl field="statusBarHeight" label={i18n("auto.m0319")} value={settings.roomOverview.statusBarHeight} onChange={(value) => updateRoom({ statusBarHeight: value })} />
         <NumberControl field="propertyFontSize" label={i18n("auto.m0320")} value={settings.roomOverview.propertyFontSize} onChange={(value) => updateRoom({ propertyFontSize: value })} />
         <NumberControl field="roomFontSize" label={i18n("auto.m0321")} value={settings.roomOverview.roomFontSize} onChange={(value) => updateRoom({ roomFontSize: value })} />
-        <NumberControl field="schedulePanelWidth" label={i18n("auto.m0322")} value={settings.roomOverview.schedulePanelWidth} onChange={(value) => updateRoom({ schedulePanelWidth: value })} />
         <label className="space-y-2 rounded-lg border p-3"><span className="block text-sm font-medium">{i18n("technical.providerBadge")}</span><select value={settings.roomOverview.providerBadgeSize} onChange={(event) => updateRoom({ providerBadgeSize: event.target.value as ProviderBadgeSize })} className="h-8 w-full rounded-md border bg-background px-2 text-sm"><option value="sm">{i18n("auto.m0323")}</option><option value="md">{i18n("auto.m0324")}</option><option value="lg">{i18n("developerSettings.providerBadgeLarge")}</option></select></label>
       </CardContent>
     </Card>
     <Card>
       <CardHeader><CardTitle className="text-base">{i18n("auto.m0325")}</CardTitle></CardHeader>
       <CardContent className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">{([
-        ["showPropertyName", i18n("auto.m0326")], ["showProviderBadges", "Provider Badge"], ["showGuestName", i18n("auto.m0327")], ["showStayDates", i18n("auto.m0328")], ["showNightCount", i18n("auto.m0329")], ["showNextReservation", i18n("auto.m0330")], ["showSyncWarnings", i18n("auto.m0331")], ["showNoConflictText", i18n("auto.m0332", { value0: i18n("conflict.none") })], ["showFooterActions", "Footer Action"], ["schedulePanelVisible", i18n("auto.m0333")],
+        ["showPropertyName", i18n("auto.m0326")], ["showProviderBadges", "Provider Badge"], ["showGuestName", i18n("auto.m0327")], ["showStayDates", i18n("auto.m0328")], ["showNightCount", i18n("auto.m0329")], ["showNextReservation", i18n("auto.m0330")], ["showSyncWarnings", i18n("auto.m0331")], ["showNoConflictText", i18n("auto.m0332", { value0: i18n("conflict.none") })], ["showFooterActions", "Footer Action"],
       ] as const).map(([key, label]) => <Toggle key={key} label={label} checked={settings.roomOverview[key]} onChange={(value) => updateRoom({ [key]: value })} />)}</CardContent>
     </Card>
 

@@ -18,3 +18,8 @@ export const propertyInputSchema = z.object({
 
 export const propertyUpdateSchema = propertyInputSchema.extend({ id: z.string().trim().min(1) });
 export const propertyActiveSchema = z.object({ id: z.string().trim().min(1), isActive: z.enum(["true", "false"]).transform((value) => value === "true") });
+export const propertyDeleteSchema = z.object({
+  propertyId: z.string().trim().cuid(),
+  confirmationText: z.string().trim().min(1).max(NAME_MAX_LENGTH),
+});
+export const propertyDeleteImpactSchema = propertyDeleteSchema.pick({ propertyId: true });

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { useState, useTransition, type KeyboardEvent, type MouseEvent } from "react";
@@ -119,7 +120,7 @@ export function RoomNoteList({ notes, canComplete, canDelete }: {
           <DialogHeader><DialogTitle className="flex flex-wrap items-center gap-2">{selected.propertyName} · {selected.roomName}{statusBadge(selected)}</DialogTitle><DialogDescription>{t("details.description")}</DialogDescription></DialogHeader>
           <dl className="grid grid-cols-[5.5rem_1fr] gap-x-3 gap-y-2 rounded-xl border p-4 text-sm"><dt className="text-muted-foreground">{t("columns.author")}</dt><dd>{selected.authorName}</dd><dt className="text-muted-foreground">{t("columns.createdAt")}</dt><dd>{formatDate(selected)}</dd><dt className="text-muted-foreground">{t("details.source")}</dt><dd><Badge variant="secondary">{t(`source.${selected.sourceType}`)}</Badge></dd>{selected.status === "COMPLETED" && <><dt className="text-muted-foreground">{t("details.completedBy")}</dt><dd>{selected.completedByName ?? "-"}</dd><dt className="text-muted-foreground">{t("details.completedAt")}</dt><dd>{selected.completedAt ? formatDateValue(selected.completedAt, selected.propertyTimeZone) : "-"}</dd></>}</dl>
           <section className="space-y-2 rounded-xl border p-4"><h3 className="text-sm font-semibold">{t("columns.content")}</h3><p className="whitespace-pre-wrap break-words text-sm leading-6 text-muted-foreground">{selected.content}</p></section>
-          <section className="space-y-3 rounded-xl border p-4"><h3 className="flex items-center gap-2 text-sm font-semibold"><Camera className="size-4" />{t("details.photos", { count: selected.photoCount })}</h3>{selected.photos.length ? <CleaningPhotoUploader taskId={selected.cleaningTaskId!} initialPhotos={selected.photos} readOnly onResult={() => undefined} /> : <p className="py-3 text-center text-sm text-muted-foreground">{t("details.noPhotos")}</p>}</section>
+          <section className="space-y-3 rounded-xl border p-4"><h3 className="flex items-center gap-2 text-sm font-semibold"><Camera className="size-4" />{t("details.photos", { count: selected.photoCount })}</h3>{selected.photos.length && selected.cleaningTaskId ? <CleaningPhotoUploader taskId={selected.cleaningTaskId} initialPhotos={selected.photos} readOnly onResult={() => undefined} /> : selected.photos.length ? <div className="grid grid-cols-3 gap-2">{selected.photos.map((photo) => photo.url && <a key={photo.id} href={photo.url} target="_blank" rel="noreferrer" className="relative aspect-square overflow-hidden rounded-lg border"><Image src={photo.url} alt={photo.originalName} fill sizes="160px" className="object-cover" unoptimized /></a>)}</div> : <p className="py-3 text-center text-sm text-muted-foreground">{t("details.noPhotos")}</p>}</section>
           <DialogFooter className="flex-row flex-wrap justify-end">
             {selected.cleaningTaskId && <Button nativeButton={false} render={<Link href={`/cleaning?roomId=${encodeURIComponent(selected.roomId)}${selected.cleaningDate ? `&date=${encodeURIComponent(selected.cleaningDate)}` : ""}`} />} variant="outline"><ExternalLink />{t("actions.openCleaning")}</Button>}
             {actions(selected)}

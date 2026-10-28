@@ -5,6 +5,7 @@ import { getCleaningPhotoStorage } from "@/features/cleaning/storage/local-file-
 import { formatRoomDisplayName } from "@/features/rooms/room-display";
 import type { Prisma } from "@/lib/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
+import { withBasePath } from "@/lib/base-path";
 import { getZonedDateInput } from "@/lib/zoned-date";
 import { OPEN_ROOM_NOTE_STATUS, ROOM_NOTE_PAGE_SIZE } from "../domain/room-note";
 import type { RoomNoteFilters, RoomNoteOptions, RoomNotePageResult, RoomNoteViewModel } from "../room-note.types";
@@ -16,6 +17,11 @@ const roomNoteViewSelect = {
   content: true,
   authorName: true,
   createdAt: true,
+  resolutionNote: true,
+  acknowledgedAt: true,
+  acknowledgedByName: true,
+  processedAt: true,
+  processedByName: true,
   completedAt: true,
   completedByName: true,
   propertyId: true,
@@ -23,6 +29,11 @@ const roomNoteViewSelect = {
   cleaningTaskId: true,
   property: { select: { name: true, timezone: true } },
   room: { select: { name: true } },
+  photos: {
+    select: { id: true, originalName: true, mimeType: true, size: true, createdAt: true },
+    orderBy: { createdAt: "asc" },
+    take: 12,
+  },
   cleaningTask: {
     select: {
       note: true,
@@ -53,6 +64,27 @@ function searchContains(query: string) {
 function toRoomNoteViewModel(note: RoomNoteViewRow): RoomNoteViewModel {
   const task = note.cleaningTask;
   const storage = getCleaningPhotoStorage();
+  const photos = note.sourceType === "CLEANING"
+    ? (task?.photos ?? []).map((photo) => ({
+        id: photo.id,
+        url: photo.storageKey ? storage.getUrl(photo.id) : null,
+        originalName: photo.originalName,
+        mimeType: photo.mimeType,
+        size: photo.size,
+        createdAt: photo.createdAt.toISOString(),
+        deleteAfter: photo.deleteAfter?.toISOString() ?? null,
+        deletedAt: photo.deletedAt?.toISOString() ?? null,
+      }))
+    : note.photos.map((photo) => ({
+        id: photo.id,
+        url: withBasePath(`/api/room-notes/photos/${encodeURIComponent(photo.id)}`),
+        originalName: photo.originalName,
+        mimeType: photo.mimeType,
+        size: photo.size,
+        createdAt: photo.createdAt.toISOString(),
+        deleteAfter: null,
+        deletedAt: null,
+      }));
   return {
     id: note.id,
     sourceType: note.sourceType,
@@ -66,21 +98,17 @@ function toRoomNoteViewModel(note: RoomNoteViewRow): RoomNoteViewModel {
     content: (note.sourceType === "CLEANING" ? task?.note : note.content)?.trim() ?? "",
     authorName: note.authorName,
     createdAt: note.createdAt.toISOString(),
+    resolutionNote: note.resolutionNote?.trim() ?? "",
+    acknowledgedAt: note.acknowledgedAt?.toISOString() ?? null,
+    acknowledgedByName: note.acknowledgedByName,
+    processedAt: note.processedAt?.toISOString() ?? null,
+    processedByName: note.processedByName,
     completedAt: note.completedAt?.toISOString() ?? null,
     completedByName: note.completedByName,
     cleaningTaskId: note.cleaningTaskId,
     cleaningDate: task ? getZonedDateInput(task.completedAt ?? task.updatedAt, note.property.timezone) : null,
-    photoCount: task?._count.photos ?? 0,
-    photos: (task?.photos ?? []).map((photo) => ({
-      id: photo.id,
-      url: photo.storageKey ? storage.getUrl(photo.id) : null,
-      originalName: photo.originalName,
-      mimeType: photo.mimeType,
-      size: photo.size,
-      createdAt: photo.createdAt.toISOString(),
-      deleteAfter: photo.deleteAfter?.toISOString() ?? null,
-      deletedAt: photo.deletedAt?.toISOString() ?? null,
-    })),
+    photoCount: note.sourceType === "CLEANING" ? task?._count.photos ?? 0 : note.photos.length,
+    photos,
   };
 }
 
@@ -174,6 +202,27 @@ export async function listOpenRoomNotesForRooms(context: AccessContext, roomIds:
     },
     select: roomNoteViewSelect,
     orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+  });
+  return rows.map(toRoomNoteViewModel);
+}
+
+export async function listRoomInspectionNotes(
+  context: AccessContext,
+  roomId: string,
+  includeResolved: boolean,
+): Promise<RoomNoteViewModel[]> {
+  const rows = await prisma.roomNote.findMany({
+    where: {
+      ...companyWhere(context),
+      roomId,
+      ...(includeResolved ? {} : { status: OPEN_ROOM_NOTE_STATUS }),
+    },
+    select: roomNoteViewSelect,
+    orderBy: [
+      { status: "asc" },
+      { createdAt: "desc" },
+      { id: "desc" },
+    ],
   });
   return rows.map(toRoomNoteViewModel);
 }

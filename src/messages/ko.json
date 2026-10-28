@@ -109,6 +109,35 @@
     "searchButton": "조회",
     "instantDescription": "선택 필터는 즉시 반영되며, 객실 검색어는 조회 버튼 또는 Enter로 적용됩니다."
   },
+  "roomOverviewList": {
+    "listView": "리스트",
+    "cardView": "카드",
+    "viewMode": "객실 현황 보기 방식",
+    "previousDay": "이전 날짜",
+    "nextDay": "다음 날짜",
+    "roomCount": "{count}실",
+    "stay": "숙박",
+    "nights": "{count}박",
+    "nextReservation": "다음 예약",
+    "operationalStatus": "운영 상태",
+    "cleaningIncomplete": "청소 미완료",
+    "cleaningCompleted": "청소 완료",
+    "inspection": "점검",
+    "registerInspection": "등록",
+    "inspectionStatus": "상태",
+    "inspectionStates": {
+      "INCOMPLETE": "미완료",
+      "READ": "읽음",
+      "IN_PROGRESS": "처리중",
+      "COMPLETED": "완료"
+    },
+    "memo": "메모",
+    "openMemoCount": "미처리 {count}",
+    "lastSync": "최근 동기화",
+    "actions": "작업",
+    "today": "오늘",
+    "daysLater": "{count}일 후"
+  },
   "developerSettings": {
     "providerBadgeLarge": "크게"
   },
@@ -244,6 +273,93 @@
     "providerLocked": "Provider는 변경할 수 없습니다. 다른 OTA로 연결하려면 현재 연결을 삭제한 뒤 새로 등록해 주세요.",
     "saved": "캘린더 연결을 수정했습니다.",
     "urlSaved": "iCal URL을 변경했습니다."
+  },
+  "roomDeletion": {
+    "button": "삭제",
+    "ariaLabel": "{name} 객실 삭제",
+    "title": "객실을 삭제하시겠습니까?",
+    "description": "{property} · {name} 객실과 연결된 운영 데이터를 영구 삭제합니다.",
+    "loadingImpact": "삭제 영향을 확인하는 중입니다.",
+    "impactTitle": "함께 삭제되는 데이터",
+    "impact": {
+      "reservations": "예약 {count}건",
+      "calendarSources": "캘린더 연결 {count}건",
+      "syncHistory": "동기화 이력 {count}건",
+      "conflicts": "예약 충돌 {count}건",
+      "cleaningTasks": "청소 작업 {count}건",
+      "cleaningPhotos": "청소 사진 {count}장",
+      "roomNotes": "객실 메모 {count}건",
+      "listings": "숙소 링크 {count}건",
+      "reviews": "리뷰 데이터·수집 이력 {count}건"
+    },
+    "warnings": {
+      "irreversible": "삭제한 객실과 관련 데이터는 복구할 수 없습니다.",
+      "relatedData": "예약·캘린더·청소·메모·사진·리뷰 정보가 함께 삭제됩니다.",
+      "propertyPreserved": "소속 건물과 다른 객실의 데이터는 삭제되지 않습니다.",
+      "deactivateAlternative": "데이터를 보존하려면 삭제 대신 비활성화를 사용하세요."
+    },
+    "confirmationLabel": "객실명 확인",
+    "confirmationHint": "확인을 위해 ‘{name}’을(를) 정확히 입력해 주세요.",
+    "cancel": "취소",
+    "close": "닫기",
+    "confirm": "객실 영구 삭제",
+    "deleting": "삭제 중...",
+    "success": "{name} 객실과 관련 정보를 삭제했습니다.",
+    "successWithPhotoWarning": "{name} 객실 데이터는 삭제했지만 사진 파일 {count}개를 정리하지 못했습니다. 관리자에게 문의해 주세요.",
+    "errors": {
+      "invalidRequest": "잘못된 객실 삭제 요청입니다.",
+      "confirmation": "입력한 객실명이 일치하지 않습니다.",
+      "operationInProgress": "관련 캘린더 동기화 또는 리뷰 수집이 진행 중입니다. 완료 후 다시 시도해 주세요.",
+      "notFound": "삭제할 객실을 찾을 수 없습니다.",
+      "scopeChanged": "관련 정보가 변경되었습니다. 새로고침 후 다시 시도해 주세요.",
+      "forbidden": "객실을 삭제할 권한이 없습니다.",
+      "impactFailed": "삭제 영향을 불러오지 못했습니다.",
+      "failed": "객실 삭제에 실패했습니다. 데이터는 삭제되지 않았습니다."
+    }
+  },
+  "propertyDeletion": {
+    "button": "삭제",
+    "ariaLabel": "{name} 건물 삭제",
+    "title": "건물을 삭제하시겠습니까?",
+    "description": "{name}과 연결된 운영 데이터를 영구 삭제합니다.",
+    "loadingImpact": "삭제 영향을 확인하는 중입니다.",
+    "impactTitle": "함께 삭제되는 데이터",
+    "impact": {
+      "rooms": "객실 {count}개",
+      "reservations": "예약 {count}건",
+      "calendarSources": "캘린더 연결 {count}건",
+      "syncHistory": "동기화 이력 {count}건",
+      "conflicts": "예약 충돌 {count}건",
+      "cleaningTasks": "청소 작업 {count}건",
+      "cleaningPhotos": "청소 사진 {count}장",
+      "roomNotes": "객실 메모 {count}건",
+      "listings": "숙소 링크 {count}건",
+      "reviews": "리뷰 데이터·수집 이력 {count}건"
+    },
+    "warnings": {
+      "irreversible": "삭제한 건물과 관련 데이터는 복구할 수 없습니다.",
+      "relatedData": "객실·예약·캘린더·청소·메모·사진·리뷰 정보가 함께 삭제됩니다.",
+      "companyPreserved": "회사와 다른 건물의 데이터는 삭제되지 않습니다.",
+      "deactivateAlternative": "데이터를 보존하려면 삭제 대신 비활성화를 사용하세요."
+    },
+    "confirmationLabel": "건물명 확인",
+    "confirmationHint": "확인을 위해 ‘{name}’을(를) 정확히 입력해 주세요.",
+    "cancel": "취소",
+    "close": "닫기",
+    "confirm": "건물 영구 삭제",
+    "deleting": "삭제 중...",
+    "success": "{name} 건물과 관련 정보를 삭제했습니다.",
+    "successWithPhotoWarning": "{name} 건물 데이터는 삭제했지만 사진 파일 {count}개를 정리하지 못했습니다. 관리자에게 문의해 주세요.",
+    "errors": {
+      "invalidRequest": "잘못된 건물 삭제 요청입니다.",
+      "confirmation": "입력한 건물명이 일치하지 않습니다.",
+      "operationInProgress": "관련 캘린더 동기화 또는 리뷰 수집이 진행 중입니다. 완료 후 다시 시도해 주세요.",
+      "notFound": "삭제할 건물을 찾을 수 없습니다.",
+      "scopeChanged": "관련 정보가 변경되었습니다. 새로고침 후 다시 시도해 주세요.",
+      "forbidden": "건물을 삭제할 권한이 없습니다.",
+      "impactFailed": "삭제 영향을 불러오지 못했습니다.",
+      "failed": "건물 삭제에 실패했습니다. 데이터는 삭제되지 않았습니다."
+    }
   },
   "calendarSourceDeletion": {
     "button": "삭제",

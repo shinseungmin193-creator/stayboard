@@ -117,14 +117,55 @@ test("마이그레이션은 기존 완료 청소 메모를 보강하고 원본 �
   assert.match(migration, /REFERENCES "CleaningTask"\("id"\) ON DELETE CASCADE/);
 });
 
-test("기본 객실 메모 페이지는 OPEN 상태를 사용하고 completed/all 쿼리를 유지한다", () => {
+test("기존 객실 메모 URL은 객실 현황 popup deep link로 이동한다", () => {
   const page = read("src/app/room-notes/page.tsx");
-  const filter = read("src/features/room-notes/components/room-note-filter-bar.tsx");
-  assert.match(page, /status: parseRoomNoteStatusFilter/);
-  assert.match(page, /filters\.status !== "OPEN"/);
-  assert.match(filter, /value="open"/);
-  assert.match(filter, /value="completed"/);
-  assert.match(filter, /value="all"/);
+  assert.match(page, /redirect\(`\/room-overview/);
+  assert.match(page, /target\.set\("roomId", roomId\)/);
+  assert.match(page, /target\.set\("openMemo", "true"\)/);
+});
+
+test("STAFF는 원본 등록·수정·삭제 없이 조회와 처리만 할 수 있다", () => {
+  const access = read("src/features/access-control/domain/access-control.ts");
+  const staff = access.slice(access.indexOf("STAFF: ["));
+  assert.match(staff, /ROOM_NOTE_READ/);
+  assert.match(staff, /ROOM_NOTE_COMPLETE/);
+  assert.doesNotMatch(staff, /ROOM_NOTE_CREATE/);
+  assert.doesNotMatch(staff, /ROOM_NOTE_UPDATE/);
+  assert.doesNotMatch(staff, /ROOM_NOTE_DELETE/);
+});
+
+test("popup 실제 열기에서만 STAFF 최초 확인 기록을 남기고 처리·해결 actor를 감사 로그에 기록한다", () => {
+  const actions = read("src/features/room-notes/room-note.actions.ts");
+  const service = read("src/features/room-notes/server/room-note.service.ts");
+  assert.match(actions, /openRoomInspectionAction[\s\S]*acknowledgeOpenRoomNotes/);
+  assert.match(service, /context\.role !== "STAFF"/);
+  assert.match(service, /acknowledgedAt: null/);
+  assert.match(service, /ROOM_NOTES_ACKNOWLEDGED/);
+  assert.match(service, /ROOM_NOTE_PROCESSING_SAVED/);
+  assert.match(service, /processedById: context\.userId/);
+  assert.match(service, /completedByUserId: context\.userId/);
+});
+
+test("새 메모 알림 hook은 회사 STAFF와 객실 popup deep link를 대상으로 한다", () => {
+  const service = read("src/features/room-notes/server/room-note.service.ts");
+  const notification = read("src/features/room-notes/server/room-note-notification.ts");
+  assert.match(service, /recipientRole: "STAFF"/);
+  assert.match(service, /withBasePath\(`\/room-overview/);
+  assert.match(service, /openMemo=true/);
+  assert.match(notification, /recipientRole: "STAFF"/);
+});
+
+test("객실 현황 메모 등록은 선택 사진을 공통 검증 후 권한이 있는 note 단위 API에 저장한다", () => {
+  const composer = read("src/features/room-notes/components/room-note-composer-dialog.tsx");
+  const upload = read("src/app/api/room-notes/[noteId]/photos/route.ts");
+  const readPhoto = read("src/app/api/room-notes/photos/[photoId]/route.ts");
+  assert.match(composer, /type="file"/);
+  assert.match(composer, /multiple/);
+  assert.match(composer, /isSupportedCleaningPhotoSelection/);
+  assert.match(composer, /\/api\/room-notes\/\$\{encodeURIComponent\(result\.data\.id\)\}\/photos/);
+  assert.match(upload, /requireRoomNoteAccess\(noteId, PERMISSIONS\.ROOM_NOTE_UPDATE\)/);
+  assert.match(upload, /validateCleaningPhoto/);
+  assert.match(readPhoto, /requireRoomAccess\(photo\.roomNote\.roomId, PERMISSIONS\.ROOM_NOTE_READ\)/);
 });
 
 test("PC·모바일 목록과 상세에서 상태 변경, 권한별 삭제, 확인창을 제공한다", () => {
@@ -139,9 +180,14 @@ test("PC·모바일 목록과 상세에서 상태 변경, 권한별 삭제, 확�
   assert.match(list, /completedAt/);
 });
 
-test("객실 메모 스키마는 상태·완료 처리자·청소 원본 관계를 명시한다", () => {
+test("객실 메모 스키마는 확인·처리·해결 actor와 청소 원본 관계를 명시한다", () => {
   const schema = read("prisma/schema.prisma");
   assert.match(schema, /enum RoomNoteStatus \{[\s\S]*OPEN[\s\S]*COMPLETED/);
   assert.match(schema, /completedByUserId\s+String\?/);
+  assert.match(schema, /acknowledgedById\s+String\?/);
+  assert.match(schema, /processedById\s+String\?/);
+  assert.match(schema, /resolutionNote\s+String\?/);
+  assert.match(schema, /model RoomNotePhoto \{/);
+  assert.match(schema, /@@unique\(\[roomNoteId, clientUploadId\]\)/);
   assert.match(schema, /cleaningTaskId\s+String\?\s+@unique/);
 });

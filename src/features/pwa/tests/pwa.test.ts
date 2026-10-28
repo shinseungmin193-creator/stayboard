@@ -110,6 +110,15 @@ test("service worker is versioned, updates immediately, and never caches busines
   assert.match(registration, /registration\.update\(\)/);
 });
 
+test("객실 메모 알림 클릭은 기존 PWA 창을 같은 origin deep link로 이동한다", () => {
+  const worker = readFileSync("public/sw.js", "utf8");
+  assert.match(worker, /notificationclick/);
+  assert.match(worker, /event\.notification\.data\?\.href/);
+  assert.match(worker, /target\.origin !== self\.location\.origin/);
+  assert.match(worker, /existing\.navigate\(target\.href\)/);
+  assert.match(worker, /self\.clients\.openWindow\(target\.href\)/);
+});
+
 test("mobile install UX captures Android prompt and iOS standalone state", () => {
   const hook = readFileSync("src/features/pwa/hooks/use-pwa-install.ts", "utf8");
   const navigation = readFileSync("src/components/layout/mobile-navigation.tsx", "utf8");

@@ -1,7 +1,7 @@
 import { addDays } from "date-fns";
-import type { CalendarProviderType, RoomOperationalStatus, SyncStatus } from "@/lib/generated/prisma/enums";
+import type { RoomOperationalStatus, SyncStatus } from "@/lib/generated/prisma/enums";
 import { getDashboardTodayRange } from "@/features/dashboard/dashboard-time";
-import { buildRoomOperationalSchedule, calculateRoomOverviewStatus, isValidReservation, matchesRoomOperationalStatus, selectCurrentReservation, selectNextReservation, sortRoomOverviewCards, summarizeRoomOverview, type RoomOverviewCard, type RoomOverviewReservation, type RoomOverviewStatus } from "../domain/room-overview";
+import { buildRoomOperationalSchedule, calculateRoomOverviewStatus, getRoomInspectionStatus, getRoomOverviewCleaningStatus, isValidReservation, matchesRoomOperationalStatus, selectCurrentReservation, selectNextReservation, sortRoomOverviewCards, summarizeRoomOverview, type RoomOverviewCard, type RoomOverviewCleaningFilter, type RoomOverviewReservation, type RoomOverviewStatus } from "../domain/room-overview";
 import { findRoomOverviewData, findUpcomingRoomOverviewConflicts } from "../infrastructure/room-overview.repository";
 import { formatRoomDisplayName } from "@/features/rooms/room-display";
 import type { AccessScope } from "@/features/access-control";
@@ -9,17 +9,19 @@ import type { CalendarRangeDays } from "../domain/room-overview-mobile";
 import { calculateOverlapRange, getReservationConflictPeers, isCurrentReservationConflict } from "@/features/reservation-conflicts/domain/reservation-conflict";
 import { getReservationDateDifference } from "@/features/reservations/reservation-date";
 
-export interface RoomOverviewFilters { propertyId?: string; query?: string; status?: RoomOverviewStatus; operationalStatus?: RoomOperationalStatus; provider?: CalendarProviderType; syncStatus?: SyncStatus; companyIds?: readonly string[]; accessScope?: AccessScope }
+export interface RoomOverviewFilters { propertyId?: string; query?: string; status?: RoomOverviewStatus; cleaningStatus?: RoomOverviewCleaningFilter; operationalStatus?: RoomOperationalStatus; syncStatus?: SyncStatus; companyIds?: readonly string[]; accessScope?: AccessScope }
 
-export async function listRoomOverview(filters: RoomOverviewFilters, now = new Date(), calendarRangeDays: CalendarRangeDays = 7) {
+export async function listRoomOverview(filters: RoomOverviewFilters, now = new Date(), calendarRangeDays: CalendarRangeDays = 7, includeOperationalScheduleConflicts = true) {
   const { start: todayStart, end: todayEnd } = getDashboardTodayRange(now);
   const rangeEnd = addDays(todayEnd, 7);
   const calendarStart = addDays(todayStart, -Math.floor(calendarRangeDays / 2));
   const calendarEnd = addDays(calendarStart, calendarRangeDays);
   const queryEnd = calendarEnd > rangeEnd ? calendarEnd : rangeEnd;
   const [rows, conflicts] = await Promise.all([
-    findRoomOverviewData({ propertyId: filters.propertyId, operationalStatus: filters.operationalStatus, companyIds: filters.companyIds, accessScope: filters.accessScope, from: calendarStart, todayStart, toExclusive: queryEnd }),
-    findUpcomingRoomOverviewConflicts({ propertyId: filters.propertyId, companyIds: filters.companyIds, accessScope: filters.accessScope, from: calendarStart, todayStart, toExclusive: queryEnd }),
+    findRoomOverviewData({ propertyId: filters.propertyId, operationalStatus: filters.operationalStatus, companyIds: filters.companyIds, accessScope: filters.accessScope, from: calendarStart, todayStart, todayEnd, toExclusive: queryEnd }),
+    includeOperationalScheduleConflicts
+      ? findUpcomingRoomOverviewConflicts({ propertyId: filters.propertyId, companyIds: filters.companyIds, accessScope: filters.accessScope, from: calendarStart, todayStart, toExclusive: queryEnd })
+      : Promise.resolve([]),
   ]);
 
   const cards = sortRoomOverviewCards(rows.map((row): RoomOverviewCard => {
@@ -44,7 +46,9 @@ export async function listRoomOverview(filters: RoomOverviewFilters, now = new D
       nextReservationLeadDays: nextReservation ? Math.max(0, getReservationDateDifference(todayStart, nextReservation.startDate) ?? 0) : null,
       reservationCount: reservations.filter((item) => item.status !== "CANCELLED" && item.status !== "BLOCKED" && isValidReservation(item)).length,
       activeConflictCount: currentConflicts.length,
-      pendingMemoCount: row._count.roomNotes,
+      pendingMemoCount: row.roomNotes.length,
+      inspectionStatus: getRoomInspectionStatus(row.roomNotes, row._count.roomNotes > row.roomNotes.length),
+      cleaningStatus: getRoomOverviewCleaningStatus(row.cleaningTasks),
       providers: [...new Set(row.calendarSources.map((source) => source.provider))],
       latestSync: syncs[0] ?? null,
       syncStates,
@@ -56,8 +60,8 @@ export async function listRoomOverview(filters: RoomOverviewFilters, now = new D
   const filteredCards = cards.filter((card) => {
     if (normalizedQuery && !`${card.code} ${card.name} ${card.propertyName}`.toLocaleLowerCase("ko").includes(normalizedQuery)) return false;
     if (filters.status && card.status !== filters.status) return false;
+    if (filters.cleaningStatus && card.cleaningStatus !== filters.cleaningStatus) return false;
     if (filters.operationalStatus && !matchesRoomOperationalStatus(card, filters.operationalStatus)) return false;
-    if (filters.provider && !card.providers.includes(filters.provider)) return false;
     if (filters.syncStatus && !card.syncStates.some((sync) => sync.status === filters.syncStatus)) return false;
     return true;
   });

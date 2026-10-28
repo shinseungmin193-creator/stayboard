@@ -286,7 +286,10 @@ model User {
   cleaningTasksCompleted  CleaningTask[]         @relation("CleaningTaskCompletedBy")
   cleaningTaskLogs        CleaningTaskLog[]      @relation("CleaningTaskLogActor")
   cleaningPhotosUploaded  CleaningPhoto[]        @relation("CleaningPhotoUploader")
+  roomNotePhotosUploaded  RoomNotePhoto[]        @relation("RoomNotePhotoUploader")
   roomNotesAuthored       RoomNote[]             @relation("RoomNoteAuthor")
+  roomNotesAcknowledged   RoomNote[]             @relation("RoomNoteAcknowledgedBy")
+  roomNotesProcessed      RoomNote[]             @relation("RoomNoteProcessedBy")
   roomNotesCompleted      RoomNote[]             @relation("RoomNoteCompletedBy")
   developerRoleSessions   DeveloperRoleSession[]
   reviewSyncLogs          ReviewSyncLog[]        @relation("ReviewSyncActor")
@@ -689,33 +692,65 @@ model CleaningPhoto {
 /// Manual notes keep their content here. Cleaning note rows contain only
 /// source/status metadata; their content and photos remain on CleaningTask.
 model RoomNote {
-  id                String             @id @default(cuid())
-  companyId         String
-  propertyId        String
-  roomId            String
-  authorUserId      String?
-  authorName        String
-  content           String?
-  sourceType        RoomNoteSourceType @default(MANUAL)
-  cleaningTaskId    String?            @unique
-  status            RoomNoteStatus     @default(OPEN)
-  completedAt       DateTime?
-  completedByUserId String?
-  completedByName   String?
-  createdAt         DateTime           @default(now())
-  updatedAt         DateTime           @updatedAt
-  company           Company            @relation(fields: [companyId], references: [id], onDelete: Restrict)
-  property          Property           @relation(fields: [propertyId], references: [id], onDelete: Restrict)
-  room              Room               @relation(fields: [roomId], references: [id], onDelete: Restrict)
-  author            User?              @relation("RoomNoteAuthor", fields: [authorUserId], references: [id], onDelete: Restrict)
-  completedBy       User?              @relation("RoomNoteCompletedBy", fields: [completedByUserId], references: [id], onDelete: SetNull)
-  cleaningTask      CleaningTask?      @relation(fields: [cleaningTaskId], references: [id], onDelete: Cascade)
+  id                 String             @id @default(cuid())
+  companyId          String
+  propertyId         String
+  roomId             String
+  authorUserId       String?
+  authorName         String
+  content            String?
+  sourceType         RoomNoteSourceType @default(MANUAL)
+  cleaningTaskId     String?            @unique
+  status             RoomNoteStatus     @default(OPEN)
+  resolutionNote     String?
+  acknowledgedAt     DateTime?
+  acknowledgedById   String?
+  acknowledgedByName String?
+  processedAt        DateTime?
+  processedById      String?
+  processedByName    String?
+  completedAt        DateTime?
+  completedByUserId  String?
+  completedByName    String?
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+  company            Company            @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  property           Property           @relation(fields: [propertyId], references: [id], onDelete: Restrict)
+  room               Room               @relation(fields: [roomId], references: [id], onDelete: Restrict)
+  author             User?              @relation("RoomNoteAuthor", fields: [authorUserId], references: [id], onDelete: Restrict)
+  acknowledgedBy     User?              @relation("RoomNoteAcknowledgedBy", fields: [acknowledgedById], references: [id], onDelete: SetNull)
+  processedBy        User?              @relation("RoomNoteProcessedBy", fields: [processedById], references: [id], onDelete: SetNull)
+  completedBy        User?              @relation("RoomNoteCompletedBy", fields: [completedByUserId], references: [id], onDelete: SetNull)
+  cleaningTask       CleaningTask?      @relation(fields: [cleaningTaskId], references: [id], onDelete: Cascade)
+  photos             RoomNotePhoto[]
 
   @@index([companyId, status, createdAt, id])
   @@index([propertyId, status, createdAt, id])
   @@index([roomId, status, createdAt, id])
   @@index([authorUserId, createdAt])
+  @@index([acknowledgedById, acknowledgedAt])
+  @@index([processedById, processedAt])
   @@index([completedByUserId, completedAt])
+}
+
+model RoomNotePhoto {
+  id             String   @id @default(cuid())
+  roomNoteId     String
+  clientUploadId String
+  storageKey     String   @unique
+  originalName   String
+  mimeType       String
+  size           Int
+  width          Int?
+  height         Int?
+  uploadedById   String
+  createdAt      DateTime @default(now())
+  roomNote       RoomNote @relation(fields: [roomNoteId], references: [id], onDelete: Cascade)
+  uploadedBy     User     @relation("RoomNotePhotoUploader", fields: [uploadedById], references: [id], onDelete: Restrict)
+
+  @@unique([roomNoteId, clientUploadId])
+  @@index([roomNoteId, createdAt])
+  @@index([uploadedById, createdAt])
 }
 
 model ReservationConflict {

@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { buildRoomOperationalSchedule, calculateRoomOverviewStatus, getReservationOperationalDay, getRoomOverviewGuestName, getRoomOverviewStatusLabel, matchesRoomOperationalStatus, requiresRoomInspection, sortRoomOverviewCards, summarizeRoomOverview, type RoomOverviewCard, type RoomOverviewReservation } from "../domain/room-overview";
+import { buildRoomOperationalSchedule, calculateRoomOverviewStatus, getReservationOperationalDay, getRoomInspectionStatus, getRoomOverviewCleaningStatus, getRoomOverviewGuestName, getRoomOverviewStatusLabel, groupRoomOverviewByProperty, matchesRoomOperationalStatus, requiresRoomInspection, sortRoomOverviewCards, summarizeRoomOverview, type RoomOverviewCard, type RoomOverviewReservation } from "../domain/room-overview";
 import { buildCalendarDateRange, buildMobileRoomCalendarSegments, filterMobileRooms, getCalendarRangeStart, groupRoomsForCalendar, moveRoomOverviewDate, parseCalendarRangeDays, parseRoomOverviewDateKey, sortMobileRooms, summarizeMobileRooms } from "../domain/room-overview-mobile";
 import { getRoomOperationalStatusLabel } from "../../rooms/room-operational-status";
 import { AlertTriangle, ArrowDownToLine, ArrowUpFromLine, BedDouble, BrushCleaning, House, Wrench } from "lucide-react";
@@ -42,9 +42,50 @@ test("오늘 체크아웃과 체크인이 겹치는 turnover는 체크아웃 우
 });
 test("예약자 이름이 없으면 가짜 이름을 만들지 않는다", () => { assert.equal(getRoomOverviewGuestName(reservation({ guestName: "Kim" })), "Kim"); assert.equal(getRoomOverviewGuestName(reservation()), "예약자 정보 없음"); assert.equal(getRoomOverviewGuestName(reservation({ status: "BLOCKED" })), "예약자 정보 없음"); assert.equal(getRoomOverviewGuestName(reservation({ provider: "BOOKING" })), "예약자 정보 없음"); });
 
-const card = (overrides: Partial<RoomOverviewCard>): RoomOverviewCard => ({ id: "1", propertyId: "p", propertyName: "세레니테", name: "객실", code: "801", sortOrder: 0, operationalStatus: "NONE", operationalStatusUpdatedAt: null, status: "VACANT", currentReservation: null, nextReservation: null, nextReservationLeadDays: null, reservationCount: 0, activeConflictCount: 0, pendingMemoCount: 0, providers: [], latestSync: null, syncStates: [], reservations: [], ...overrides });
+const card = (overrides: Partial<RoomOverviewCard>): RoomOverviewCard => ({ id: "1", propertyId: "p", propertyName: "세레니테", name: "객실", code: "801", sortOrder: 0, operationalStatus: "NONE", operationalStatusUpdatedAt: null, status: "VACANT", currentReservation: null, nextReservation: null, nextReservationLeadDays: null, reservationCount: 0, activeConflictCount: 0, pendingMemoCount: 0, inspectionStatus: "NONE", cleaningStatus: "NONE", providers: [], latestSync: null, syncStates: [], reservations: [], ...overrides });
 test("객실은 숙소·sortOrder·객실 코드 순서로 정렬한다", () => { const result = sortRoomOverviewCards([card({ id: "801", code: "801", sortOrder: 2 }), card({ id: "303", code: "303", sortOrder: 1 }), card({ id: "701", code: "701", sortOrder: 2 })]); assert.deepEqual(result.map((item) => item.id), ["303", "701", "801"]); });
+test("PC 리스트는 숙소별로 객실을 묶고 같은 공통 상태 집계를 사용한다", () => {
+  const groups = groupRoomOverviewByProperty([
+    card({ id: "g2", propertyId: "gran", propertyName: "그란", code: "505", sortOrder: 2, status: "OCCUPIED", pendingMemoCount: 1 }),
+    card({ id: "c1", propertyId: "center", propertyName: "센터코즈", code: "202", sortOrder: 1, status: "CHECK_OUT_TODAY" }),
+    card({ id: "g1", propertyId: "gran", propertyName: "그란", code: "301", sortOrder: 1, status: "CHECK_IN_TODAY" }),
+  ]);
+
+  assert.deepEqual(groups.map(({ id, rooms }) => ({ id, rooms: rooms.map((room) => room.id) })), [
+    { id: "gran", rooms: ["g1", "g2"] },
+    { id: "center", rooms: ["c1"] },
+  ]);
+  assert.equal(groups[0].summary.statuses.CHECK_IN_TODAY, 1);
+  assert.equal(groups[0].summary.statuses.OCCUPIED, 1);
+  assert.equal(groups[0].summary.operationalStatuses.INSPECTION_REQUIRED, 1);
+});
 test("자동 상태와 청소 상태·미완료 메모 기반 점검 상태를 집계한다", () => { const result = summarizeRoomOverview([card({ status: "VACANT" }), card({ id: "2", status: "OCCUPIED", operationalStatus: "CLEANING_REQUIRED" }), card({ id: "3", status: "CONFLICT", pendingMemoCount: 2 })]); assert.equal(result.total, 3); assert.equal(result.statuses.VACANT, 1); assert.equal(result.statuses.CONFLICT, 1); assert.equal(result.operationalStatuses.CLEANING_REQUIRED, 1); assert.equal(result.operationalStatuses.INSPECTION_REQUIRED, 1); });
+test("선택 날짜 청소는 미완료를 우선하고 완료·없음을 분리한다", () => {
+  assert.equal(getRoomOverviewCleaningStatus([]), "NONE");
+  assert.equal(getRoomOverviewCleaningStatus([{ status: "CANCELLED" }]), "NONE");
+  assert.equal(getRoomOverviewCleaningStatus([{ status: "COMPLETED" }]), "COMPLETED");
+  assert.equal(getRoomOverviewCleaningStatus([{ status: "COMPLETED" }, { status: "PENDING" }]), "INCOMPLETE");
+  assert.equal(getRoomOverviewCleaningStatus([{ status: "IN_PROGRESS" }]), "INCOMPLETE");
+});
+test("청소 완료·미완료 탭 count는 선택 날짜 상태만 집계한다", () => {
+  const result = summarizeRoomOverview([
+    card({ id: "none", cleaningStatus: "NONE" }),
+    card({ id: "pending", cleaningStatus: "INCOMPLETE" }),
+    card({ id: "done", cleaningStatus: "COMPLETED" }),
+  ]);
+  assert.deepEqual(result.cleaningStatuses, { INCOMPLETE: 1, COMPLETED: 1 });
+});
+test("점검 상태는 미완료·읽음·처리중·완료를 기존 기록에서 계산한다", () => {
+  assert.equal(getRoomInspectionStatus([], false), "NONE");
+  assert.equal(getRoomInspectionStatus([], true), "COMPLETED");
+  assert.equal(getRoomInspectionStatus([{ acknowledgedAt: null, processedAt: null }]), "INCOMPLETE");
+  assert.equal(getRoomInspectionStatus([{ acknowledgedAt: new Date(), processedAt: null }]), "READ");
+  assert.equal(getRoomInspectionStatus([{ acknowledgedAt: new Date(), processedAt: new Date() }]), "IN_PROGRESS");
+  assert.equal(getRoomInspectionStatus([
+    { acknowledgedAt: new Date(), processedAt: new Date() },
+    { acknowledgedAt: null, processedAt: null },
+  ]), "INCOMPLETE");
+});
 test("점검 필요는 OPEN 객실 메모 집계 수가 1개 이상일 때만 판정한다", () => {
   assert.equal(requiresRoomInspection(card({ pendingMemoCount: 0 })), false);
   assert.equal(requiresRoomInspection(card({ pendingMemoCount: 1 })), true);
@@ -97,7 +138,8 @@ test("객실 카드 점검 배지는 OPEN 메모 count를 사용하고 정상 �
   const mobileCard = readFileSync("src/features/room-overview/components/compact-room-status-card.tsx", "utf8");
 
   assert.match(repository, /roomNotes: \{ some: \{ status: OPEN_ROOM_NOTE_STATUS \} \}/);
-  assert.match(repository, /_count: \{ select: \{ roomNotes: \{ where: \{ status: OPEN_ROOM_NOTE_STATUS \} \} \} \}/);
+  assert.match(repository, /_count: \{ select: \{ roomNotes: true \} \}/);
+  assert.match(repository, /roomNotes: \{[\s\S]*where: \{ status: OPEN_ROOM_NOTE_STATUS \}[\s\S]*acknowledgedAt: true, processedAt: true/);
   assert.doesNotMatch(repository, /prisma\.roomNote\.(findMany|count)/);
   assert.match(desktopCard, /requiresRoomInspection\(card\)/);
   assert.match(desktopCard, /RoomInspectionButton/);
@@ -132,7 +174,7 @@ test("점검 필요 요약 수는 빨간 테두리 대상 카드 수와 동일�
   assert.equal(summary.operationalStatuses.INSPECTION_REQUIRED, 3);
 });
 
-test("점검 badge는 페이지 이동 대신 지연 조회 Dialog를 열고 상세 보기에서만 객실 메모 페이지로 이동한다", () => {
+test("점검 badge는 페이지 이동 없이 확인 기록을 포함한 지연 조회 Dialog를 연다", () => {
   const desktopCard = readFileSync("src/features/room-overview/components/room-overview-card.tsx", "utf8");
   const grid = readFileSync("src/features/room-overview/components/room-overview-card-grid.tsx", "utf8");
   const dialog = readFileSync("src/features/room-overview/components/room-inspection-dialog.tsx", "utf8");
@@ -142,26 +184,26 @@ test("점검 badge는 페이지 이동 대신 지연 조회 Dialog를 열고 상
   assert.match(desktopCard, /onInspectionActivate\?: \(room: RoomOverviewCardData\)/);
   assert.match(grid, /setInspectionRoomId\(room\.id\)/);
   assert.match(grid, /RoomInspectionDialog/);
-  assert.match(dialog, /getPendingRoomNotesAction\(\{ roomId: target\.id \}\)/);
-  assert.match(dialog, /status=open/);
+  assert.match(dialog, /openRoomInspectionAction\(\{ roomId, includeResolved: withResolved \}\)/);
+  assert.match(dialog, /해결 이력 보기/);
   assert.match(dialog, /CleaningPhotoUploader[\s\S]*readOnly/);
   assert.match(mobileCard, /<article/);
   assert.match(mobileCard, /data-room-inspection-trigger|RoomInspectionButton/);
   assert.match(detailSheet, /onInspectionActivate\(room\)/);
 });
 
-test("popup 완료 처리는 기존 RoomNote action을 재사용하고 카드 count·border·요약을 즉시 갱신한다", () => {
+test("popup 처리·해결은 카드 count·border·요약을 즉시 갱신한다", () => {
   const dialog = readFileSync("src/features/room-overview/components/room-inspection-dialog.tsx", "utf8");
   const hook = readFileSync("src/features/room-overview/hooks/use-room-inspection-counts.ts", "utf8");
   const mobileWorkspace = readFileSync("src/features/room-overview/components/mobile-room-status-workspace.tsx", "utf8");
   const actions = readFileSync("src/features/room-notes/room-note.actions.ts", "utf8");
 
-  assert.match(dialog, /changeRoomNoteStatusAction\(\{ id: noteId, status: "COMPLETED" \}\)/);
-  assert.match(dialog, /currentNotes\.filter\(\(note\) => note\.id !== noteId\)/);
-  assert.match(dialog, /onPendingMemoCountChange\(currentRoom\.id, notes\.length\)/);
-  assert.match(dialog, /if \(!notes\.length\) close\(\)/);
-  assert.match(dialog, /router\.refresh\(\)/);
+  assert.match(dialog, /saveRoomNoteProcessingAction\(\{ id: note\.id, resolutionNote, resolved \}\)/);
+  assert.match(dialog, /fetchState\.notes\.filter\(\(item\) => item\.id !== note\.id\)/);
+  assert.match(dialog, /onPendingMemoCountChange\([\s\S]*targetRoom\.id,[\s\S]*nextOpenCount/);
+  assert.match(dialog, /nextOpenCount === 0\) close\(\)/);
   assert.match(hook, /pendingMemoCount: override\.count/);
+  assert.match(hook, /inspectionStatus: override\.inspectionStatus/);
   assert.match(mobileWorkspace, /summarizeMobileRooms\(rooms\)/);
   assert.match(actions, /revalidatePath\("\/room-overview"\)/);
 });
@@ -329,28 +371,26 @@ test("모바일 타임라인은 좁은 객실 열과 간결한 OTA·공실 표�
 test("객실 현황 select 필터는 기존 URL 조건을 유지하며 즉시 병합한다", () => {
   let params = new URLSearchParams("query=301&date=2026-09-18");
   params = updateRoomOverviewFilterParams(params, "status", "CHECK_OUT_TODAY");
-  params = updateRoomOverviewFilterParams(params, "provider", "AIRBNB");
+  params = updateRoomOverviewFilterParams(params, "cleaningStatus", "INCOMPLETE");
   params = updateRoomOverviewFilterParams(params, "propertyId", "centercoz");
-  params = updateRoomOverviewFilterParams(params, "operationalStatus", "INSPECTION_REQUIRED");
   params = updateRoomOverviewFilterParams(params, "syncStatus", "FAILED");
   assert.deepEqual(Object.fromEntries(params), {
     query: "301",
     date: "2026-09-18",
     status: "CHECK_OUT_TODAY",
-    provider: "AIRBNB",
+    cleaningStatus: "INCOMPLETE",
     propertyId: "centercoz",
-    operationalStatus: "INSPECTION_REQUIRED",
     syncStatus: "FAILED",
   });
 });
 
 test("select 기본값 복원은 해당 query만 제거하고 최신 연속 조건을 보존한다", () => {
-  let params = new URLSearchParams("status=CHECK_OUT_TODAY&provider=AIRBNB&propertyId=centercoz");
+  let params = new URLSearchParams("status=CHECK_OUT_TODAY&cleaningStatus=INCOMPLETE&propertyId=centercoz");
   params = updateRoomOverviewFilterParams(params, "status", "VACANT");
-  params = updateRoomOverviewFilterParams(params, "provider", "BOOKING");
+  params = updateRoomOverviewFilterParams(params, "cleaningStatus", "COMPLETED");
   params = updateRoomOverviewFilterParams(params, "status", "");
   assert.equal(params.has("status"), false);
-  assert.equal(params.get("provider"), "BOOKING");
+  assert.equal(params.get("cleaningStatus"), "COMPLETED");
   assert.equal(params.get("propertyId"), "centercoz");
 });
 
@@ -358,9 +398,10 @@ test("PC select는 즉시 replace하고 검색어만 조회 또는 Enter 제출�
   const form = readFileSync("src/features/room-overview/components/room-overview-filter-form.tsx", "utf8");
   const toolbar = readFileSync("src/features/room-overview/components/room-overview-toolbar.tsx", "utf8");
   assert.match(form, /onChange=\{\(event\) => replaceFilter\("status"/);
-  assert.match(form, /onChange=\{\(event\) => replaceFilter\("provider"/);
   assert.match(form, /onChange=\{\(event\) => replaceFilter\("propertyId"/);
-  assert.match(form, /onChange=\{\(event\) => replaceFilter\("operationalStatus"/);
+  assert.doesNotMatch(form, /name="provider"|name="operationalStatus"/);
+  assert.match(toolbar, /cleaningHref\("INCOMPLETE"\)/);
+  assert.match(toolbar, /cleaningHref\("COMPLETED"\)/);
   assert.match(form, /router\.replace\([\s\S]*\{ scroll: false \}\)/);
   assert.match(form, /onSubmit=\{submitSearch\}/);
   assert.match(form, /roomOverviewFilters\.searchButton/);
@@ -377,6 +418,67 @@ test("모바일 Sheet select는 draft 없이 즉시 적용하고 초기화도 �
   assert.match(sheet, /onApply\(filters, nextPropertyId \|\| undefined\)/);
   assert.match(sheet, /onReset\(\)/);
   assert.match(hook, /resetFilters[\s\S]*applyFilters\(next, undefined\)/);
+});
+
+test("PC 객실 현황은 리스트를 기본값으로 사용하고 카드 View를 같은 데이터로 전환한다", () => {
+  const page = readFileSync("src/app/room-overview/page.tsx", "utf8");
+  const workspace = readFileSync("src/features/room-overview/components/room-overview-desktop-workspace.tsx", "utf8");
+  const viewHook = readFileSync("src/features/room-overview/hooks/use-desktop-room-overview-view-mode.ts", "utf8");
+  const developerForm = readFileSync("src/features/developer-settings/components/developer-settings-form.tsx", "utf8");
+
+  assert.match(page, /RoomOverviewDesktopWorkspace/);
+  assert.doesNotMatch(page, /RoomOverviewSchedule|RoomOverviewSettingsLayout/);
+  assert.match(viewHook, /return isDesktopViewMode\(stored\) \? stored : "list"/);
+  assert.match(viewHook, /\(\) => "list" as const/);
+  assert.match(workspace, /viewMode === "list"/);
+  assert.match(workspace, /<RoomOverviewListView/);
+  assert.match(workspace, /<RoomOverviewCard/);
+  assert.match(workspace, /initialVisibleRooms/);
+  assert.doesNotMatch(developerForm, /field="schedulePanelWidth"/);
+  assert.doesNotMatch(developerForm, /\["schedulePanelVisible",/);
+});
+
+test("PC 밀집 리스트는 불필요한 운영·메모·작업 열 없이 점검 상태와 마지막 동기화를 제공한다", () => {
+  const list = readFileSync("src/features/room-overview/components/room-overview-list-view.tsx", "utf8");
+  const workspace = readFileSync("src/features/room-overview/components/room-overview-desktop-workspace.tsx", "utf8");
+
+  assert.match(list, /groupRoomOverviewByProperty\(rooms\)/);
+  assert.match(list, /useCollapsedRoomGroups\(\)/);
+  assert.match(list, /aria-expanded=\{!collapsed\}/);
+  assert.match(list, /ROOM_STATUS_THEME\[room\.status\]/);
+  assert.match(list, /RoomInspectionButton/);
+  assert.match(list, /onInspectionActivate\(room\)/);
+  assert.doesNotMatch(list, /RoomOverviewProviderBadges|RoomOverviewOperationalStatusMenu|>Provider</);
+  assert.doesNotMatch(list, /DropdownMenu|roomOverviewList\.memo|roomOverviewList\.actions|roomOverviewList\.operationalStatus/);
+  assert.match(list, /registerInspection/);
+  assert.match(list, /inspectionStates\.\$\{status\}/);
+  assert.match(list, /canCreateRoomNotes && <Button/);
+  assert.match(list, /roomOverviewList\.lastSync[\s\S]*<\/tr>/);
+  assert.match(list, /getMobileSyncLabel\(room, i18n\)/);
+  assert.match(workspace, /RoomInspectionDialog/);
+  assert.match(workspace, /updatePendingMemoCount/);
+});
+
+test("PC 리스트는 기존 bulk 객실 현황 응답만 사용하고 모바일 workspace는 유지한다", () => {
+  const repository = readFileSync("src/features/room-overview/infrastructure/room-overview.repository.ts", "utf8");
+  const page = readFileSync("src/app/room-overview/page.tsx", "utf8");
+  const workspace = readFileSync("src/features/room-overview/components/room-overview-desktop-workspace.tsx", "utf8");
+  const application = readFileSync("src/features/room-overview/application/list-room-overview.ts", "utf8");
+
+  assert.match(repository, /prisma\.room\.findMany/);
+  assert.match(repository, /reservations:/);
+  assert.match(repository, /calendarSources:/);
+  assert.match(repository, /roomNotes:/);
+  assert.match(repository, /acknowledgedAt: true, processedAt: true/);
+  assert.match(application, /getRoomInspectionStatus\(row\.roomNotes, row\._count\.roomNotes > row\.roomNotes\.length\)/);
+  assert.match(repository, /cleaningTasks:/);
+  assert.match(repository, /scheduledDate: \{ gte: input\.todayStart, lt: input\.todayEnd \}/);
+  assert.match(repository, /status: \{ not: "CANCELLED" \}/);
+  assert.doesNotMatch(workspace, /fetch\(|useQuery|findMany/);
+  assert.match(page, /<MobileRoomStatusWorkspace/);
+  assert.match(page, /<RoomOverviewDesktopWorkspace/);
+  assert.match(page, /listRoomOverview\([^;]+calendarRange, false\)/);
+  assert.match(application, /includeOperationalScheduleConflicts[\s\S]+Promise\.resolve\(\[\]\)/);
 });
 
 test("PC 객실 현황은 개발자 UI 설정 CSS 변수를 모든 노출 항목에 연결한다", () => {

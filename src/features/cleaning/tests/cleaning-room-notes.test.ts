@@ -45,10 +45,10 @@ test("객실 메모 완료는 기존 RoomNote Server Action과 권한 검사를 
   }
 });
 
-test("완료 성공 뒤 청소 화면과 객실 메모 화면을 같은 source of truth로 갱신한다", () => {
+test("완료 성공 뒤 청소 화면과 통합 객실 현황을 같은 source of truth로 갱신한다", () => {
   const action = read("src/features/room-notes/room-note.actions.ts");
   const workspace = read("src/features/cleaning/components/cleaning-workspace.tsx");
-  assert.match(action, /revalidatePath\("\/room-notes"\)[\s\S]*revalidatePath\("\/cleaning"\)/);
+  assert.match(action, /revalidatePath\("\/room-overview"\)[\s\S]*revalidatePath\("\/cleaning"\)/);
   assert.match(workspace, /onCompleted=\{\(message\) => \{ showNotice\(message\); router\.refresh\(\); \}\}/);
 });
 

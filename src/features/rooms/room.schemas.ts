@@ -13,6 +13,11 @@ export const roomInputSchema = z.object({
 });
 export const roomUpdateSchema = roomInputSchema.extend({ id: z.string().trim().min(1) });
 export const roomActiveSchema = z.object({ id: z.string().trim().min(1), isActive: z.enum(["true", "false"]).transform((value) => value === "true") });
+export const roomDeleteSchema = z.object({
+  roomId: z.string().trim().cuid(),
+  confirmationText: z.string().trim().min(1).max(NAME_MAX_LENGTH),
+});
+export const roomDeleteImpactSchema = roomDeleteSchema.pick({ roomId: true });
 export const roomOperationalStatusSchema = z.object({ roomId: z.string().trim().min(1), operationalStatus: z.enum(ROOM_OPERATIONAL_STATUS_VALUES) });
 
 const roomCalendarProviderSchema = z.custom<RoomCalendarProvider>(

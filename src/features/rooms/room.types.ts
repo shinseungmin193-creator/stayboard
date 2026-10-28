@@ -34,3 +34,34 @@ export interface RoomListItem {
     isActive: boolean;
   }>;
 }
+
+export interface RoomDeleteImpact {
+  reservationCount: number;
+  calendarSourceCount: number;
+  syncHistoryCount: number;
+  conflictCount: number;
+  cleaningTaskCount: number;
+  cleaningPhotoCount: number;
+  roomNoteCount: number;
+  roomListingCount: number;
+  reviewDataCount: number;
+  accessAssignmentCount: number;
+}
+
+export interface RoomDeleteTarget {
+  id: string;
+  propertyId: string;
+  propertyName: string;
+  companyId: string;
+  name: string;
+  calendarSourceIds: string[];
+  roomListingIds: string[];
+}
+
+export interface RoomDeleteResult extends RoomDeleteImpact {
+  roomId: string;
+  roomName: string;
+  propertyName: string;
+  deletedPhotoFileCount: number;
+  failedPhotoFileCount: number;
+}

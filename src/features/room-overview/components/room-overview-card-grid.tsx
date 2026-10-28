@@ -31,6 +31,10 @@ export function RoomOverviewCardGrid({ cards, canUpdateOperationalStatus, canRea
       room={inspectionRoom}
       open={Boolean(inspectionRoom)}
       canComplete={canCompleteRoomNotes}
+      canCreate={false}
+      canUpdate={false}
+      canDelete={false}
+      onCreate={() => undefined}
       onOpenChange={(open) => { if (!open) setInspectionRoomId(null); }}
       onPendingMemoCountChange={updatePendingMemoCount}
     />

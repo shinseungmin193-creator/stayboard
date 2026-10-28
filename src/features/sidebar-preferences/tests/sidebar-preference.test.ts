@@ -105,7 +105,6 @@ test("역할 권한과 사용자 숨김 설정을 순서 설정에 함께 적용
   assert.equal(staff.some((item) => item.id === "dashboard"), false);
   assert.equal(staff.some((item) => item.id === "room-overview"), true);
   assert.equal(staff.some((item) => item.id === "cleaning"), true);
-  assert.equal(staff.some((item) => item.id === "room-notes"), true);
   const developer = getAuthorizedSidebarMenus(SIDEBAR_MENU_ITEMS, DEFAULT_SIDEBAR_PREFERENCE, "DEVELOPER");
   const admin = getAuthorizedSidebarMenus(SIDEBAR_MENU_ITEMS, DEFAULT_SIDEBAR_PREFERENCE, "ADMIN");
   assert.equal(developer.some((item) => item.id === "developer-settings"), true);
@@ -118,10 +117,10 @@ test("역할 권한과 사용자 숨김 설정을 순서 설정에 함께 적용
   assert.equal(admin.some((item) => item.id === "property-reviews"), true);
 });
 
-test("기본 순서에서 객실 메모는 업무 구간에 배치된다", () => {
+test("객실 메모는 객실 현황에 통합되어 독립 사이드바 항목을 만들지 않는다", () => {
   const keys = menuKeys(DEFAULT_SIDEBAR_PREFERENCE.menuOrder);
-  assert.ok(keys.indexOf("cleaning") < keys.indexOf("room-notes"));
-  assert.ok(keys.indexOf("room-notes") < keys.indexOf("property-reviews"));
+  assert.equal(keys.includes("room-notes" as never), false);
+  assert.equal(SIDEBAR_MENU_ITEMS.some((item) => (item.id as string) === "room-notes"), false);
 });
 
 test("사용자 지정 이름은 메뉴 ID별로 정규화하고 기본 정의는 변경하지 않는다", () => {

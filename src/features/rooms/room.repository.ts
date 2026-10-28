@@ -1,15 +1,17 @@
 import "server-only";
 import { randomUUID } from "node:crypto";
 import { prisma } from "@/lib/prisma";
-import type { Prisma } from "@/lib/generated/prisma/client";
+import { Prisma } from "@/lib/generated/prisma/client";
 import { findCalendarSourceSyncStates } from "@/features/calendar-sources/calendar-source.repository";
-import type { RoomListItem } from "./room.types";
+import type { RoomDeleteImpact, RoomDeleteResult, RoomDeleteTarget, RoomListItem } from "./room.types";
 import type { RoomRegistrationInput } from "./create-room-registration";
 import type { RoomOperationalStatus } from "@/lib/generated/prisma/enums";
 import type { RoomWithCalendarSourcesAtomicInput } from "./update-room-with-calendar-sources";
 import { formatRoomDisplayName } from "./room-display";
 import { CALENDAR_SYNC_STALE_RUNNING_MS } from "@/features/calendar-sync/calendar-sync.constants";
 import type { NormalizedRoomListing } from "./room-listing";
+import { isRoomDeletionConfirmationValid } from "./domain/room-deletion";
+import { deleteRoomRelatedData } from "./room-related-data-deletion";
 
 type RoomWriteInput = { propertyId: string; name: string; capacity: number };
 const internalRoomCode = () => `room_${randomUUID()}`;
@@ -212,3 +214,158 @@ export function roomExists(id: string) { return prisma.room.findUnique({ where: 
 export function setRoomActive(id: string, isActive: boolean) { return prisma.room.update({ where: { id }, data: { isActive }, select: { id: true, isActive: true } }); }
 export function findRoomForOperationalStatus(id: string) { return prisma.room.findUnique({ where: { id }, select: { id: true, property: { select: { companyId: true } } } }); }
 export function updateRoomOperationalStatusRecord(id: string, operationalStatus: RoomOperationalStatus, operationalStatusUpdatedAt: Date) { return prisma.room.update({ where: { id }, data: { operationalStatus, operationalStatusUpdatedAt }, select: { id: true, operationalStatus: true, operationalStatusUpdatedAt: true } }); }
+
+const roomDeleteTargetSelect = {
+  id: true,
+  propertyId: true,
+  name: true,
+  property: { select: { name: true, companyId: true } },
+  calendarSources: { select: { id: true } },
+  listings: { select: { id: true } },
+} as const satisfies Prisma.RoomSelect;
+
+function toRoomDeleteTarget(
+  room: Prisma.RoomGetPayload<{ select: typeof roomDeleteTargetSelect }>,
+): RoomDeleteTarget {
+  return {
+    id: room.id,
+    propertyId: room.propertyId,
+    propertyName: room.property.name,
+    companyId: room.property.companyId,
+    name: formatRoomDisplayName(room),
+    calendarSourceIds: room.calendarSources.map((source) => source.id),
+    roomListingIds: room.listings.map((listing) => listing.id),
+  };
+}
+
+export async function findRoomDeleteTarget(id: string): Promise<RoomDeleteTarget | null> {
+  const room = await prisma.room.findUnique({ where: { id }, select: roomDeleteTargetSelect });
+  return room ? toRoomDeleteTarget(room) : null;
+}
+
+export async function countRoomDeleteImpact(roomId: string): Promise<RoomDeleteImpact> {
+  const [
+    reservationCount,
+    calendarSourceCount,
+    syncLogCount,
+    syncRunCount,
+    conflictCount,
+    cleaningTaskCount,
+    cleaningPhotoCount,
+    roomNoteCount,
+    roomListingCount,
+    reviewSnapshotCount,
+    listingReviewCount,
+    reviewSyncLogCount,
+    accessAssignmentCount,
+  ] = await Promise.all([
+    prisma.reservation.count({ where: { roomId } }),
+    prisma.calendarSource.count({ where: { roomId } }),
+    prisma.syncLog.count({ where: { calendarSource: { roomId } } }),
+    prisma.syncRun.count({ where: { roomId } }),
+    prisma.reservationConflict.count({ where: { roomId } }),
+    prisma.cleaningTask.count({ where: { roomId } }),
+    prisma.cleaningPhoto.count({ where: { task: { roomId } } }),
+    prisma.roomNote.count({ where: { roomId } }),
+    prisma.roomListing.count({ where: { roomId } }),
+    prisma.reviewSnapshot.count({ where: { roomListing: { roomId } } }),
+    prisma.listingReview.count({ where: { roomListing: { roomId } } }),
+    prisma.reviewSyncLog.count({ where: { roomListing: { roomId } } }),
+    prisma.staffAssignment.count({ where: { roomId } }),
+  ]);
+  return {
+    reservationCount,
+    calendarSourceCount,
+    syncHistoryCount: syncLogCount + syncRunCount,
+    conflictCount,
+    cleaningTaskCount,
+    cleaningPhotoCount,
+    roomNoteCount,
+    roomListingCount,
+    reviewDataCount: reviewSnapshotCount + listingReviewCount + reviewSyncLogCount,
+    accessAssignmentCount,
+  };
+}
+
+export type RoomDeletionRepositoryErrorCode = "NOT_FOUND" | "SCOPE_CHANGED" | "CONFIRMATION_MISMATCH";
+
+export class RoomDeletionRepositoryError extends Error {
+  constructor(readonly code: RoomDeletionRepositoryErrorCode) {
+    super(code);
+    this.name = "RoomDeletionRepositoryError";
+  }
+}
+
+function sameIds(left: readonly string[], right: readonly string[]) {
+  if (left.length !== right.length) return false;
+  const rightSet = new Set(right);
+  return left.every((id) => rightSet.has(id));
+}
+
+interface RoomDeleteTransactionResult {
+  result: Omit<RoomDeleteResult, "deletedPhotoFileCount" | "failedPhotoFileCount">;
+  photoStorageKeys: string[];
+}
+
+export async function deleteRoomTransaction(input: {
+  target: RoomDeleteTarget;
+  actorUserId: string;
+  confirmationText: string;
+  auditMetadata: Prisma.InputJsonObject;
+}): Promise<RoomDeleteTransactionResult> {
+  return prisma.$transaction(async (tx) => {
+    const currentRoom = await tx.room.findUnique({
+      where: { id: input.target.id },
+      select: roomDeleteTargetSelect,
+    });
+    if (!currentRoom) throw new RoomDeletionRepositoryError("NOT_FOUND");
+    const currentTarget = toRoomDeleteTarget(currentRoom);
+    if (
+      currentTarget.propertyId !== input.target.propertyId
+      || currentTarget.companyId !== input.target.companyId
+      || currentTarget.name !== input.target.name
+      || !sameIds(currentTarget.calendarSourceIds, input.target.calendarSourceIds)
+      || !sameIds(currentTarget.roomListingIds, input.target.roomListingIds)
+    ) {
+      throw new RoomDeletionRepositoryError("SCOPE_CHANGED");
+    }
+    if (!isRoomDeletionConfirmationValid(input.confirmationText, currentTarget.name)) {
+      throw new RoomDeletionRepositoryError("CONFIRMATION_MISMATCH");
+    }
+
+    const related = await deleteRoomRelatedData(tx, {
+      roomIds: [currentTarget.id],
+      calendarSourceIds: currentTarget.calendarSourceIds,
+      roomListingIds: currentTarget.roomListingIds,
+    });
+    const deletedRoom = await tx.room.deleteMany({
+      where: { id: currentTarget.id, propertyId: currentTarget.propertyId },
+    });
+    if (deletedRoom.count !== 1) throw new RoomDeletionRepositoryError("SCOPE_CHANGED");
+
+    const result = {
+      roomId: currentTarget.id,
+      roomName: currentTarget.name,
+      propertyName: currentTarget.propertyName,
+      ...related.counts,
+    };
+    await tx.auditLog.create({
+      data: {
+        actorUserId: input.actorUserId,
+        targetCompanyId: currentTarget.companyId,
+        action: "ROOM_DELETED",
+        details: {
+          ...input.auditMetadata,
+          ...result,
+          propertyId: currentTarget.propertyId,
+          photoStorageFileCount: related.photoStorageKeys.length,
+        },
+      },
+    });
+    return { result, photoStorageKeys: related.photoStorageKeys };
+  }, {
+    isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+    maxWait: 10_000,
+    timeout: 60_000,
+  });
+}

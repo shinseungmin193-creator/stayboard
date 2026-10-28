@@ -6,6 +6,7 @@ import {
   automaticSyncDueBefore,
   readAutomaticCalendarSyncOptions,
 } from "../domain/automatic-sync-policy";
+import { shouldRunAutomaticSyncInWeb } from "../domain/automatic-sync-runtime";
 
 test("자동 동기화는 기본 활성화되고 stale 기준 시각을 계산한다", () => {
   const options = readAutomaticCalendarSyncOptions({});
@@ -44,4 +45,20 @@ test("Next.js Node instrumentation이 자동 동기화 스케줄러를 한 번 �
   assert.match(scheduler, /Symbol\.for\("stayboard\.calendar-auto-sync-scheduler"\)/);
   assert.match(repository, /lastSyncedAt: \{ lt: input\.dueBefore \}/);
   assert.match(repository, /take: input\.limit/);
+});
+
+test("운영 배포는 자동 동기화를 웹 프로세스와 분리하고 다른 환경은 기존 동작을 유지한다", () => {
+  assert.equal(shouldRunAutomaticSyncInWeb({}), true);
+  assert.equal(shouldRunAutomaticSyncInWeb({ CALENDAR_AUTO_SYNC_RUNNER: "web" }), true);
+  assert.equal(shouldRunAutomaticSyncInWeb({ CALENDAR_AUTO_SYNC_RUNNER: " EXTERNAL " }), false);
+
+  const nodeInstrumentation = readFileSync("src/instrumentation-node.ts", "utf8");
+  const worker = readFileSync("scripts/run-automatic-calendar-sync.ts", "utf8");
+  const deployment = readFileSync("VPS 배포.bat", "utf8");
+  assert.match(nodeInstrumentation, /shouldRunAutomaticSyncInWeb/);
+  assert.match(worker, /runAutomaticCalendarSyncCycle/);
+  assert.match(worker, /prisma\.\$disconnect\(\)/);
+  assert.match(deployment, /CALENDAR_AUTO_SYNC_RUNNER=external/);
+  assert.match(deployment, /flock -n \/var\/run\/stayboard-calendar-sync\.lock/);
+  assert.match(deployment, /nice -n 10/);
 });

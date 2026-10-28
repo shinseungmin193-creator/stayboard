@@ -9,6 +9,7 @@ import { getReviewProvider } from "../providers/review-provider-registry";
 import { ReviewFetchError } from "../providers/review-page-fetcher";
 import { REVIEW_SYNC_CONCURRENCY, REVIEW_SYNC_MAX_REVIEWS_PER_LISTING, REVIEW_SYNC_STALE_RUNNING_MS } from "../review.constants";
 import type { ReviewSyncTarget } from "../review.types";
+import { reviewSyncLockKey } from "./review-sync-lock";
 
 export interface ReviewSyncResult {
   listingId: string;
@@ -19,7 +20,6 @@ export interface ReviewSyncResult {
   message: string;
 }
 
-const lockKey = (listingId: string) => `room-listing-review:${listingId}`;
 const safeErrorMessage = (message: string) => message.replace(/https?:\/\/\S+/gi, "[URL 숨김]").replace(/[\r\n]+/g, " ").slice(0, 300);
 
 function errorDetails(provider: ReviewSyncTarget["provider"], error: unknown) {
@@ -170,7 +170,7 @@ export async function collectReviews(input: {
 }): Promise<ReviewSyncResult> {
   try {
     return await withPostgresAdvisoryLocks(
-      [lockKey(input.target.id)],
+      [reviewSyncLockKey(input.target.id)],
       () => syncWithLock(input.target, input.actorUserId),
     );
   } catch (error) {

@@ -1,0 +1,29 @@
+import { isAccessControlError, PERMISSIONS, requireRoomAccess } from "@/features/access-control";
+import { getCleaningPhotoStorage } from "@/features/cleaning/storage/local-file-storage-provider";
+import { prisma } from "@/lib/prisma";
+import { logServerError } from "@/lib/prisma-errors";
+
+export const runtime = "nodejs";
+
+export async function GET(_request: Request, { params }: { params: Promise<{ photoId: string }> }) {
+  try {
+    const photo = await prisma.roomNotePhoto.findUnique({
+      where: { id: (await params).photoId },
+      select: { storageKey: true, mimeType: true, size: true, roomNote: { select: { roomId: true } } },
+    });
+    if (!photo) return new Response(null, { status: 404 });
+    await requireRoomAccess(photo.roomNote.roomId, PERMISSIONS.ROOM_NOTE_READ);
+    const file = await getCleaningPhotoStorage().read(photo.storageKey);
+    return new Response(file.data, { headers: {
+      "Cache-Control": "private, no-store",
+      "Content-Length": String(photo.size),
+      "Content-Type": photo.mimeType,
+      "Content-Disposition": "inline",
+      "X-Content-Type-Options": "nosniff",
+    } });
+  } catch (error) {
+    if (isAccessControlError(error) || (error as NodeJS.ErrnoException).code === "ENOENT") return new Response(null, { status: 404 });
+    logServerError("room-note.photo.read", error);
+    return new Response(null, { status: 500 });
+  }
+}

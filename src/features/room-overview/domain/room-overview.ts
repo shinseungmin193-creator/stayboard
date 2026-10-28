@@ -1,4 +1,4 @@
-import type { CalendarProviderType, ReservationStatus, RoomOperationalStatus, SyncStatus } from "@/lib/generated/prisma/enums";
+import type { CalendarProviderType, CleaningTaskStatus, ReservationStatus, RoomOperationalStatus, SyncStatus } from "@/lib/generated/prisma/enums";
 import { getReservationDisplayName } from "../../reservations/reservation-display";
 import { ACTIVE_OTA_RESERVATION_STATUSES } from "../../reservations/reservation.constants";
 import type { ReservationConflictPeer } from "../../reservation-conflicts/domain/reservation-conflict";
@@ -12,6 +12,9 @@ import {
 
 export type RoomReservationState = "VACANT" | "CHECK_IN_TODAY" | "OCCUPIED" | "CHECK_OUT_TODAY" | "CONFLICT";
 export type RoomOverviewStatus = RoomReservationState;
+export type RoomOverviewCleaningStatus = "NONE" | "INCOMPLETE" | "COMPLETED";
+export type RoomOverviewCleaningFilter = Exclude<RoomOverviewCleaningStatus, "NONE">;
+export type RoomInspectionStatus = "NONE" | "INCOMPLETE" | "READ" | "IN_PROGRESS" | "COMPLETED";
 
 export const ROOM_OVERVIEW_STATUS_PRIORITY = ["CONFLICT", "CHECK_OUT_TODAY", "CHECK_IN_TODAY", "OCCUPIED", "VACANT"] as const satisfies readonly RoomReservationState[];
 
@@ -58,10 +61,19 @@ export interface RoomOverviewCard {
   reservationCount: number;
   activeConflictCount: number;
   pendingMemoCount: number;
+  inspectionStatus: RoomInspectionStatus;
+  cleaningStatus: RoomOverviewCleaningStatus;
   providers: CalendarProviderType[];
   latestSync: { status: SyncStatus; startedAt: Date; completedAt: Date | null } | null;
   syncStates: Array<{ provider: CalendarProviderType; status: SyncStatus; startedAt: Date; completedAt: Date | null }>;
   reservations: RoomOverviewReservation[];
+}
+
+export interface RoomOverviewPropertyGroup {
+  id: string;
+  name: string;
+  rooms: RoomOverviewCard[];
+  summary: ReturnType<typeof summarizeRoomOverview>;
 }
 
 export interface ReservationOperationalDay {
@@ -160,12 +172,36 @@ export function buildRoomOperationalSchedule<T extends RoomOverviewReservation>(
 export function summarizeRoomOverview(cards: RoomOverviewCard[]) {
   const statuses = Object.fromEntries(Object.keys(ROOM_OVERVIEW_STATUS_META).map((status) => [status, 0])) as Record<RoomOverviewStatus, number>;
   for (const card of cards) statuses[card.status] += 1;
+  const cleaningStatuses = { INCOMPLETE: 0, COMPLETED: 0 } satisfies Record<RoomOverviewCleaningFilter, number>;
+  for (const card of cards) {
+    if (card.cleaningStatus !== "NONE") cleaningStatuses[card.cleaningStatus] += 1;
+  }
   const operationalStatuses = { NONE: 0, CLEANING_REQUIRED: 0, INSPECTION_REQUIRED: 0 } satisfies Record<RoomOperationalStatus, number>;
   for (const card of cards) {
     if (card.operationalStatus !== "INSPECTION_REQUIRED") operationalStatuses[card.operationalStatus] += 1;
     if (requiresRoomInspection(card)) operationalStatuses.INSPECTION_REQUIRED += 1;
   }
-  return { total: cards.length, statuses, operationalStatuses };
+  return { total: cards.length, statuses, cleaningStatuses, operationalStatuses };
+}
+
+export function getRoomOverviewCleaningStatus(
+  tasks: readonly { status: CleaningTaskStatus }[],
+): RoomOverviewCleaningStatus {
+  if (tasks.some((task) => task.status === "PENDING" || task.status === "IN_PROGRESS")) {
+    return "INCOMPLETE";
+  }
+  if (tasks.some((task) => task.status === "COMPLETED")) return "COMPLETED";
+  return "NONE";
+}
+
+export function getRoomInspectionStatus(
+  openNotes: readonly { acknowledgedAt: unknown | null; processedAt: unknown | null }[],
+  hasCompletedNote = false,
+): RoomInspectionStatus {
+  if (openNotes.some((note) => note.acknowledgedAt === null)) return "INCOMPLETE";
+  if (openNotes.some((note) => note.processedAt !== null)) return "IN_PROGRESS";
+  if (openNotes.length > 0) return "READ";
+  return hasCompletedNote ? "COMPLETED" : "NONE";
 }
 
 export function requiresRoomInspection(room: Pick<RoomOverviewCard, "pendingMemoCount">) {
@@ -182,4 +218,26 @@ export function matchesRoomOperationalStatus(
 
 export function sortRoomOverviewCards(cards: RoomOverviewCard[]) {
   return [...cards].sort((a, b) => a.propertyName.localeCompare(b.propertyName, "ko") || a.sortOrder - b.sortOrder || a.code.localeCompare(b.code, "ko", { numeric: true }) || a.name.localeCompare(b.name, "ko", { numeric: true }));
+}
+
+export function groupRoomOverviewByProperty(cards: RoomOverviewCard[]): RoomOverviewPropertyGroup[] {
+  const groups = new Map<string, { id: string; name: string; rooms: RoomOverviewCard[] }>();
+
+  for (const room of sortRoomOverviewCards(cards)) {
+    const group = groups.get(room.propertyId);
+    if (group) {
+      group.rooms.push(room);
+      continue;
+    }
+    groups.set(room.propertyId, {
+      id: room.propertyId,
+      name: room.propertyName,
+      rooms: [room],
+    });
+  }
+
+  return [...groups.values()].map((group) => ({
+    ...group,
+    summary: summarizeRoomOverview(group.rooms),
+  }));
 }

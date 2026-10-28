@@ -1,7 +1,7 @@
 ﻿"use client";import { useTranslations } from "next-intl";
 
 import Link from "next/link";
-import { AlertTriangle, ArrowUpRight, CalendarDays, Clock3, List, WifiOff } from "lucide-react";
+import { AlertTriangle, ArrowUpRight, CalendarDays, Clock3, List, MessageSquarePlus, WifiOff } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -14,7 +14,7 @@ import { RoomStatusRoomSyncButton } from "./room-status-room-sync-button";
 import { getReservationDateInput, getReservationNightCount } from "@/features/reservations/reservation-date";
 import { RoomInspectionButton } from "./room-inspection-button";
 
-export function RoomDetailContent({ room, canSync, canReadRoomNotes, onInspectionActivate }: {room: RoomOverviewCard;canSync: boolean;canReadRoomNotes: boolean;onInspectionActivate: (room: RoomOverviewCard) => void;}) {const i18n = useTranslations();
+export function RoomDetailContent({ room, canSync, canReadRoomNotes, canCreateRoomNotes, onInspectionActivate, onCreateRoomNote }: {room: RoomOverviewCard;canSync: boolean;canReadRoomNotes: boolean;canCreateRoomNotes: boolean;onInspectionActivate: (room: RoomOverviewCard) => void;onCreateRoomNote: (room: RoomOverviewCard) => void;}) {const i18n = useTranslations();
   const reservation = room.currentReservation ?? room.nextReservation;
   const status = getMobileRoomStatusVisual(room, i18n);
   const StatusIcon = status.icon;
@@ -52,12 +52,13 @@ export function RoomDetailContent({ room, canSync, canReadRoomNotes, onInspectio
       <Button nativeButton={false} render={<Link href={detailHref} />} variant="outline" size="sm"><ArrowUpRight />{i18n("common.details")}</Button>
       <Button nativeButton={false} render={<Link href={reservationsHref} />} variant="outline" size="sm"><List />{i18n("common.reservation")}</Button>
       <Button nativeButton={false} render={<Link href={`/room-status?propertyId=${room.propertyId}`} />} variant="outline" size="sm"><CalendarDays />{i18n("common.calendar")}</Button>
+      {canCreateRoomNotes && <Button type="button" variant="outline" size="sm" className="col-span-3" onClick={() => onCreateRoomNote(room)}><MessageSquarePlus />메모 추가</Button>}
       {canSync && <RoomStatusRoomSyncButton roomIds={[room.id]} className="col-span-3 min-h-10" />}
     </div>
   </>;
 }
 
-export function RoomDetailSheet({ room, open, canSync, canReadRoomNotes, onInspectionActivate, onOpenChange }: {room: RoomOverviewCard | null;open: boolean;canSync: boolean;canReadRoomNotes: boolean;onInspectionActivate: (room: RoomOverviewCard) => void;onOpenChange: (open: boolean) => void;}) {const i18n = useTranslations();
+export function RoomDetailSheet({ room, open, canSync, canReadRoomNotes, canCreateRoomNotes, onInspectionActivate, onCreateRoomNote, onOpenChange }: {room: RoomOverviewCard | null;open: boolean;canSync: boolean;canReadRoomNotes: boolean;canCreateRoomNotes: boolean;onInspectionActivate: (room: RoomOverviewCard) => void;onCreateRoomNote: (room: RoomOverviewCard) => void;onOpenChange: (open: boolean) => void;}) {const i18n = useTranslations();
   return <Sheet open={open} onOpenChange={onOpenChange}>
     <SheetContent side="bottom" className="h-[82dvh] max-h-[82dvh] gap-3 overflow-hidden p-0" aria-label={i18n("auto.m0473")}>
       {room && <>
@@ -65,7 +66,7 @@ export function RoomDetailSheet({ room, open, canSync, canReadRoomNotes, onInspe
           <SheetTitle className="text-lg font-bold">{room.name}</SheetTitle>
           <SheetDescription>{room.propertyName}</SheetDescription>
         </SheetHeader>
-        <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto"><RoomDetailContent room={room} canSync={canSync} canReadRoomNotes={canReadRoomNotes} onInspectionActivate={onInspectionActivate} /></div>
+        <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto"><RoomDetailContent room={room} canSync={canSync} canReadRoomNotes={canReadRoomNotes} canCreateRoomNotes={canCreateRoomNotes} onInspectionActivate={onInspectionActivate} onCreateRoomNote={onCreateRoomNote} /></div>
       </>}
     </SheetContent>
   </Sheet>;

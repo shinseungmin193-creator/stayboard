@@ -1,16 +1,38 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { getTranslations } from "next-intl/server";
 import { authorizeAccess, FORBIDDEN_ACTION_RESULT, isAccessControlError, PERMISSIONS, requirePropertyAccess } from "@/features/access-control";
 import type { ActionResult } from "@/lib/action-result";
 import { actionFailureFromError, isPrismaUniqueError, logServerError } from "@/lib/prisma-errors";
 import { findCompany } from "@/features/companies";
 import { createProperty, propertyExists, setPropertyActive, updateProperty } from "./property.repository";
-import { propertyActiveSchema, propertyInputSchema, propertyUpdateSchema } from "./property.schemas";
+import { propertyActiveSchema, propertyDeleteImpactSchema, propertyDeleteSchema, propertyInputSchema, propertyUpdateSchema } from "./property.schemas";
+import {
+  deletePropertySafely,
+  getPropertyDeleteImpact,
+  getPropertyDeleteTarget,
+  PropertyDeletionServiceError,
+} from "./property-deletion.service";
+import type { PropertyDeleteImpact, PropertyDeleteResult } from "./property.types";
 
 function fields(formData: FormData) { return { companyId: formData.get("companyId"), name: formData.get("name"), address: formData.get("address"), timezone: formData.get("timezone") || "Asia/Tokyo" }; }
 function validationFailure(error: { flatten(): { fieldErrors: Record<string, string[]> } }): ActionResult { return { success: false, message: "입력 내용을 확인해 주세요.", fieldErrors: error.flatten().fieldErrors }; }
-const PROPERTY_DATA_PATHS = ["/", "/properties", "/rooms", "/calendar-sources", "/room-overview", "/room-status"] as const;
+const PROPERTY_DATA_PATHS = [
+  "/",
+  "/properties",
+  "/rooms",
+  "/calendar-sources",
+  "/reservations",
+  "/room-overview",
+  "/room-status",
+  "/dashboard",
+  "/reservation-conflicts",
+  "/cleaning",
+  "/room-notes",
+  "/property-reviews",
+  "/statistics/occupancy",
+] as const;
 function revalidatePropertyData() { for (const path of PROPERTY_DATA_PATHS) revalidatePath(path); }
 
 export async function createPropertyAction(_state: ActionResult, formData: FormData): Promise<ActionResult> {
@@ -67,5 +89,56 @@ export async function setPropertyActiveAction(_state: ActionResult, formData: Fo
     if (isAccessControlError(error)) return FORBIDDEN_ACTION_RESULT;
     logServerError("setPropertyActive", error);
     return { success: false, message: "숙소 상태를 변경하지 못했습니다." };
+  }
+}
+
+async function propertyDeletionFailure<T>(error: unknown, context: string): Promise<ActionResult<T>> {
+  const t = await getTranslations("propertyDeletion");
+  if (isAccessControlError(error)) return { ...FORBIDDEN_ACTION_RESULT, message: t("errors.forbidden") };
+  if (error instanceof PropertyDeletionServiceError) {
+    if (error.code === "NOT_FOUND") return { success: false, status: 404, errorCode: "NOT_FOUND", message: t("errors.notFound") };
+    if (error.code === "CONFIRMATION_MISMATCH") return { success: false, status: 422, errorCode: "VALIDATION_ERROR", message: t("errors.confirmation") };
+    if (error.code === "RELATED_OPERATION_IN_PROGRESS") return { success: false, status: 409, errorCode: "SYNC_FAILED", message: t("errors.operationInProgress") };
+    return { success: false, status: 409, errorCode: "VALIDATION_ERROR", message: t("errors.scopeChanged") };
+  }
+  const failure = await actionFailureFromError(error, context);
+  return { ...failure, message: t("errors.failed") };
+}
+
+export async function getPropertyDeleteImpactAction(propertyId: string): Promise<ActionResult<PropertyDeleteImpact>> {
+  const parsed = propertyDeleteImpactSchema.safeParse({ propertyId });
+  const t = await getTranslations("propertyDeletion");
+  if (!parsed.success) return { success: false, status: 422, errorCode: "VALIDATION_ERROR", message: t("errors.invalidRequest") };
+  try {
+    await requirePropertyAccess(parsed.data.propertyId, PERMISSIONS.PROPERTY_MANAGE);
+    const target = await getPropertyDeleteTarget(parsed.data.propertyId);
+    return { success: true, data: await getPropertyDeleteImpact(target.id) };
+  } catch (error) {
+    return propertyDeletionFailure<PropertyDeleteImpact>(error, "getPropertyDeleteImpact");
+  }
+}
+
+export async function deletePropertyAction(input: {
+  propertyId: string;
+  confirmationText: string;
+}): Promise<ActionResult<PropertyDeleteResult>> {
+  const parsed = propertyDeleteSchema.safeParse(input);
+  const t = await getTranslations("propertyDeletion");
+  if (!parsed.success) return { success: false, status: 422, errorCode: "VALIDATION_ERROR", message: t("errors.invalidRequest") };
+  try {
+    const context = await requirePropertyAccess(parsed.data.propertyId, PERMISSIONS.PROPERTY_MANAGE);
+    const target = await getPropertyDeleteTarget(parsed.data.propertyId);
+    const data = await deletePropertySafely({
+      target,
+      confirmationText: parsed.data.confirmationText,
+      context,
+    });
+    revalidatePropertyData();
+    const message = data.failedPhotoFileCount > 0
+      ? t("successWithPhotoWarning", { name: data.propertyName, count: data.failedPhotoFileCount })
+      : t("success", { name: data.propertyName });
+    return { success: true, data, message };
+  } catch (error) {
+    return propertyDeletionFailure<PropertyDeleteResult>(error, "deleteProperty");
   }
 }

@@ -6,12 +6,15 @@ export class CalendarSyncAlreadyRunningError extends Error {
   constructor() { super("이미 동기화가 진행 중입니다. 잠시 후 다시 시도해 주세요."); this.name = "CalendarSyncAlreadyRunningError"; }
 }
 
-const sourceLockKey = (calendarSourceId: string) => `calendar-source:${calendarSourceId}`;
-const roomLockKey = (roomId: string) => `reservation-conflicts-room:${roomId}`;
+export const calendarSourceSyncLockKey = (calendarSourceId: string) => `calendar-source:${calendarSourceId}`;
+export const calendarRoomSyncLockKey = (roomId: string) => `reservation-conflicts-room:${roomId}`;
 
 export async function withCalendarSourceAdvisoryLock<T>(calendarSourceId: string, roomId: string, operation: () => Promise<T>): Promise<T> {
   try {
-    return await withPostgresAdvisoryLocks([sourceLockKey(calendarSourceId), roomLockKey(roomId)], operation);
+    return await withPostgresAdvisoryLocks(
+      [calendarSourceSyncLockKey(calendarSourceId), calendarRoomSyncLockKey(roomId)],
+      operation,
+    );
   } catch (error) {
     if (error instanceof AdvisoryLockUnavailableError) throw new CalendarSyncAlreadyRunningError();
     throw error;

@@ -1,10 +1,11 @@
 import type { Instrumentation } from "next";
 import { startAutomaticCalendarSyncScheduler } from "@/features/calendar-sync/application/automatic-calendar-sync";
+import { shouldRunAutomaticSyncInWeb } from "@/features/calendar-sync/domain/automatic-sync-runtime";
 import { saveErrorLog } from "@/features/error-logs/error-log.repository";
 import { classifyServerError } from "@/lib/server-error";
 
 export function registerNodeInstrumentation() {
-  startAutomaticCalendarSyncScheduler();
+  if (shouldRunAutomaticSyncInWeb()) startAutomaticCalendarSyncScheduler();
 }
 
 export const onNodeRequestError: Instrumentation.onRequestError = async (error, request, context) => {

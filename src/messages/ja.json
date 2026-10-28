@@ -109,6 +109,35 @@
     "searchButton": "検索",
     "instantDescription": "選択フィルターはすぐに反映され、客室検索は検索ボタンまたはEnterで適用されます。"
   },
+  "roomOverviewList": {
+    "listView": "リスト",
+    "cardView": "カード",
+    "viewMode": "客室状況の表示形式",
+    "previousDay": "前の日",
+    "nextDay": "次の日",
+    "roomCount": "{count}室",
+    "stay": "宿泊",
+    "nights": "{count}泊",
+    "nextReservation": "次の予約",
+    "operationalStatus": "運営状態",
+    "cleaningIncomplete": "清掃未完了",
+    "cleaningCompleted": "清掃完了",
+    "inspection": "点検",
+    "registerInspection": "登録",
+    "inspectionStatus": "状態",
+    "inspectionStates": {
+      "INCOMPLETE": "未完了",
+      "READ": "既読",
+      "IN_PROGRESS": "対応中",
+      "COMPLETED": "完了"
+    },
+    "memo": "メモ",
+    "openMemoCount": "未処理 {count}",
+    "lastSync": "最終同期",
+    "actions": "操作",
+    "today": "今日",
+    "daysLater": "{count}日後"
+  },
   "developerSettings": {
     "providerBadgeLarge": "大きく"
   },
@@ -244,6 +273,93 @@
     "providerLocked": "Providerは変更できません。別のOTAに接続する場合は、現在の接続を削除してから新しく登録してください。",
     "saved": "カレンダー連携を更新しました。",
     "urlSaved": "iCal URLを変更しました。"
+  },
+  "roomDeletion": {
+    "button": "削除",
+    "ariaLabel": "{name}の客室を削除",
+    "title": "客室を削除しますか？",
+    "description": "{property}・{name}の客室と関連する運用データを完全に削除します。",
+    "loadingImpact": "削除の影響を確認しています。",
+    "impactTitle": "同時に削除されるデータ",
+    "impact": {
+      "reservations": "予約 {count}件",
+      "calendarSources": "カレンダー連携 {count}件",
+      "syncHistory": "同期履歴 {count}件",
+      "conflicts": "予約競合 {count}件",
+      "cleaningTasks": "清掃タスク {count}件",
+      "cleaningPhotos": "清掃写真 {count}枚",
+      "roomNotes": "客室メモ {count}件",
+      "listings": "宿泊施設リンク {count}件",
+      "reviews": "レビュー・収集履歴 {count}件"
+    },
+    "warnings": {
+      "irreversible": "削除した客室と関連データは復元できません。",
+      "relatedData": "予約・カレンダー・清掃・メモ・写真・レビュー情報も削除されます。",
+      "propertyPreserved": "所属する建物と他の客室データは削除されません。",
+      "deactivateAlternative": "データを保持する場合は、削除ではなく無効化を利用してください。"
+    },
+    "confirmationLabel": "客室名の確認",
+    "confirmationHint": "確認のため「{name}」を正確に入力してください。",
+    "cancel": "キャンセル",
+    "close": "閉じる",
+    "confirm": "客室を完全に削除",
+    "deleting": "削除中...",
+    "success": "{name}の客室と関連情報を削除しました。",
+    "successWithPhotoWarning": "{name}の客室データは削除しましたが、写真ファイル{count}件を整理できませんでした。管理者へお問い合わせください。",
+    "errors": {
+      "invalidRequest": "客室削除リクエストが正しくありません。",
+      "confirmation": "入力した客室名が一致しません。",
+      "operationInProgress": "関連するカレンダー同期またはレビュー収集中です。完了後にもう一度お試しください。",
+      "notFound": "削除する客室が見つかりません。",
+      "scopeChanged": "関連情報が変更されました。更新してからもう一度お試しください。",
+      "forbidden": "客室を削除する権限がありません。",
+      "impactFailed": "削除の影響を読み込めませんでした。",
+      "failed": "客室の削除に失敗しました。データは削除されていません。"
+    }
+  },
+  "propertyDeletion": {
+    "button": "削除",
+    "ariaLabel": "{name}の建物を削除",
+    "title": "建物を削除しますか？",
+    "description": "{name}と関連する運用データを完全に削除します。",
+    "loadingImpact": "削除の影響を確認しています。",
+    "impactTitle": "同時に削除されるデータ",
+    "impact": {
+      "rooms": "客室 {count}件",
+      "reservations": "予約 {count}件",
+      "calendarSources": "カレンダー連携 {count}件",
+      "syncHistory": "同期履歴 {count}件",
+      "conflicts": "予約競合 {count}件",
+      "cleaningTasks": "清掃タスク {count}件",
+      "cleaningPhotos": "清掃写真 {count}枚",
+      "roomNotes": "客室メモ {count}件",
+      "listings": "宿泊施設リンク {count}件",
+      "reviews": "レビュー・収集履歴 {count}件"
+    },
+    "warnings": {
+      "irreversible": "削除した建物と関連データは復元できません。",
+      "relatedData": "客室・予約・カレンダー・清掃・メモ・写真・レビュー情報も削除されます。",
+      "companyPreserved": "会社と他の建物のデータは削除されません。",
+      "deactivateAlternative": "データを保持する場合は、削除ではなく無効化を利用してください。"
+    },
+    "confirmationLabel": "建物名の確認",
+    "confirmationHint": "確認のため「{name}」を正確に入力してください。",
+    "cancel": "キャンセル",
+    "close": "閉じる",
+    "confirm": "建物を完全に削除",
+    "deleting": "削除中...",
+    "success": "{name}と関連情報を削除しました。",
+    "successWithPhotoWarning": "{name}のデータは削除しましたが、写真ファイル{count}件を整理できませんでした。管理者へお問い合わせください。",
+    "errors": {
+      "invalidRequest": "建物削除リクエストが正しくありません。",
+      "confirmation": "入力した建物名が一致しません。",
+      "operationInProgress": "関連するカレンダー同期またはレビュー収集中です。完了後にもう一度お試しください。",
+      "notFound": "削除する建物が見つかりません。",
+      "scopeChanged": "関連情報が変更されました。更新してからもう一度お試しください。",
+      "forbidden": "建物を削除する権限がありません。",
+      "impactFailed": "削除の影響を読み込めませんでした。",
+      "failed": "建物の削除に失敗しました。データは削除されていません。"
+    }
   },
   "calendarSourceDeletion": {
     "button": "削除",

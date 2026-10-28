@@ -32,6 +32,11 @@ export interface RoomNoteViewModel {
   content: string;
   authorName: string;
   createdAt: string;
+  resolutionNote: string;
+  acknowledgedAt: string | null;
+  acknowledgedByName: string | null;
+  processedAt: string | null;
+  processedByName: string | null;
   completedAt: string | null;
   completedByName: string | null;
   cleaningTaskId: string | null;

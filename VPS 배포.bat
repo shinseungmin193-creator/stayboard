@@ -249,7 +249,9 @@ fi
 node scripts/ensure-developer-role-switch-env.mjs "$ENV_FILE"
 node scripts/ensure-developer-role-switch-env.mjs --check "$ENV_FILE"
 export ENABLE_DEVELOPER_ROLE_SWITCH=true
+export CALENDAR_AUTO_SYNC_RUNNER=external
 echo "[환경 확인] 권한 테스트 모드가 활성화되어 있습니다."
+echo "[환경 확인] 자동 캘린더 동기화는 웹 프로세스와 분리합니다."
 
 echo "[5/14] 청소 사진 영구 저장 경로와 쓰기 권한을 확인합니다."
 if [[ ! -f scripts/verify-cleaning-photo-storage.mjs ]]; then
@@ -334,15 +336,18 @@ process.stdin.on("end", () => {
   if (!app) throw new Error(`PM2 앱을 찾을 수 없습니다: ${appName}`);
   const env = app.pm2_env || {};
   const roleSwitchEnabled = String(env.ENABLE_DEVELOPER_ROLE_SWITCH || "").trim().toLowerCase() === "true";
+  const calendarSyncRunner = String(env.CALENDAR_AUTO_SYNC_RUNNER || "").trim().toLowerCase();
   if (env.status !== "online") throw new Error(`PM2 상태가 online이 아닙니다: ${env.status || "unknown"}`);
   if (env.pm_cwd !== expectedCwd) throw new Error(`PM2 cwd가 올바르지 않습니다: ${env.pm_cwd || "unset"}`);
   if (env.NODE_ENV !== "production") throw new Error(`PM2 NODE_ENV가 production이 아닙니다: ${env.NODE_ENV || "unset"}`);
   if (!roleSwitchEnabled) throw new Error("PM2 프로세스에 권한 테스트 환경변수가 반영되지 않았습니다.");
+  if (calendarSyncRunner !== "external") throw new Error("PM2 웹 프로세스에서 자동 캘린더 동기화가 분리되지 않았습니다.");
   if (env.CLEANING_PHOTO_STORAGE_DIR !== expectedPhotoStorage) throw new Error(`PM2 청소 사진 저장 경로가 올바르지 않습니다: ${env.CLEANING_PHOTO_STORAGE_DIR || "unset"}`);
   console.log(`[환경 확인] PM2 status=${env.status}`);
   console.log(`[환경 확인] PM2 cwd=${env.pm_cwd}`);
   console.log(`[환경 확인] PM2 NODE_ENV=${env.NODE_ENV}`);
   console.log("[환경 확인] ENABLE_DEVELOPER_ROLE_SWITCH=true");
+  console.log("[환경 확인] CALENDAR_AUTO_SYNC_RUNNER=external");
   console.log(`[환경 확인] CLEANING_PHOTO_STORAGE_DIR=${env.CLEANING_PHOTO_STORAGE_DIR}`);
 });
 ' "$PM2_APP" "$REMOTE_PATH" "$PHOTO_STORAGE_DIR"
@@ -366,7 +371,7 @@ if [[ "$UPLOAD_STATUS" == "413" ]]; then
 fi
 echo "[업로드 크기 확인] 10 MiB 요청이 프록시를 통과했습니다. HTTP=$UPLOAD_STATUS"
 
-echo "[13/14] 청소 사진 7일 보관 정리 작업을 등록합니다."
+echo "[13/14] 정기 유지보수 작업을 등록합니다."
 NODE_BIN_DIR="$(dirname "$(command -v node)")"
 NPM_BIN="$(command -v npm)"
 CLEANUP_CRON="/etc/cron.d/stayboard-cleaning-photos"
@@ -377,5 +382,27 @@ printf '%s\n' \
   > "$CLEANUP_CRON"
 chmod 0644 "$CLEANUP_CRON"
 echo "[보관 정책 확인] 매일 03:17 cleanup:cleaning-photos 실행"
+
+CALENDAR_SYNC_CRON="/etc/cron.d/stayboard-calendar-sync"
+printf '%s\n' \
+  'SHELL=/bin/bash' \
+  "PATH=$NODE_BIN_DIR:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin" \
+  "*/5 * * * * root cd \"$REMOTE_PATH\" && flock -n /var/run/stayboard-calendar-sync.lock nice -n 10 env NODE_ENV=production \"$NPM_BIN\" run calendar-sync:auto >> /var/log/stayboard-calendar-sync.log 2>&1" \
+  > "$CALENDAR_SYNC_CRON"
+chmod 0644 "$CALENDAR_SYNC_CRON"
+
+CALENDAR_SYNC_LOGROTATE="/etc/logrotate.d/stayboard-calendar-sync"
+printf '%s\n' \
+  '/var/log/stayboard-calendar-sync.log {' \
+  '  weekly' \
+  '  rotate 4' \
+  '  compress' \
+  '  missingok' \
+  '  notifempty' \
+  '  copytruncate' \
+  '}' \
+  > "$CALENDAR_SYNC_LOGROTATE"
+chmod 0644 "$CALENDAR_SYNC_LOGROTATE"
+echo "[동기화 정책 확인] 5분마다 별도 저우선순위 작업으로 자동 캘린더 동기화 실행"
 
 echo "[14/14] 배포 후 환경 및 서비스 확인이 완료되었습니다."

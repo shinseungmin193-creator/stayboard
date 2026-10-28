@@ -28,7 +28,6 @@ export const DEFAULT_SIDEBAR_ITEM_ORDER: readonly SidebarOrderItem[] = [
   { type: "DIVIDER", id: "divider:default-management" },
   { type: "MENU", key: "occupancy-statistics" },
   { type: "MENU", key: "cleaning" },
-  { type: "MENU", key: "room-notes" },
   { type: "MENU", key: "property-reviews" },
   { type: "DIVIDER", id: "divider:default-work" },
   { type: "MENU", key: "member-management" },
@@ -72,7 +71,7 @@ function menuItem(key: SidebarMenuId): SidebarMenuOrderItem {
 // reads these sections; after normalization the divider positions are explicit.
 const LEGACY_SECTIONS: readonly (readonly SidebarMenuId[])[] = [
   ["dashboard", "room-overview", "room-status", "reservations", "cleaning", "reservation-conflicts"],
-  ["properties", "rooms", "room-notes", "calendar-sources", "member-management"],
+  ["properties", "rooms", "calendar-sources", "member-management"],
   ["occupancy-statistics", "property-reviews"],
   ["admin-settings"],
   ["developer-settings", "developer-users", "developer-companies", "developer-audit-logs", "developer-error-logs"],

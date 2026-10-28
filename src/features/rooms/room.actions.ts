@@ -1,5 +1,6 @@
 "use server";
 import { revalidatePath } from "next/cache";
+import { getTranslations } from "next-intl/server";
 import { authorizeAccess, FORBIDDEN_ACTION_RESULT, isAccessControlError, PERMISSIONS, requirePropertyAccess, requireRoomAccess } from "@/features/access-control";
 import type { CalendarDraftConnectionResult } from "@/features/calendar-sources/calendar-source.types";
 import { CalendarSourceServiceError, normalizeCalendarUrl, testCalendarUrlConnection } from "@/features/calendar-sources/calendar-source.service";
@@ -7,16 +8,37 @@ import type { ActionResult } from "@/lib/action-result";
 import { actionFailureFromError, isPrismaUniqueError, logServerError } from "@/lib/prisma-errors";
 import { propertyExists } from "@/features/properties";
 import { createRoomWithCalendarSources, findRoomWithCalendarSourcesForUpdate, roomExists, setRoomActive, updateRoom, updateRoomWithCalendarSourcesAtomically } from "./room.repository";
-import { roomActiveSchema, roomInputSchema, roomUpdateSchema, roomWithCalendarSourcesUpdateSchema } from "./room.schemas";
+import { roomActiveSchema, roomDeleteImpactSchema, roomDeleteSchema, roomInputSchema, roomUpdateSchema, roomWithCalendarSourcesUpdateSchema } from "./room.schemas";
 import { createRoomRegistration, RoomRegistrationError } from "./create-room-registration";
 import { calendarUrlField, prepareRoomCalendarDrafts, ROOM_CALENDAR_PROVIDER_CONFIG, testedCalendarUrlField, type RoomCalendarProvider, type SupportedRoomCalendarProvider } from "./room-calendar-draft";
 import { updateRoomWithCalendarSources, UpdateRoomCalendarError, type UpdateRoomWithCalendarSourcesInput } from "./update-room-with-calendar-sources";
 import { ListingUrlError } from "@/features/reviews/domain/listing-provider";
 import { listingUrlField, normalizeRoomListingDrafts, roomListingDraftsFromFormData } from "./room-listing";
+import {
+  deleteRoomSafely,
+  getRoomDeleteImpact,
+  getRoomDeleteTarget,
+  RoomDeletionServiceError,
+} from "./room-deletion.service";
+import type { RoomDeleteImpact, RoomDeleteResult } from "./room.types";
 
 function fields(formData: FormData) { return { propertyId: formData.get("propertyId"), name: formData.get("name"), capacity: formData.get("capacity") }; }
 function validationFailure(error: { flatten(): { fieldErrors: Record<string, string[]> } }): ActionResult { return { success: false, message: "입력 내용을 확인해 주세요.", fieldErrors: error.flatten().fieldErrors }; }
-const ROOM_DATA_PATHS = ["/", "/rooms", "/properties", "/calendar-sources", "/room-overview", "/room-status", "/property-reviews"] as const;
+const ROOM_DATA_PATHS = [
+  "/",
+  "/rooms",
+  "/properties",
+  "/calendar-sources",
+  "/reservations",
+  "/room-overview",
+  "/room-status",
+  "/dashboard",
+  "/reservation-conflicts",
+  "/cleaning",
+  "/room-notes",
+  "/property-reviews",
+  "/statistics/occupancy",
+] as const;
 function revalidateRoomData() { for (const path of ROOM_DATA_PATHS) revalidatePath(path); }
 
 export async function createRoomAction(_state: ActionResult, formData: FormData): Promise<ActionResult> {
@@ -136,4 +158,55 @@ export async function setRoomActiveAction(_state: ActionResult, formData: FormDa
   const parsed = roomActiveSchema.safeParse({ id: formData.get("id"), isActive: formData.get("isActive") }); if (!parsed.success) return { success: false, message: "잘못된 상태 변경 요청입니다." };
   try { await requireRoomAccess(parsed.data.id, PERMISSIONS.ROOM_MANAGE); const current = await roomExists(parsed.data.id); if (!current) return { success: false, message: "객실을 찾을 수 없습니다." }; if (current.isActive === parsed.data.isActive) return { success: true, message: "이미 요청한 상태입니다." }; await setRoomActive(parsed.data.id, parsed.data.isActive); revalidateRoomData(); return { success: true, message: parsed.data.isActive ? "객실을 활성화했습니다." : "객실을 비활성화했습니다. 연결 정보와 예약 데이터는 유지됩니다." }; }
   catch (error) { if (isAccessControlError(error)) return FORBIDDEN_ACTION_RESULT; logServerError("setRoomActive", error); return { success: false, message: "객실 상태를 변경하지 못했습니다." }; }
+}
+
+async function roomDeletionFailure<T>(error: unknown, context: string): Promise<ActionResult<T>> {
+  const t = await getTranslations("roomDeletion");
+  if (isAccessControlError(error)) return { ...FORBIDDEN_ACTION_RESULT, message: t("errors.forbidden") };
+  if (error instanceof RoomDeletionServiceError) {
+    if (error.code === "NOT_FOUND") return { success: false, status: 404, errorCode: "NOT_FOUND", message: t("errors.notFound") };
+    if (error.code === "CONFIRMATION_MISMATCH") return { success: false, status: 422, errorCode: "VALIDATION_ERROR", message: t("errors.confirmation") };
+    if (error.code === "RELATED_OPERATION_IN_PROGRESS") return { success: false, status: 409, errorCode: "SYNC_FAILED", message: t("errors.operationInProgress") };
+    return { success: false, status: 409, errorCode: "VALIDATION_ERROR", message: t("errors.scopeChanged") };
+  }
+  const failure = await actionFailureFromError(error, context);
+  return { ...failure, message: t("errors.failed") };
+}
+
+export async function getRoomDeleteImpactAction(roomId: string): Promise<ActionResult<RoomDeleteImpact>> {
+  const parsed = roomDeleteImpactSchema.safeParse({ roomId });
+  const t = await getTranslations("roomDeletion");
+  if (!parsed.success) return { success: false, status: 422, errorCode: "VALIDATION_ERROR", message: t("errors.invalidRequest") };
+  try {
+    await requireRoomAccess(parsed.data.roomId, PERMISSIONS.ROOM_MANAGE);
+    const target = await getRoomDeleteTarget(parsed.data.roomId);
+    return { success: true, data: await getRoomDeleteImpact(target.id) };
+  } catch (error) {
+    return roomDeletionFailure<RoomDeleteImpact>(error, "getRoomDeleteImpact");
+  }
+}
+
+export async function deleteRoomAction(input: {
+  roomId: string;
+  confirmationText: string;
+}): Promise<ActionResult<RoomDeleteResult>> {
+  const parsed = roomDeleteSchema.safeParse(input);
+  const t = await getTranslations("roomDeletion");
+  if (!parsed.success) return { success: false, status: 422, errorCode: "VALIDATION_ERROR", message: t("errors.invalidRequest") };
+  try {
+    const context = await requireRoomAccess(parsed.data.roomId, PERMISSIONS.ROOM_MANAGE);
+    const target = await getRoomDeleteTarget(parsed.data.roomId);
+    const data = await deleteRoomSafely({
+      target,
+      confirmationText: parsed.data.confirmationText,
+      context,
+    });
+    revalidateRoomData();
+    const message = data.failedPhotoFileCount > 0
+      ? t("successWithPhotoWarning", { name: data.roomName, count: data.failedPhotoFileCount })
+      : t("success", { name: data.roomName });
+    return { success: true, data, message };
+  } catch (error) {
+    return roomDeletionFailure<RoomDeleteResult>(error, "deleteRoom");
+  }
 }

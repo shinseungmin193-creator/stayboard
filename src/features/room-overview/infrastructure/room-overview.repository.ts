@@ -8,7 +8,7 @@ import { buildOperationalReservationWhere } from "@/features/reservations/operat
 import { buildReservationOverlapWhere } from "@/features/reservations/reservation-range-overlap";
 import { OPEN_ROOM_NOTE_STATUS } from "@/features/room-notes/domain/room-note";
 
-export function findRoomOverviewData(input: { propertyId?: string; operationalStatus?: "NONE" | "CLEANING_REQUIRED" | "INSPECTION_REQUIRED"; companyIds?: readonly string[]; accessScope?: AccessScope; from: Date; todayStart: Date; toExclusive: Date }) {
+export function findRoomOverviewData(input: { propertyId?: string; operationalStatus?: "NONE" | "CLEANING_REQUIRED" | "INSPECTION_REQUIRED"; companyIds?: readonly string[]; accessScope?: AccessScope; from: Date; todayStart: Date; todayEnd: Date; toExclusive: Date }) {
   return prisma.room.findMany({
     where: {
       ...(roomScopeWhere(input.accessScope) ?? {}),
@@ -22,7 +22,18 @@ export function findRoomOverviewData(input: { propertyId?: string; operationalSt
     select: {
       id: true, propertyId: true, name: true, code: true, sortOrder: true, operationalStatus: true, operationalStatusUpdatedAt: true,
       property: { select: { name: true } },
-      _count: { select: { roomNotes: { where: { status: OPEN_ROOM_NOTE_STATUS } } } },
+      _count: { select: { roomNotes: true } },
+      roomNotes: {
+        where: { status: OPEN_ROOM_NOTE_STATUS },
+        select: { acknowledgedAt: true, processedAt: true },
+      },
+      cleaningTasks: {
+        where: {
+          scheduledDate: { gte: input.todayStart, lt: input.todayEnd },
+          status: { not: "CANCELLED" },
+        },
+        select: { status: true },
+      },
       reservations: {
         where: {
           ...buildOperationalReservationWhere(),
