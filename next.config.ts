@@ -8,6 +8,10 @@ const escapeRegularExpression = (value: string) => value.replace(/[.*+?^${}()|[\
 
 const nextConfig: NextConfig = {
   basePath: basePathConfig.APP_BASE_PATH,
+  // Prisma's PostgreSQL adapter is Node-only. Keep it outside webpack's
+  // instrumentation/server bundle so its fs/net/tls dependencies are loaded
+  // by Node.js instead of being resolved as browser modules.
+  serverExternalPackages: ["@prisma/adapter-pg"],
   webpack(config, { dev }) {
     if (dev && process.platform === "win32") {
       const projectRoot = path.resolve(config.context ?? process.cwd()).replaceAll("\\", "/");

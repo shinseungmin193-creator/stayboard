@@ -33,10 +33,13 @@ test("자동 동기화 환경값은 명시적 비활성화와 안전한 양수�
 
 test("Next.js Node instrumentation이 자동 동기화 스케줄러를 한 번 시작한다", () => {
   const instrumentation = readFileSync("src/instrumentation.ts", "utf8");
+  const nodeInstrumentation = readFileSync("src/instrumentation-node.ts", "utf8");
   const scheduler = readFileSync("src/features/calendar-sync/application/automatic-calendar-sync.ts", "utf8");
   const repository = readFileSync("src/features/calendar-sync/infrastructure/automatic-sync.repository.ts", "utf8");
-  assert.match(instrumentation, /NEXT_RUNTIME !== "nodejs"/);
-  assert.match(instrumentation, /startAutomaticCalendarSyncScheduler/);
+  assert.match(instrumentation, /NEXT_RUNTIME === "nodejs"/);
+  assert.match(instrumentation, /import\("\.\/instrumentation-node"\)/);
+  assert.doesNotMatch(instrumentation, /@\/features\/calendar-sync/);
+  assert.match(nodeInstrumentation, /startAutomaticCalendarSyncScheduler/);
   assert.match(scheduler, /executionMode|"AUTO"/);
   assert.match(scheduler, /Symbol\.for\("stayboard\.calendar-auto-sync-scheduler"\)/);
   assert.match(repository, /lastSyncedAt: \{ lt: input\.dueBefore \}/);

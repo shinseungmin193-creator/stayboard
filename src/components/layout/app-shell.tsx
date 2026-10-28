@@ -20,12 +20,14 @@ export async function AppShell({ children }: Readonly<{ children: React.ReactNod
     getCurrentAccessContext(),
     getTranslations(),
   ]);
-  const sidebarPreference = accessContext ? await findSidebarPreference(accessContext.userId) : DEFAULT_SIDEBAR_PREFERENCE;
-  const staffMobileNavigation = accessContext?.effectiveRole === "STAFF" && accessContext.activeCompanyId
-    ? await getStaffMobileNavigationPreference(accessContext.activeCompanyId)
-    : { itemOrder: [...DEFAULT_STAFF_MOBILE_BOTTOM_NAVIGATION_MENU_IDS] };
   const roleSwitchAvailable = accessContext?.actualRole === "DEVELOPER";
-  const roleSwitchOptions = roleSwitchAvailable ? await getCurrentDeveloperRoleSwitchOptions() : null;
+  const [sidebarPreference, staffMobileNavigation, roleSwitchOptions] = await Promise.all([
+    accessContext ? findSidebarPreference(accessContext.userId) : DEFAULT_SIDEBAR_PREFERENCE,
+    accessContext?.effectiveRole === "STAFF" && accessContext.activeCompanyId
+      ? getStaffMobileNavigationPreference(accessContext.activeCompanyId)
+      : { itemOrder: [...DEFAULT_STAFF_MOBILE_BOTTOM_NAVIGATION_MENU_IDS] },
+    roleSwitchAvailable ? getCurrentDeveloperRoleSwitchOptions() : null,
+  ]);
   const activeRoleSwitch: ActiveDeveloperRoleSwitch | null = accessContext?.isRoleSwitchActive
     && (accessContext.previewRole === "ADMIN" || accessContext.previewRole === "STAFF")
     && accessContext.activeCompanyId
