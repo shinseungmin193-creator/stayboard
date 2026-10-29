@@ -8,4 +8,7 @@ export const CALENDAR_SYNC_STALE_MESSAGE = "이전 동기화가 제한 시간 �
 export const CALENDAR_AUTO_SYNC_INTERVAL_MS = 5 * 60 * 1000;
 export const CALENDAR_AUTO_SYNC_STALE_AFTER_MS = 15 * 60 * 1000;
 export const CALENDAR_AUTO_SYNC_INITIAL_DELAY_MS = 15 * 1000;
-export const CALENDAR_AUTO_SYNC_BATCH_SIZE = 250;
+// The external worker runs every five minutes. Keeping each cycle below the
+// full source count spreads database writes across cycles instead of creating
+// a one-minute I/O spike for every active calendar at once.
+export const CALENDAR_AUTO_SYNC_BATCH_SIZE = 50;

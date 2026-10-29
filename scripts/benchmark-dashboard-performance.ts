@@ -16,7 +16,9 @@ import { CALENDAR_PROVIDER_TYPES } from "../src/providers/calendar/types";
 import type { AccessScope } from "../src/features/access-control/domain/access-control";
 import { roomScopeWhere } from "../src/features/access-control/infrastructure/prisma-scope";
 
-const RUNS = 5;
+const requestedRuns = Number(process.env.DASHBOARD_BENCHMARK_RUNS ?? 5);
+const RUNS = Number.isSafeInteger(requestedRuns) && requestedRuns > 0 ? Math.min(requestedRuns, 20) : 5;
+const BENCHMARK_MODE = process.env.DASHBOARD_BENCHMARK_MODE === "optimized" ? "optimized" : "comparison";
 
 async function getLegacyDashboardSummary(
   now: Date,
@@ -226,6 +228,17 @@ async function main() {
   let allScopesMatch = true;
   const results = [];
   for (const scenario of scenarios) {
+    if (BENCHMARK_MODE === "optimized") {
+      await getDashboardSummary(now, scenario.companyIds, scenario.accessScope);
+      const optimizedDurations: number[] = [];
+      for (let run = 0; run < RUNS; run += 1) {
+        const optimized = await measure(() => getDashboardSummary(now, scenario.companyIds, scenario.accessScope));
+        optimizedDurations.push(optimized.durationMs);
+      }
+      results.push({ scope: scenario.label, optimized: summarizeDurations(optimizedDurations) });
+      continue;
+    }
+
     await getLegacyDashboardSummary(now, scenario.companyIds, scenario.accessScope);
     await getDashboardSummary(now, scenario.companyIds, scenario.accessScope);
     const legacyDurations: number[] = [];
@@ -249,13 +262,14 @@ async function main() {
   }
 
   console.log(JSON.stringify({
-    parity: allScopesMatch,
+    mode: BENCHMARK_MODE,
+    parity: BENCHMARK_MODE === "comparison" ? allScopesMatch : null,
     legacyPrismaOperations: 6,
-    optimizedPrismaOperations: 5,
+    optimizedPrismaOperations: 6,
     results,
   }));
 
-  if (!allScopesMatch) process.exitCode = 1;
+  if (BENCHMARK_MODE === "comparison" && !allScopesMatch) process.exitCode = 1;
 }
 
 void main();

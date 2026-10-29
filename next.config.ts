@@ -12,6 +12,12 @@ const nextConfig: NextConfig = {
   // instrumentation/server bundle so its fs/net/tls dependencies are loaded
   // by Node.js instead of being resolved as browser modules.
   serverExternalPackages: ["@prisma/adapter-pg"],
+  async headers() {
+    return [{
+      source: "/:path*{/}?",
+      headers: [{ key: "X-Accel-Buffering", value: "no" }],
+    }];
+  },
   webpack(config, { dev }) {
     if (dev && process.platform === "win32") {
       const projectRoot = path.resolve(config.context ?? process.cwd()).replaceAll("\\", "/");

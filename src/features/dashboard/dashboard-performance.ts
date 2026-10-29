@@ -16,7 +16,11 @@ interface StageMetrics {
   wallTimeMs: number;
   prismaOperationCount: number;
   prismaOperationTimeMs: number;
-  prismaOperations: Record<string, number>;
+  prismaOperations: Record<string, {
+    count: number;
+    totalTimeMs: number;
+    maxTimeMs: number;
+  }>;
 }
 
 interface DashboardPerformanceTrace {
@@ -32,10 +36,12 @@ interface DashboardPerformanceContext {
 
 const dashboardPerformanceStorage = new AsyncLocalStorage<DashboardPerformanceContext>();
 
-const isDashboardPerformanceEnabled = () => (
-  process.env.NODE_ENV === "development"
-  && process.env.DASHBOARD_PERFORMANCE_LOG !== "false"
-);
+const isDashboardPerformanceEnabled = () => {
+  const configured = process.env.DASHBOARD_PERFORMANCE_LOG?.trim().toLowerCase();
+  if (configured === "true") return true;
+  if (configured === "false") return false;
+  return process.env.NODE_ENV === "development";
+};
 
 function emptyStageMetrics(): StageMetrics {
   return {
@@ -82,7 +88,11 @@ export async function withDashboardPerformanceTrace<T>(operation: () => Promise<
           wallTimeMs: roundMilliseconds(metrics.wallTimeMs),
           prismaOperationCount: metrics.prismaOperationCount,
           prismaOperationTimeMs: roundMilliseconds(metrics.prismaOperationTimeMs),
-          prismaOperations: metrics.prismaOperations,
+          prismaOperations: Object.fromEntries(Object.entries(metrics.prismaOperations).map(([operation, value]) => [operation, {
+            count: value.count,
+            totalTimeMs: roundMilliseconds(value.totalTimeMs),
+            maxTimeMs: roundMilliseconds(value.maxTimeMs),
+          }])),
         }]),
     );
     const totals = [...trace.stages.values()].reduce((result, metrics) => ({
@@ -129,7 +139,11 @@ export function recordDashboardPrismaOperation(
   const operationName = `${model ?? "Prisma"}.${operation}`;
   metrics.prismaOperationCount += 1;
   metrics.prismaOperationTimeMs += durationMs;
-  metrics.prismaOperations[operationName] = (metrics.prismaOperations[operationName] ?? 0) + 1;
+  const operationMetrics = metrics.prismaOperations[operationName] ?? { count: 0, totalTimeMs: 0, maxTimeMs: 0 };
+  operationMetrics.count += 1;
+  operationMetrics.totalTimeMs += durationMs;
+  operationMetrics.maxTimeMs = Math.max(operationMetrics.maxTimeMs, durationMs);
+  metrics.prismaOperations[operationName] = operationMetrics;
 }
 
 export async function measureDashboardPrismaOperation<T>(

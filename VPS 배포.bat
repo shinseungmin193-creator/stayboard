@@ -383,6 +383,15 @@ printf '%s\n' \
 chmod 0644 "$CLEANUP_CRON"
 echo "[보관 정책 확인] 매일 03:17 cleanup:cleaning-photos 실행"
 
+SYNC_HISTORY_CRON="/etc/cron.d/stayboard-sync-history-maintenance"
+printf '%s\n' \
+  'SHELL=/bin/bash' \
+  "PATH=$NODE_BIN_DIR:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin" \
+  "47 3 * * * root cd \"$REMOTE_PATH\" && flock -n /var/run/stayboard-sync-history-maintenance.lock nice -n 10 env NODE_ENV=production \"$NPM_BIN\" run maintain:sync-history -- --apply >> /var/log/stayboard-sync-history-maintenance.log 2>&1" \
+  > "$SYNC_HISTORY_CRON"
+chmod 0644 "$SYNC_HISTORY_CRON"
+echo "[보관 정책 확인] 성공 로그 30일·실패 로그 90일, 진단 상세 7일 보존"
+
 CALENDAR_SYNC_CRON="/etc/cron.d/stayboard-calendar-sync"
 printf '%s\n' \
   'SHELL=/bin/bash' \

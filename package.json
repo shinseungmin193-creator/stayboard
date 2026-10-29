@@ -9,6 +9,7 @@
     "build": "next build --webpack",
     "start": "next start",
     "calendar-sync:auto": "node --conditions=react-server --import tsx --env-file-if-exists=.env --env-file-if-exists=.env.local scripts/run-automatic-calendar-sync.ts",
+    "maintain:sync-history": "node --conditions=react-server --import tsx --env-file-if-exists=.env --env-file-if-exists=.env.local scripts/maintain-calendar-sync-history.ts",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "test": "npm run test:auth && npm run test:properties && npm run test:calendar-providers && npm run test:sync && npm run test:reviews && npm run test:cleaning && npm run test:dashboard && npm run test:navigation && npm run test:pwa && npm run test:deployment",

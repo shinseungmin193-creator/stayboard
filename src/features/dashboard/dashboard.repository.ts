@@ -1,16 +1,15 @@
 import "server-only";
 
 import { addDays } from "date-fns";
-import { prisma } from "@/lib/prisma";
 import { DASHBOARD_RECENT_SYNC_FAILURE_HOURS } from "./dashboard.constants";
 import type { AccessScope } from "@/features/access-control";
-import { roomScopeWhere } from "@/features/access-control/infrastructure/prisma-scope";
 import { getCleaningDashboardSummary } from "@/features/cleaning/server/cleaning-dashboard.repository";
 import { getDefaultReservationConflictRange } from "@/features/reservation-conflicts/domain/reservation-conflict-range";
 import { getDashboardTodayRange } from "./dashboard-time";
 import { measureDashboardPrismaOperation, measureDashboardStage } from "./dashboard-performance";
 import { summarizeDashboardReservationMetrics } from "./dashboard-reservation-metrics";
 import { findDashboardConflicts, findDashboardRoomReservationRows } from "./dashboard-reservation.repository";
+import { findDashboardSyncSummary } from "./dashboard-sync.repository";
 
 export async function getDashboardSummary(
   now = new Date(),
@@ -20,8 +19,6 @@ export async function getDashboardSummary(
 ) {
   const includeSyncFailures = options.includeSyncFailures ?? true;
   const recentSince = new Date(now.getTime() - DASHBOARD_RECENT_SYNC_FAILURE_HOURS * 60 * 60 * 1000);
-  const companyProperty = companyIds ? { companyId: { in: [...companyIds] } } : undefined;
-  const scopedRoom = roomScopeWhere(accessScope) ?? { property: companyProperty };
   const today = getDashboardTodayRange(now);
   const conflictRange = getDefaultReservationConflictRange(now);
   const [rooms, conflicts, cleaning, syncLogs] = await Promise.all([
@@ -57,15 +54,7 @@ export async function getDashboardSummary(
     )),
     measureDashboardStage("sync-logs", async () => {
       if (!includeSyncFailures) return { recentSyncFailures: 0, latestSync: null };
-      const [recentSyncFailures, latestSync] = await Promise.all([
-        measureDashboardPrismaOperation("SyncLog", "count", () => (
-          prisma.syncLog.count({ where: { calendarSource: { room: scopedRoom }, status: { in: ["FAILED", "TIMEOUT"] }, startedAt: { gte: recentSince } } })
-        )),
-        measureDashboardPrismaOperation("SyncLog", "findFirst", () => (
-          prisma.syncLog.findFirst({ where: { calendarSource: { room: scopedRoom }, status: { in: ["SUCCESS", "FAILED", "TIMEOUT"] } }, select: { status: true, completedAt: true }, orderBy: [{ createdAt: "desc" }, { id: "desc" }] })
-        )),
-      ]);
-      return { recentSyncFailures, latestSync };
+      return findDashboardSyncSummary({ recentSince, companyIds, accessScope });
     }),
   ]);
   const reservationMetrics = summarizeDashboardReservationMetrics({

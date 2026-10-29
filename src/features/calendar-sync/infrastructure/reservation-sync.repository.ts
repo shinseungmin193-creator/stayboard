@@ -10,6 +10,7 @@ import { classifyReservations } from "../domain/classify-reservations";
 import type { ExistingReservation, NormalizedReservation } from "../domain/normalized-reservation";
 import type { CalendarFeedFingerprint } from "../domain/calendar-feed-fingerprint";
 import type { CalendarFeedSafetyDiagnostics, CalendarFeedQuarantineReason } from "../domain/calendar-feed-safety";
+import { shouldRetainSuccessfulSyncDiagnostics } from "../domain/sync-log-retention";
 import { removeCalendarSourceReservations } from "./calendar-source-reservation-removal";
 
 export function findCalendarSourceForSync(id: string) {
@@ -191,7 +192,34 @@ export async function persistReservationSync(input: PersistReservationSyncInput)
       );
     }
     const cancelledCount = explicitCancelledCount + createdCancelledCount + staleCancelled.count + removed.reservationCount;
-    await tx.syncLog.update({ where: { id: input.syncLogId }, data: { status: "SUCCESS", completedAt: input.completedAt, durationMs: input.completedAt.getTime() - input.syncStartedAt.getTime(), fetchedCount: input.fetchedCount, ...input.eventCounts, unknownEventDetails: input.unknownEventDetails, eventDiagnostics: input.eventDiagnostics, feedFingerprint: input.feedFingerprint as unknown as Prisma.InputJsonValue, safetyDiagnostics: input.safetyDiagnostics as unknown as Prisma.InputJsonValue, quarantined: false, createdCount: created.count, updatedCount, cancelledCount, errorCode: null, errorMessage: null, errorDetails: null } });
+    const retainDiagnostics = shouldRetainSuccessfulSyncDiagnostics(
+      input.eventCounts,
+      input.safetyDiagnostics.reasonCodes.length,
+    );
+    await tx.syncLog.update({
+      where: { id: input.syncLogId },
+      data: {
+        status: "SUCCESS",
+        completedAt: input.completedAt,
+        durationMs: input.completedAt.getTime() - input.syncStartedAt.getTime(),
+        fetchedCount: input.fetchedCount,
+        ...input.eventCounts,
+        unknownEventDetails: input.eventCounts.unknownEventCount > 0 ? input.unknownEventDetails : Prisma.DbNull,
+        eventDiagnostics: retainDiagnostics ? input.eventDiagnostics : Prisma.DbNull,
+        // The current fingerprint already lives on CalendarSource. Duplicating it,
+        // plus safe diagnostics, on every successful 15-minute run caused most of
+        // SyncLog's storage growth without adding operational history.
+        feedFingerprint: Prisma.DbNull,
+        safetyDiagnostics: retainDiagnostics ? input.safetyDiagnostics as unknown as Prisma.InputJsonValue : Prisma.DbNull,
+        quarantined: false,
+        createdCount: created.count,
+        updatedCount,
+        cancelledCount,
+        errorCode: null,
+        errorMessage: null,
+        errorDetails: null,
+      },
+    });
     await tx.calendarSource.update({ where: { id: input.calendarSourceId }, data: { lastSyncedAt: input.completedAt, connectionStatus: "NORMAL", safetyReasonCodes: Prisma.JsonNull, feedFingerprint: input.feedFingerprint as unknown as Prisma.InputJsonValue, feedFingerprintUpdatedAt: input.completedAt } });
     return {
       createdCount: created.count,

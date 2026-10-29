@@ -148,8 +148,12 @@ test("대시보드 역할과 동기화 조회는 effectiveRole 권한을 기준�
   assert.match(page, /hasPermission\(dashboardRole, PERMISSIONS\.SYNC_READ\)/);
   assert.match(page, /includeSyncFailures: canReadSyncFailures/);
   assert.match(repository, /if \(!includeSyncFailures\) return \{ recentSyncFailures: 0, latestSync: null \}/);
-  assert.match(repository, /prisma\.syncLog\.count/);
-  assert.match(repository, /prisma\.syncLog\.findFirst/);
+  assert.match(repository, /findDashboardSyncSummary/);
+  const syncRepository = readFileSync("src/features/dashboard/dashboard-sync.repository.ts", "utf8");
+  assert.match(syncRepository, /calendarSource\.findMany/);
+  assert.match(syncRepository, /calendarSourceId: \{ in: sourceIds \}/);
+  assert.match(syncRepository, /JOIN LATERAL/);
+  assert.doesNotMatch(syncRepository, /calendarSource: \{ room:/);
 });
 
 test("체크인·체크아웃과 청소 합계는 동일한 운영 예약·영업일 경계를 사용한다", () => {
@@ -295,4 +299,14 @@ test("루트 대시보드 로딩 UI는 기존 카드 격자를 유지한다", ()
   const loading = readFileSync("src/app/loading.tsx", "utf8");
   assert.match(loading, /grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-3/);
   assert.match(loading, /aria-busy="true"/);
+});
+
+test("셀프 호스팅 스트리밍과 운영 성능 계측은 명시적으로 제어한다", () => {
+  const nextConfig = readFileSync("next.config.ts", "utf8");
+  const performance = readFileSync("src/features/dashboard/dashboard-performance.ts", "utf8");
+  assert.match(nextConfig, /X-Accel-Buffering/);
+  assert.match(nextConfig, /value: "no"/);
+  assert.match(performance, /DASHBOARD_PERFORMANCE_LOG/);
+  assert.match(performance, /configured === "true"/);
+  assert.match(performance, /maxTimeMs/);
 });
