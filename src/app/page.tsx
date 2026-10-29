@@ -19,14 +19,19 @@ import { DashboardCleaningCard } from "@/features/dashboard/components/dashboard
 import { getDashboardSummary } from "@/features/dashboard/dashboard.repository";
 import type { DashboardStatCardData } from "@/features/dashboard/dashboard-stat-card";
 import { getDashboardDateInput } from "@/features/dashboard/dashboard-time";
+import { measureDashboardStage, withDashboardPerformanceTrace } from "@/features/dashboard/dashboard-performance";
 import { getDemoDashboardData } from "@/features/demo";
 
 export const dynamic = "force-dynamic";
 
-export default async function DashboardPage() {
-  const i18n = await getTranslations();
-  const context = await getCurrentAccessContext();
-  const access = context ? await authorizeSidebarMenuAccess("dashboard") : null;
+async function renderDashboardPage() {
+  const [i18n, context] = await Promise.all([
+    getTranslations(),
+    measureDashboardStage("authentication", () => getCurrentAccessContext()),
+  ]);
+  const access = context
+    ? await measureDashboardStage("authorization", () => authorizeSidebarMenuAccess("dashboard"))
+    : null;
   if (access && !access.allowed) return <AccessDenied role={access.context?.role ?? null} />;
 
   const dashboardRole = context?.effectiveRole ?? context?.role;
@@ -119,4 +124,8 @@ export default async function DashboardPage() {
       ))}
     </section>
   </div>;
+}
+
+export default function DashboardPage() {
+  return withDashboardPerformanceTrace(renderDashboardPage);
 }

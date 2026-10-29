@@ -1,6 +1,6 @@
 import "server-only";
 
-import { roomScopeWhere } from "@/features/access-control";
+import { roomScopeWhere } from "@/features/access-control/infrastructure/prisma-scope";
 import { buildOperationalReservationWhere } from "@/features/reservations/operational-reservation-where";
 import type { Prisma } from "@/lib/generated/prisma/client";
 import { prisma } from "@/lib/prisma";

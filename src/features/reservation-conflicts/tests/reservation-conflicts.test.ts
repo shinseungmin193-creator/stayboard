@@ -98,9 +98,14 @@ test("사이드바와 정리 UI는 오버부킹 명칭·확인창·모바일 버
 
 test("대시보드 count와 오버부킹 ACTIVE 목록은 같은 공통 조건을 사용한다", () => {
   const dashboard = readFileSync("src/features/dashboard/dashboard.repository.ts", "utf8");
+  const dashboardConflicts = readFileSync("src/features/dashboard/dashboard-reservation.repository.ts", "utf8");
+  const dashboardMetrics = readFileSync("src/features/dashboard/dashboard-reservation-metrics.ts", "utf8");
   const list = readFileSync("src/features/reservation-conflicts/infrastructure/reservation-conflict-list.repository.ts", "utf8");
   const active = readFileSync("src/features/reservation-conflicts/infrastructure/active-reservation-conflict.repository.ts", "utf8");
-  assert.match(dashboard, /countActiveReservationConflicts/);
+  assert.match(dashboard, /findDashboardConflicts/);
+  assert.match(dashboardConflicts, /buildReservationConflictValidityWhere\(input\)/);
+  assert.match(dashboardConflicts, /status: "ACTIVE"/);
+  assert.match(dashboardMetrics, /conflict\.overlapEnd >= input\.todayStart/);
   assert.match(list, /buildActiveReservationConflictWhere\(filters\)/);
   assert.match(active, /status: "ACTIVE", overlapEnd: \{ gte: filters\.todayStart \}/);
   assert.match(active, /reservationA: buildOperationalReservationWhere\(\)/);

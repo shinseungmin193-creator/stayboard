@@ -90,8 +90,7 @@ export function MobileRoomStatusWorkspace({ rooms: initialRooms, properties, sel
   const handleCreated = (roomId: string) => {
     const current = rooms.find((room) => room.id === roomId);
     handlePendingMemoCountChange(roomId, (current?.pendingMemoCount ?? 0) + 1, "INCOMPLETE");
-    setInspectionRoomId(roomId);
-    setInspectionRefreshKey((value) => value + 1);
+    if (inspectionRoomId === roomId) setInspectionRefreshKey((value) => value + 1);
   };
 
   const handlePendingMemoCountChange = useCallback((roomId: string, count: number, inspectionStatus?: RoomInspectionStatus) => {

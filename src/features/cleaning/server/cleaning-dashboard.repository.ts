@@ -1,7 +1,7 @@
 import "server-only";
 
 import type { AccessScope } from "@/features/access-control";
-import { roomScopeWhere } from "@/features/access-control";
+import { roomScopeWhere } from "@/features/access-control/infrastructure/prisma-scope";
 import { summarizeDashboardCleaningTasks } from "@/features/dashboard/dashboard-cleaning";
 import { prisma } from "@/lib/prisma";
 import { buildCheckoutCleaningTaskWhere, DASHBOARD_CLEANING_TASK_STATUSES } from "./cleaning-task-query";

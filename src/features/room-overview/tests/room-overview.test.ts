@@ -208,6 +208,23 @@ test("popup 처리·해결은 카드 count·border·요약을 즉시 갱신한�
   assert.match(actions, /revalidatePath\("\/room-overview"\)/);
 });
 
+test("객실 메모 등록 후 count만 갱신하고 점검 popup을 새로 열지 않는다", () => {
+  const desktopWorkspace = readFileSync("src/features/room-overview/components/room-overview-desktop-workspace.tsx", "utf8");
+  const mobileWorkspace = readFileSync("src/features/room-overview/components/mobile-room-status-workspace.tsx", "utf8");
+
+  for (const workspace of [desktopWorkspace, mobileWorkspace]) {
+    const handleCreated = workspace.slice(
+      workspace.indexOf("const handleCreated"),
+      workspace.indexOf("const handlePendingMemoCountChange") > -1
+        ? workspace.indexOf("const handlePendingMemoCountChange")
+        : workspace.indexOf("return ("),
+    );
+    assert.doesNotMatch(handleCreated, /setInspectionRoomId\(roomId\)/);
+    assert.match(handleCreated, /inspectionRoomId === roomId/);
+    assert.match(handleCreated, /setInspectionRefreshKey/);
+  }
+});
+
 test("PC와 모바일 객실 카드는 공통 테마의 Header·Body·Badge·아이콘을 사용한다", () => {
   const desktopCard = readFileSync("src/features/room-overview/components/room-overview-card.tsx", "utf8");
   const desktopHeader = readFileSync("src/features/room-overview/components/room-overview-status-header.tsx", "utf8");

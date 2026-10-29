@@ -83,8 +83,7 @@ export function RoomOverviewDesktopWorkspace({
   const handleCreated = (roomId: string) => {
     const current = allRooms.find((room) => room.id === roomId);
     updatePendingMemoCount(roomId, (current?.pendingMemoCount ?? 0) + 1, "INCOMPLETE");
-    setInspectionRoomId(roomId);
-    setInspectionRefreshKey((value) => value + 1);
+    if (inspectionRoomId === roomId) setInspectionRefreshKey((value) => value + 1);
   };
 
   return (

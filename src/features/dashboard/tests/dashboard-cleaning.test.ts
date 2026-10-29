@@ -5,6 +5,7 @@ import { summarizeDashboardCleaning, summarizeDashboardCleaningTasks, type Dashb
 import { getDashboardCardIds } from "../dashboard-card-policy";
 import { getDashboardDateInput } from "../dashboard-time";
 import { buildRoomOperationalSchedule } from "../../room-overview/domain/room-overview";
+import { summarizeDashboardReservationMetrics, type DashboardConflictRow, type DashboardRoomReservationRow } from "../dashboard-reservation-metrics";
 
 const start = new Date("2026-07-24T15:00:00.000Z");
 const end = new Date("2026-07-25T15:00:00.000Z");
@@ -146,16 +147,21 @@ test("대시보드 역할과 동기화 조회는 effectiveRole 권한을 기준�
   assert.match(page, /dashboardRole = context\?\.effectiveRole \?\? context\?\.role/);
   assert.match(page, /hasPermission\(dashboardRole, PERMISSIONS\.SYNC_READ\)/);
   assert.match(page, /includeSyncFailures: canReadSyncFailures/);
-  assert.match(repository, /includeSyncFailures\s*\? prisma\.syncLog\.count/);
-  assert.match(repository, /includeSyncFailures\s*\? prisma\.syncLog\.findFirst/);
+  assert.match(repository, /if \(!includeSyncFailures\) return \{ recentSyncFailures: 0, latestSync: null \}/);
+  assert.match(repository, /prisma\.syncLog\.count/);
+  assert.match(repository, /prisma\.syncLog\.findFirst/);
 });
 
 test("체크인·체크아웃과 청소 합계는 동일한 운영 예약·영업일 경계를 사용한다", () => {
   const dashboard = readFileSync("src/features/dashboard/dashboard.repository.ts", "utf8");
+  const reservationRepository = readFileSync("src/features/dashboard/dashboard-reservation.repository.ts", "utf8");
   const cleaning = readFileSync("src/features/cleaning/server/cleaning-dashboard.repository.ts", "utf8");
   const cleaningWhere = readFileSync("src/features/cleaning/server/cleaning-task-query.ts", "utf8");
-  assert.match(dashboard, /roomOverview\.operationalSchedule\.todayCheckIns\.length/);
-  assert.match(dashboard, /roomOverview\.operationalSchedule\.todayCheckOuts\.length/);
+  assert.match(dashboard, /reservationMetrics\.todayCheckIns/);
+  assert.match(dashboard, /reservationMetrics\.todayCheckOuts/);
+  assert.match(reservationRepository, /buildOperationalReservationWhere/);
+  assert.match(reservationRepository, /startDate: \{ gte: input\.todayStart, lt: input\.todayEnd \}/);
+  assert.match(reservationRepository, /endDate: \{ gte: input\.todayStart, lt: input\.todayEnd \}/);
   assert.match(cleaning, /buildCheckoutCleaningTaskWhere/);
   assert.match(cleaning, /summarizeDashboardCleaningTasks/);
   assert.match(cleaningWhere, /scheduledDate: \{ gte: input\.start, lt: input\.end \}/);
@@ -168,4 +174,125 @@ test("청소 완료와 청소 관리 카드는 같은 요약 필드와 기존 �
   assert.match(page, /"cleaning-management": \{[\s\S]*count: summary\.totalCleaning/);
   assert.match(page, /href: context \? `\/cleaning\?date=\$\{today\}`/);
   assert.match(page, /className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-3"/);
+});
+
+const metricReservation = (
+  id: string,
+  roomId: string,
+  startDate: string,
+  endDate: string,
+  status: "CONFIRMED" | "TENTATIVE" | "CANCELLED" = "CONFIRMED",
+) => ({
+  id,
+  roomId,
+  guestName: null,
+  provider: "BOOKING" as const,
+  status,
+  startDate: new Date(startDate),
+  endDate: new Date(endDate),
+});
+
+const metricConflict = (
+  id: string,
+  roomId: string,
+  overlapStart: string,
+  overlapEnd: string,
+  reservationA: ReturnType<typeof metricReservation>,
+  reservationB: ReturnType<typeof metricReservation>,
+): DashboardConflictRow => ({
+  id,
+  roomId,
+  overlapStart: new Date(overlapStart),
+  overlapEnd: new Date(overlapEnd),
+  reservationA,
+  reservationB,
+});
+
+test("경량 대시보드 집계가 예약 건수·객실 수·오버부킹 표시 규칙을 유지한다", () => {
+  const todayStart = new Date("2026-09-17T15:00:00.000Z");
+  const todayEnd = new Date("2026-09-18T15:00:00.000Z");
+  const roomOverviewConflictEnd = new Date("2026-09-25T15:00:00.000Z");
+  const room1CheckIn = metricReservation("r1-in", "room-1", "2026-09-17T15:00:00.000Z", "2026-09-19T15:00:00.000Z");
+  const room1CheckOut = metricReservation("r1-out", "room-1", "2026-09-15T15:00:00.000Z", "2026-09-17T15:00:00.000Z");
+  const room2CheckIn = metricReservation("r2-in", "room-2", "2026-09-17T15:00:00.000Z", "2026-09-20T15:00:00.000Z");
+  const rooms: DashboardRoomReservationRow[] = [
+    { id: "room-1", reservations: [room1CheckIn, room1CheckOut] },
+    { id: "room-2", reservations: [room2CheckIn] },
+    { id: "room-3", reservations: [] },
+  ];
+  const conflicts: DashboardConflictRow[] = [
+    metricConflict(
+      "conflict-current",
+      "room-1",
+      "2026-09-17T15:00:00.000Z",
+      "2026-09-18T15:00:00.000Z",
+      room1CheckIn,
+      metricReservation("r1-peer", "room-1", "2026-09-16T15:00:00.000Z", "2026-09-18T15:00:00.000Z"),
+    ),
+    metricConflict(
+      "conflict-later",
+      "room-2",
+      "2026-10-01T15:00:00.000Z",
+      "2026-10-03T15:00:00.000Z",
+      metricReservation("r2-future-a", "room-2", "2026-10-01T15:00:00.000Z", "2026-10-03T15:00:00.000Z"),
+      metricReservation("r2-future-b", "room-2", "2026-10-02T15:00:00.000Z", "2026-10-04T15:00:00.000Z"),
+    ),
+    metricConflict(
+      "conflict-stale",
+      "room-3",
+      "2026-09-17T15:00:00.000Z",
+      "2026-09-18T15:00:00.000Z",
+      metricReservation("r3-old-a", "room-3", "2026-09-10T15:00:00.000Z", "2026-09-11T15:00:00.000Z"),
+      metricReservation("r3-old-b", "room-3", "2026-09-12T15:00:00.000Z", "2026-09-13T15:00:00.000Z"),
+    ),
+  ];
+
+  assert.deepEqual(summarizeDashboardReservationMetrics({
+    rooms,
+    conflicts,
+    todayStart,
+    todayEnd,
+    roomOverviewConflictStart: new Date("2026-09-14T15:00:00.000Z"),
+    roomOverviewConflictEnd,
+  }), {
+    registeredRooms: 3,
+    todayCheckIns: 2,
+    todayCheckOuts: 1,
+    activeConflicts: 3,
+    conflictedCheckIns: 1,
+  });
+});
+
+test("동일 객실의 체크인은 예약별로 세지만 오버부킹 체크인 객실은 한 번만 세다", () => {
+  const todayStart = new Date("2026-09-17T15:00:00.000Z");
+  const todayEnd = new Date("2026-09-18T15:00:00.000Z");
+  const first = metricReservation("first", "room-1", "2026-09-17T15:00:00.000Z", "2026-09-20T15:00:00.000Z");
+  const second = metricReservation("second", "room-1", "2026-09-17T15:00:00.000Z", "2026-09-19T15:00:00.000Z");
+  const result = summarizeDashboardReservationMetrics({
+    rooms: [{ id: "room-1", reservations: [first, second] }],
+    conflicts: [metricConflict("conflict", "room-1", "2026-09-17T15:00:00.000Z", "2026-09-19T15:00:00.000Z", first, second)],
+    todayStart,
+    todayEnd,
+    roomOverviewConflictStart: new Date("2026-09-14T15:00:00.000Z"),
+    roomOverviewConflictEnd: new Date("2026-09-25T15:00:00.000Z"),
+  });
+  assert.equal(result.todayCheckIns, 2);
+  assert.equal(result.conflictedCheckIns, 1);
+});
+
+test("대시보드는 객실 상세 조회와 중복 오버부킹 count를 사용하지 않는다", () => {
+  const dashboard = readFileSync("src/features/dashboard/dashboard.repository.ts", "utf8");
+  const reservationRepository = readFileSync("src/features/dashboard/dashboard-reservation.repository.ts", "utf8");
+  assert.doesNotMatch(dashboard, /listRoomOverview/);
+  assert.doesNotMatch(dashboard, /countActiveReservationConflicts/);
+  assert.match(dashboard, /Promise\.all/);
+  assert.match(reservationRepository, /roomScopeWhere\(input\.accessScope\)/);
+  assert.match(reservationRepository, /companyId: input\.companyIds/);
+  assert.equal((reservationRepository.match(/prisma\.reservationConflict\.findMany/g) ?? []).length, 1);
+});
+
+test("루트 대시보드 로딩 UI는 기존 카드 격자를 유지한다", () => {
+  const loading = readFileSync("src/app/loading.tsx", "utf8");
+  assert.match(loading, /grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-3/);
+  assert.match(loading, /aria-busy="true"/);
 });
