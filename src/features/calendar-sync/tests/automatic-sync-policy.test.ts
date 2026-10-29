@@ -88,6 +88,8 @@ test("동기화 이력 유지보수는 예약을 보존하고 최신 소스 로�
   assert.match(maintenance, /process\.argv\.includes\("--apply"\)/);
   assert.match(maintenance, /NOT EXISTS \([\s\S]*"Reservation" reservation[\s\S]*"createdBySyncLogId" = log\.id/);
   assert.match(maintenance, /EXISTS \([\s\S]*"SyncLog" newer[\s\S]*newer\."calendarSourceId" = log\."calendarSourceId"/);
+  assert.match(maintenance, /log\."blockedEventCount" = 0/);
+  assert.match(maintenance, /log\."cancelledEventCount" = 0/);
   assert.doesNotMatch(maintenance, /DELETE FROM "Reservation"/);
   assert.match(deployment, /maintain:sync-history -- --apply/);
   assert.match(migration, /ALTER TABLE "SyncLog" SET/);

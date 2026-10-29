@@ -50,6 +50,8 @@ async function compactSuccessfulDiagnostics() {
         WHERE log.status = 'SUCCESS'
           AND log."completedAt" < $1
           AND log.quarantined = FALSE
+          AND log."blockedEventCount" = 0
+          AND log."cancelledEventCount" = 0
           AND log."unknownEventCount" = 0
           AND log."failedEventCount" = 0
           AND (
