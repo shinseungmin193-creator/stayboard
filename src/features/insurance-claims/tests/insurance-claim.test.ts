@@ -31,6 +31,14 @@ test("종류 또는 보고 내용이 없으면 등록 및 신청 완료를 거�
   assert.equal(submitInsuranceClaimSchema.safeParse({ id: "claim", types: [] }).success, false);
 });
 
+test("사진이 없어도 보고 등록 payload는 정상이며 UI가 선택 사항임을 안내한다", () => {
+  const parsed = createInsuranceClaimSchema.safeParse({ propertyId: "p", roomId: "r", content: "사진 없는 피해 보고", types: ["FIRE_INSURANCE"] });
+  assert.equal(parsed.success, true);
+  const dialog = readFileSync("src/features/insurance-claims/components/insurance-claim-composer-dialog.tsx", "utf8");
+  assert.match(dialog, /사진 \(선택 · 없어도 등록 가능, 최대 12장\)/);
+  assert.doesNotMatch(dialog, /disabled=\{pending \|\| !content\.trim\(\) \|\| types\.length === 0 \|\| photos\.length === 0\}/);
+});
+
 test("sidebar·페이지·서버 action이 같은 보험/보상 권한을 사용한다", () => {
   const sidebar = readFileSync("src/features/sidebar-preferences/domain/sidebar-menu.ts", "utf8");
   const page = readFileSync("src/app/insurance-claims/page.tsx", "utf8");

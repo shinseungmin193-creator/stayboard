@@ -61,6 +61,7 @@ export function InsuranceClaimComposerDialog({ room, open, onOpenChange, onCreat
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
           {INSURANCE_CLAIM_TYPES.map((type) => <label key={type} className="flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm has-[:checked]:border-primary has-[:checked]:bg-primary/5"><input type="checkbox" checked={types.includes(type)} onChange={() => toggleType(type)} />{INSURANCE_CLAIM_TYPE_LABELS[type]}</label>)}
         </div>
+        {types.length === 0 && <p className="text-xs text-muted-foreground">신청 종류를 1개 이상 선택해 주세요.</p>}
       </fieldset>
       <div className="space-y-2">
         <Label htmlFor="insurance-claim-content">보고 내용</Label>
@@ -68,7 +69,7 @@ export function InsuranceClaimComposerDialog({ room, open, onOpenChange, onCreat
         <p className="text-right text-xs text-muted-foreground">{content.length}/2000</p>
       </div>
       <div className="space-y-2">
-        <Label htmlFor="insurance-claim-photos">사진 (선택, 최대 12장)</Label>
+        <Label htmlFor="insurance-claim-photos">사진 (선택 · 없어도 등록 가능, 최대 12장)</Label>
         <input id="insurance-claim-photos" type="file" accept={CLEANING_PHOTO_ACCEPT} multiple disabled={pending} className="block w-full rounded-lg border border-input bg-background px-3 py-2 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-muted file:px-3 file:py-1.5 file:text-xs file:font-semibold" onChange={(event) => {
           const selected = Array.from(event.target.files ?? []);
           const valid = selected.filter((file) => file.size <= MAX_CLEANING_PHOTO_SIZE && isSupportedCleaningPhotoSelection({ declaredMimeType: file.type, fileName: file.name }));
@@ -76,6 +77,7 @@ export function InsuranceClaimComposerDialog({ room, open, onOpenChange, onCreat
           setError(null); setPhotos(valid);
         }} />
         {photos.length > 0 && <p className="flex items-center gap-1 text-xs text-muted-foreground"><Camera className="size-3.5" />사진 {photos.length}장 선택됨</p>}
+        {photos.length === 0 && <p className="text-xs text-muted-foreground">사진을 선택하지 않아도 보고할 수 있습니다.</p>}
       </div>
       {error && <p role="alert" className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</p>}
       <DialogFooter>
