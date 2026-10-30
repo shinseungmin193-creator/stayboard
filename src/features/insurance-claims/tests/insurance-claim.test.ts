@@ -14,10 +14,14 @@ test("보험 및 보상 관리 목록과 신청 완료는 개발자·관리자�
   for (const role of ["DEVELOPER", "ADMIN"] as const) {
     assert.equal(hasPermission(role, PERMISSIONS.INSURANCE_CLAIM_READ), true);
     assert.equal(hasPermission(role, PERMISSIONS.INSURANCE_CLAIM_COMPLETE), true);
-    assert.equal(hasPermission(role, PERMISSIONS.INSURANCE_CLAIM_DELETE), true);
   }
   assert.equal(hasPermission("STAFF", PERMISSIONS.INSURANCE_CLAIM_READ), false);
   assert.equal(hasPermission("STAFF", PERMISSIONS.INSURANCE_CLAIM_COMPLETE), false);
+});
+
+test("보험 및 보상 기록 삭제는 개발자에게만 허용한다", () => {
+  assert.equal(hasPermission("DEVELOPER", PERMISSIONS.INSURANCE_CLAIM_DELETE), true);
+  assert.equal(hasPermission("ADMIN", PERMISSIONS.INSURANCE_CLAIM_DELETE), false);
   assert.equal(hasPermission("STAFF", PERMISSIONS.INSURANCE_CLAIM_DELETE), false);
 });
 
