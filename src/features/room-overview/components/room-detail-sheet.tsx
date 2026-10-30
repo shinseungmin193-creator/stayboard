@@ -1,7 +1,7 @@
 ﻿"use client";import { useTranslations } from "next-intl";
 
 import Link from "next/link";
-import { AlertTriangle, ArrowUpRight, CalendarDays, Clock3, List, MessageSquarePlus, WifiOff } from "lucide-react";
+import { AlertTriangle, ArrowUpRight, CalendarDays, Clock3, List, Plus, WifiOff } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -12,7 +12,7 @@ import type { RoomOverviewCard } from "../domain/room-overview";
 import { getMobileRoomStatusVisual, getMobileSyncLabel } from "../room-overview-mobile-visuals";
 import { RoomStatusRoomSyncButton } from "./room-status-room-sync-button";
 import { getReservationDateInput, getReservationNightCount } from "@/features/reservations/reservation-date";
-import { RoomInspectionButton } from "./room-inspection-button";
+import { RoomInspectionStatusBadge } from "./room-inspection-status-badge";
 
 export function RoomDetailContent({ room, canSync, canReadRoomNotes, canCreateRoomNotes, onInspectionActivate, onCreateRoomNote }: {room: RoomOverviewCard;canSync: boolean;canReadRoomNotes: boolean;canCreateRoomNotes: boolean;onInspectionActivate: (room: RoomOverviewCard) => void;onCreateRoomNote: (room: RoomOverviewCard) => void;}) {const i18n = useTranslations();
   const reservation = room.currentReservation ?? room.nextReservation;
@@ -39,7 +39,7 @@ export function RoomDetailContent({ room, canSync, canReadRoomNotes, canCreateRo
     </section>
 
     {room.activeConflictCount > 0 && <div className="mx-4 flex items-center gap-2 rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-xs font-medium text-destructive"><AlertTriangle className="size-4" />{i18n("reservation.overbooking")}{room.activeConflictCount}{i18n("auto.m0471")}</div>}
-    {room.pendingMemoCount > 0 && <RoomInspectionButton count={room.pendingMemoCount} onClick={canReadRoomNotes ? () => onInspectionActivate(room) : undefined} className="mx-4 flex min-h-10 justify-start rounded-lg border border-red-300 bg-red-50/70 px-3 dark:border-red-900 dark:bg-red-950/30" />}
+    {(room.inspectionStatus !== "NONE" || canCreateRoomNotes) && <div className="mx-4 flex min-h-11 items-center gap-2 rounded-lg border bg-muted/20 px-3 py-2"><span className="text-xs font-semibold">{i18n("roomOverviewList.inspection")}</span>{room.inspectionStatus !== "NONE" && <RoomInspectionStatusBadge status={room.inspectionStatus} pendingCount={room.pendingMemoCount} onClick={canReadRoomNotes ? () => onInspectionActivate(room) : undefined} />}{canCreateRoomNotes && <Button type="button" variant="outline" size="sm" className="ml-auto" onClick={() => onCreateRoomNote(room)}><Plus />{i18n("roomOverviewList.registerInspection")}</Button>}</div>}
 
     <section className="min-h-0 space-y-2 px-4" aria-labelledby="room-detail-reservations">
       <h3 id="room-detail-reservations" className="text-xs font-semibold">{i18n("auto.m0250")}</h3>
@@ -52,7 +52,6 @@ export function RoomDetailContent({ room, canSync, canReadRoomNotes, canCreateRo
       <Button nativeButton={false} render={<Link href={detailHref} />} variant="outline" size="sm"><ArrowUpRight />{i18n("common.details")}</Button>
       <Button nativeButton={false} render={<Link href={reservationsHref} />} variant="outline" size="sm"><List />{i18n("common.reservation")}</Button>
       <Button nativeButton={false} render={<Link href={`/room-status?propertyId=${room.propertyId}`} />} variant="outline" size="sm"><CalendarDays />{i18n("common.calendar")}</Button>
-      {canCreateRoomNotes && <Button type="button" variant="outline" size="sm" className="col-span-3" onClick={() => onCreateRoomNote(room)}><MessageSquarePlus />메모 추가</Button>}
       {canSync && <RoomStatusRoomSyncButton roomIds={[room.id]} className="col-span-3 min-h-10" />}
     </div>
   </>;

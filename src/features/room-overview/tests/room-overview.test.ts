@@ -205,7 +205,7 @@ test("점검 badge는 페이지 이동 없이 확인 기록을 포함한 지연 
   assert.match(dialog, /해결 이력 보기/);
   assert.match(dialog, /CleaningPhotoUploader[\s\S]*readOnly/);
   assert.match(mobileCard, /<article/);
-  assert.match(mobileCard, /data-room-inspection-trigger|RoomInspectionButton/);
+  assert.match(mobileCard, /data-room-inspection-trigger|RoomInspectionButton|RoomInspectionStatusBadge/);
   assert.match(detailSheet, /onInspectionActivate\(room\)/);
 });
 
@@ -474,6 +474,7 @@ test("PC 객실 현황은 리스트를 기본값으로 사용하고 카드 View�
 
 test("PC 밀집 리스트는 불필요한 운영·메모·작업 열 없이 점검 상태와 마지막 동기화를 제공한다", () => {
   const list = readFileSync("src/features/room-overview/components/room-overview-list-view.tsx", "utf8");
+  const inspectionStatus = readFileSync("src/features/room-overview/components/room-inspection-status-badge.tsx", "utf8");
   const workspace = readFileSync("src/features/room-overview/components/room-overview-desktop-workspace.tsx", "utf8");
 
   assert.match(list, /groupRoomOverviewByProperty\(rooms\)/);
@@ -485,14 +486,33 @@ test("PC 밀집 리스트는 불필요한 운영·메모·작업 열 없이 점�
   assert.doesNotMatch(list, /RoomOverviewProviderBadges|RoomOverviewOperationalStatusMenu|>Provider</);
   assert.doesNotMatch(list, /DropdownMenu|roomOverviewList\.memo|roomOverviewList\.actions|roomOverviewList\.operationalStatus/);
   assert.match(list, /registerInspection/);
-  assert.match(list, /inspectionStates\.\$\{status\}/);
-  assert.match(list, /status !== "COMPLETED" && pendingCount > 0 \? `\(\$\{pendingCount\}\)` : ""/);
-  assert.match(list, /InspectionStatusBadge status=\{room\.inspectionStatus\} pendingCount=\{room\.pendingMemoCount\}/);
+  assert.match(inspectionStatus, /inspectionStates\.\$\{status\}/);
+  assert.match(inspectionStatus, /status !== "COMPLETED" && pendingCount > 0 \? `\(\$\{pendingCount\}\)` : ""/);
+  assert.match(list, /RoomInspectionStatusBadge status=\{room\.inspectionStatus\} pendingCount=\{room\.pendingMemoCount\}/);
   assert.match(list, /canCreateRoomNotes && <Button/);
   assert.match(list, /roomOverviewList\.lastSync[\s\S]*<\/tr>/);
   assert.match(list, /getMobileSyncLabel\(room, i18n\)/);
   assert.match(workspace, /RoomInspectionDialog/);
   assert.match(workspace, /updatePendingMemoCount/);
+});
+
+test("모바일 리스트·카드·상세는 점검 상태와 관리자 점검 등록을 같은 권한으로 제공한다", () => {
+  const page = readFileSync("src/app/room-overview/page.tsx", "utf8");
+  const workspace = readFileSync("src/features/room-overview/components/mobile-room-status-workspace.tsx", "utf8");
+  const list = readFileSync("src/features/room-overview/components/room-status-list.tsx", "utf8");
+  const card = readFileSync("src/features/room-overview/components/compact-room-status-card.tsx", "utf8");
+  const detail = readFileSync("src/features/room-overview/components/room-detail-sheet.tsx", "utf8");
+
+  assert.match(page, /hasPermission\(context\?\.role, PERMISSIONS\.ROOM_NOTE_CREATE\)/);
+  assert.match(workspace, /<RoomStatusList[\s\S]*canCreateRoomNotes=\{canCreateRoomNotes\}/);
+  assert.match(workspace, /<RoomStatusCardGrid[\s\S]*canCreateRoomNotes=\{canCreateRoomNotes\}/);
+  assert.match(list, /data-mobile-room-inspection-status=\{room\.inspectionStatus\}/);
+  assert.match(list, /RoomInspectionStatusBadge[\s\S]*pendingCount=\{room\.pendingMemoCount\}/);
+  assert.match(list, /canCreateRoomNotes && \([\s\S]*registerInspection/);
+  assert.match(card, /RoomInspectionStatusBadge status=\{room\.inspectionStatus\}/);
+  assert.match(card, /canCreateRoomNotes && <Button[\s\S]*registerInspection/);
+  assert.match(detail, /RoomInspectionStatusBadge status=\{room\.inspectionStatus\}/);
+  assert.match(detail, /canCreateRoomNotes && <Button[\s\S]*registerInspection/);
 });
 
 test("PC 리스트는 기존 bulk 객실 현황 응답만 사용하고 모바일 workspace는 유지한다", () => {

@@ -15,29 +15,15 @@ import { cn } from "@/lib/utils";
 import {
   groupRoomOverviewByProperty,
   requiresRoomInspection,
-  type RoomInspectionStatus,
   type RoomOverviewCard,
 } from "../domain/room-overview";
 import { useCollapsedRoomGroups } from "../hooks/use-collapsed-room-groups";
 import { getMobileSyncLabel } from "../room-overview-mobile-visuals";
 import { ROOM_STATUS_THEME } from "../room-overview-visuals";
 import { RoomInspectionButton } from "./room-inspection-button";
+import { RoomInspectionStatusBadge } from "./room-inspection-status-badge";
 
 const COLUMN_COUNT = 9;
-
-const INSPECTION_STATUS_STYLES = {
-  INCOMPLETE: "border-red-300 bg-red-50 text-red-700 dark:border-red-800 dark:bg-red-950/50 dark:text-red-200",
-  READ: "border-blue-300 bg-blue-50 text-blue-700 dark:border-blue-800 dark:bg-blue-950/50 dark:text-blue-200",
-  IN_PROGRESS: "border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-800 dark:bg-amber-950/50 dark:text-amber-200",
-  COMPLETED: "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-200",
-} as const satisfies Record<Exclude<RoomInspectionStatus, "NONE">, string>;
-
-function InspectionStatusBadge({ status, pendingCount }: { status: RoomInspectionStatus; pendingCount: number }) {
-  const i18n = useTranslations();
-  if (status === "NONE") return <span className="text-xs text-muted-foreground">-</span>;
-  const countLabel = status !== "COMPLETED" && pendingCount > 0 ? `(${pendingCount})` : "";
-  return <Badge variant="outline" className={cn("h-6 px-2 text-[10px] font-semibold", INSPECTION_STATUS_STYLES[status])}>{i18n(`roomOverviewList.inspectionStates.${status}`)}{countLabel}</Badge>;
-}
 
 function RoomStatusBadge({ room }: { room: RoomOverviewCard }) {
   const i18n = useTranslations();
@@ -129,7 +115,7 @@ function RoomOverviewRow({
           {canCreateRoomNotes && <Button type="button" variant="outline" size="xs" className="h-6 gap-1 px-2 text-[10px]" onClick={() => onCreateRoomNote(room)}><Plus className="size-3" />{i18n("roomOverviewList.registerInspection")}</Button>}
         </div>
       </td>
-      <td className="px-2 py-1.5 text-center"><InspectionStatusBadge status={room.inspectionStatus} pendingCount={room.pendingMemoCount} /></td>
+      <td className="px-2 py-1.5 text-center"><RoomInspectionStatusBadge status={room.inspectionStatus} pendingCount={room.pendingMemoCount} /></td>
       <td className="px-2 py-1.5 text-xs" title={sync.label}>
         <span className={cn("mr-1.5 inline-block size-2 rounded-full", syncDotClass)} aria-hidden="true" />
         <span className={cn("tabular-nums", sync.error && "text-destructive")}>{latestSyncAt ? syncFormatter.format(latestSyncAt) : sync.label}</span>

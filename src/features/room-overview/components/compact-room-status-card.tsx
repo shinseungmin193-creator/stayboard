@@ -1,22 +1,25 @@
 "use client";
 
 import { useLocale, useTranslations } from "next-intl";
-import { AlertTriangle, Check, Clock3, WifiOff } from "lucide-react";
+import { AlertTriangle, Check, Clock3, Plus, WifiOff } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { getProviderVisual } from "@/features/reservations/provider-visuals";
 import { cn } from "@/lib/utils";
 import { requiresRoomInspection, type RoomOverviewCard } from "../domain/room-overview";
 import { formatMobileRoomDate, getMobileRoomStatusVisual, getMobileSyncLabel } from "../room-overview-mobile-visuals";
 import { ROOM_INSPECTION_BORDER_CLASS } from "../room-overview-visuals";
-import { RoomInspectionButton } from "./room-inspection-button";
+import { RoomInspectionStatusBadge } from "./room-inspection-status-badge";
 
-export function CompactRoomStatusCard({ room, selectionMode, selected, onActivate, onInspectionActivate }: {
+export function CompactRoomStatusCard({ room, selectionMode, selected, canCreateRoomNotes, onActivate, onInspectionActivate, onCreateRoomNote }: {
   room: RoomOverviewCard;
   selectionMode: boolean;
   selected: boolean;
+  canCreateRoomNotes: boolean;
   onActivate: () => void;
   onInspectionActivate?: (room: RoomOverviewCard) => void;
+  onCreateRoomNote: (room: RoomOverviewCard) => void;
 }) {
   const locale = useLocale();
   const localeTag = locale === "ja" ? "ja-JP" : "ko-KR";
@@ -26,7 +29,8 @@ export function CompactRoomStatusCard({ room, selectionMode, selected, onActivat
   const StatusIcon = status.icon;
   const sync = getMobileSyncLabel(room, i18n);
   const inspectionRequired = requiresRoomInspection(room);
-  const hasCardAlerts = sync.error || room.activeConflictCount > 0 || inspectionRequired;
+  const hasInspectionStatus = room.inspectionStatus !== "NONE";
+  const hasCardAlerts = sync.error || room.activeConflictCount > 0 || hasInspectionStatus || (!selectionMode && canCreateRoomNotes);
   const visibleProviders = room.providers.slice(0, 2);
   const inspectionAction = !selectionMode && onInspectionActivate ? () => onInspectionActivate(room) : undefined;
 
@@ -77,7 +81,8 @@ export function CompactRoomStatusCard({ room, selectionMode, selected, onActivat
       </button>
 
       {hasCardAlerts && <div className="mx-2.5 mt-auto flex min-w-0 flex-wrap items-center gap-1 border-t border-current/10 py-1.5 text-[9px] text-muted-foreground">
-        {inspectionRequired && <RoomInspectionButton count={room.pendingMemoCount} onClick={inspectionAction} badgeClassName="px-1.5 text-[10px]" />}
+        {hasInspectionStatus && <RoomInspectionStatusBadge status={room.inspectionStatus} pendingCount={room.pendingMemoCount} onClick={inspectionAction} className="px-1.5 text-[10px]" />}
+        {!selectionMode && canCreateRoomNotes && <Button type="button" variant="outline" size="xs" className="h-6 gap-0.5 px-1.5 text-[9px]" onClick={() => onCreateRoomNote(room)}><Plus className="size-3" />{i18n("roomOverviewList.registerInspection")}</Button>}
         {sync.error && <span className="flex min-w-0 items-center gap-1 font-medium text-destructive"><Clock3 className="size-3 shrink-0" /><span className="truncate">{sync.label}</span></span>}
         {room.activeConflictCount > 0 && <span className="ml-auto flex shrink-0 items-center gap-0.5 font-semibold text-destructive"><AlertTriangle className="size-3" />{room.activeConflictCount}</span>}
       </div>}

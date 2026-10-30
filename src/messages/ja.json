@@ -123,7 +123,7 @@
     "cleaningIncomplete": "清掃未完了",
     "cleaningCompleted": "清掃完了",
     "inspection": "点検",
-    "registerInspection": "登録",
+    "registerInspection": "点検登録",
     "inspectionStatus": "状態",
     "inspectionStates": {
       "INCOMPLETE": "未完了",

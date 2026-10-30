@@ -141,8 +141,8 @@ export function MobileRoomStatusWorkspace({ rooms: initialRooms, properties, sel
       />
 
       {visibleRooms.length === 0 ? <div className="flex min-h-56 items-center rounded-xl border bg-card"><EmptyState icon={BedDouble} title={i18n("auto.m0092")} description={i18n("auto.m0463")} /></div> : <>
-        {viewMode === "card" && <RoomStatusCardGrid rooms={visibleRooms} selectionMode={selectionMode} selectedIds={selectedIds} onActivate={activateRoom} onInspectionActivate={canReadRoomNotes ? openInspection : undefined} />}
-        {viewMode === "list" && <RoomStatusList rooms={visibleRooms} sortField={sortField} sortDirection={sortDirection} selectionMode={selectionMode} selectedIds={selectedIds} onSort={changeSort} onActivate={activateRoom} />}
+        {viewMode === "card" && <RoomStatusCardGrid rooms={visibleRooms} selectionMode={selectionMode} selectedIds={selectedIds} canCreateRoomNotes={canCreateRoomNotes} onActivate={activateRoom} onInspectionActivate={canReadRoomNotes ? openInspection : undefined} onCreateRoomNote={(room) => setComposerRoomId(room.id)} />}
+        {viewMode === "list" && <RoomStatusList rooms={visibleRooms} sortField={sortField} sortDirection={sortDirection} selectionMode={selectionMode} selectedIds={selectedIds} canReadRoomNotes={canReadRoomNotes} canCreateRoomNotes={canCreateRoomNotes} onSort={changeSort} onActivate={activateRoom} onInspectionActivate={openInspection} onCreateRoomNote={(room) => setComposerRoomId(room.id)} />}
         {viewMode === "calendar" && <RoomStatusCalendar rooms={visibleRooms} selectedDate={selectedDate} today={today} rangeDays={rangeDays} todayScrollRequest={todayScrollRequest} selectionMode={selectionMode} selectedIds={selectedIds} onRangeChange={setRange} onRoomActivate={activateRoom} onReservationActivate={(room, reservation) => { if (selectionMode) activateRoom(room); else setDetailReservation({ room, reservation }); }} />}
       </>}
 
