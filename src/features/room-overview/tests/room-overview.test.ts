@@ -150,7 +150,7 @@ test("객실 카드 점검 배지는 OPEN 메모 count를 사용하고 정상 �
   const mobileCard = readFileSync("src/features/room-overview/components/compact-room-status-card.tsx", "utf8");
 
   assert.match(repository, /roomNotes: \{ some: \{ status: OPEN_ROOM_NOTE_STATUS \} \}/);
-  assert.match(repository, /_count: \{ select: \{ roomNotes: true, insuranceClaims: true \} \}/);
+  assert.match(repository, /insuranceClaims: \{ where: \{ status: "REPORTED" \} \}/);
   assert.match(repository, /roomNotes: \{[\s\S]*where: \{ status: OPEN_ROOM_NOTE_STATUS \}[\s\S]*acknowledgedAt: true, processedAt: true/);
   assert.doesNotMatch(repository, /prisma\.roomNote\.(findMany|count)/);
   assert.match(desktopCard, /requiresRoomInspection\(card\)/);

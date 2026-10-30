@@ -67,7 +67,7 @@ export async function findRoomOverviewData(input: { propertyId?: string; operati
     select: {
       id: true, propertyId: true, name: true, code: true, sortOrder: true, operationalStatus: true, operationalStatusUpdatedAt: true,
       property: { select: { name: true } },
-      _count: { select: { roomNotes: true, insuranceClaims: true } },
+      _count: { select: { roomNotes: true, insuranceClaims: { where: { status: "REPORTED" } } } },
       roomNotes: {
         where: { status: OPEN_ROOM_NOTE_STATUS },
         select: { acknowledgedAt: true, processedAt: true },

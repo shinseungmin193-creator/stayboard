@@ -48,6 +48,7 @@ test("STAFF has operational permissions only", () => {
   assert.equal(hasPermission("STAFF", PERMISSIONS.CLEANING_ASSIGN), false);
   assert.equal(hasPermission("STAFF", PERMISSIONS.PROPERTY_REVIEW_READ), false);
   assert.equal(hasPermission("STAFF", PERMISSIONS.PROPERTY_REVIEW_SYNC), false);
+  assert.equal(hasPermission("STAFF", PERMISSIONS.INSURANCE_CLAIM_DELETE), false);
   assert.equal(hasPermission("ADMIN", PERMISSIONS.CLEANING_WORKER_MANAGE), true);
   assert.equal(hasPermission("ADMIN", PERMISSIONS.CLEANING_COMPLETION_MANAGE), true);
   assert.equal(hasPermission("DEVELOPER", PERMISSIONS.CLEANING_COMPLETION_MANAGE), true);

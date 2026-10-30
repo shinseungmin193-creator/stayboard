@@ -2,14 +2,16 @@
 
 import { useState, useTransition } from "react";
 import Image from "next/image";
-import { CheckCircle2, Images, LoaderCircle } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { CheckCircle2, Images, LoaderCircle, Trash2 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { withBasePath } from "@/lib/base-path";
 import type { InsuranceClaimStatus, InsuranceClaimType } from "@/lib/generated/prisma/enums";
 import { INSURANCE_CLAIM_TYPES, INSURANCE_CLAIM_TYPE_LABELS } from "../domain/insurance-claim";
-import { submitInsuranceClaimAction } from "../insurance-claim.actions";
+import { deleteInsuranceClaimAction, submitInsuranceClaimAction } from "../insurance-claim.actions";
 
 interface ClaimItem {
   id: string;
@@ -25,10 +27,11 @@ interface ClaimItem {
   photos: Array<{ id: string; originalName: string }>;
 }
 
-function ClaimCard({ initialClaim, canComplete }: { initialClaim: ClaimItem; canComplete: boolean }) {
+function ClaimCard({ initialClaim, canComplete, canDelete, onDeleted }: { initialClaim: ClaimItem; canComplete: boolean; canDelete: boolean; onDeleted: (id: string) => void }) {
   const [claim, setClaim] = useState(initialClaim);
   const [types, setTypes] = useState<InsuranceClaimType[]>(initialClaim.types);
   const [error, setError] = useState<string | null>(null);
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const [pending, startTransition] = useTransition();
   const completed = claim.status === "SUBMITTED";
   const submit = () => startTransition(async () => {
@@ -37,8 +40,15 @@ function ClaimCard({ initialClaim, canComplete }: { initialClaim: ClaimItem; can
     if (!result.success || !result.data) { setError(result.message || "신청 완료하지 못했습니다."); return; }
     setClaim((current) => ({ ...current, status: "SUBMITTED", types: result.data!.types, submittedAt: new Date(result.data!.submittedAt), submittedByName: result.data!.submittedByName }));
   });
+  const remove = () => startTransition(async () => {
+    setError(null);
+    const result = await deleteInsuranceClaimAction({ id: claim.id });
+    if (!result.success) { setError(result.message || "삭제하지 못했습니다."); setDeleteOpen(false); return; }
+    setDeleteOpen(false);
+    onDeleted(claim.id);
+  });
 
-  return <article className="space-y-4 rounded-xl border bg-card p-4 shadow-sm" data-insurance-claim-id={claim.id}>
+  return <><article className="space-y-4 rounded-xl border bg-card p-4 shadow-sm" data-insurance-claim-id={claim.id}>
     <div className="flex flex-wrap items-start justify-between gap-3">
       <div>
         <h2 className="font-semibold">{claim.property.name} · {claim.room.name}</h2>
@@ -54,13 +64,27 @@ function ClaimCard({ initialClaim, canComplete }: { initialClaim: ClaimItem; can
       </div>
     </fieldset>
     {claim.photos.length > 0 ? <div className="flex gap-2 overflow-x-auto">{claim.photos.map((photo) => <a key={photo.id} href={withBasePath(`/api/insurance-claims/photos/${encodeURIComponent(photo.id)}`)} target="_blank" rel="noreferrer" className="block shrink-0"><Image unoptimized width={80} height={80} src={withBasePath(`/api/insurance-claims/photos/${encodeURIComponent(photo.id)}`)} alt={photo.originalName} className="size-20 rounded-lg border object-cover" /></a>)}</div> : <p className="flex items-center gap-1 text-xs text-muted-foreground"><Images className="size-4" />사진 없음</p>}
-    {completed ? <p className="text-xs text-muted-foreground">신청 완료 {claim.submittedAt ? new Intl.DateTimeFormat("ko-KR", { timeZone: "Asia/Tokyo", dateStyle: "medium", timeStyle: "short" }).format(claim.submittedAt) : ""} / {claim.submittedByName ?? "-"}</p> : canComplete && <div className="flex justify-end"><Button type="button" disabled={pending || types.length === 0} onClick={submit}>{pending ? <LoaderCircle className="animate-spin" /> : <CheckCircle2 />}선택 종류 신청 완료</Button></div>}
+    {completed ? <div className="flex flex-wrap items-center justify-between gap-3"><p className="text-xs text-muted-foreground">신청 완료 {claim.submittedAt ? new Intl.DateTimeFormat("ko-KR", { timeZone: "Asia/Tokyo", dateStyle: "medium", timeStyle: "short" }).format(claim.submittedAt) : ""} / {claim.submittedByName ?? "-"}</p>{canDelete && <Button type="button" variant="outline" size="sm" className="text-destructive hover:text-destructive" disabled={pending} onClick={() => setDeleteOpen(true)}><Trash2 />삭제</Button>}</div> : canComplete && <div className="flex justify-end"><Button type="button" disabled={pending || types.length === 0} onClick={submit}>{pending ? <LoaderCircle className="animate-spin" /> : <CheckCircle2 />}선택 종류 신청 완료</Button></div>}
     {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
-  </article>;
+  </article>
+  <Dialog open={deleteOpen} onOpenChange={(open) => { if (!pending) setDeleteOpen(open); }}>
+    <DialogContent role="alertdialog" showCloseButton={!pending} className="sm:max-w-lg">
+      <DialogHeader><DialogTitle>신청 완료 보고를 삭제하시겠습니까?</DialogTitle><DialogDescription>보험/보상 보고와 등록된 사진이 영구 삭제됩니다. 이 작업은 되돌릴 수 없습니다.</DialogDescription></DialogHeader>
+      <p className="rounded-lg border bg-muted/40 p-3 text-sm font-medium">{claim.property.name} · {claim.room.name}<span className="mt-1 block line-clamp-2 font-normal text-muted-foreground">{claim.content}</span></p>
+      <DialogFooter>
+        <Button type="button" variant="outline" disabled={pending} onClick={() => setDeleteOpen(false)}>취소</Button>
+        <Button type="button" variant="destructive" disabled={pending} onClick={remove}>{pending ? <LoaderCircle className="animate-spin" /> : <Trash2 />}삭제</Button>
+      </DialogFooter>
+    </DialogContent>
+  </Dialog></>;
 }
 
-export function InsuranceClaimList({ claims, canComplete }: { claims: ClaimItem[]; canComplete: boolean }) {
-  if (!claims.length) return <div className="rounded-xl border bg-card p-12 text-center text-sm text-muted-foreground">등록된 보험/보상 보고가 없습니다.</div>;
-  return <div className="grid gap-3 lg:grid-cols-2">{claims.map((claim) => <ClaimCard key={claim.id} initialClaim={claim} canComplete={canComplete} />)}</div>;
+export function InsuranceClaimList({ claims, canComplete, canDelete }: { claims: ClaimItem[]; canComplete: boolean; canDelete: boolean }) {
+  const router = useRouter();
+  const [deletedIds, setDeletedIds] = useState<ReadonlySet<string>>(() => new Set());
+  const items = claims.filter((claim) => !deletedIds.has(claim.id));
+  const removeItem = (id: string) => { setDeletedIds((current) => new Set(current).add(id)); router.refresh(); };
+  if (!items.length) return <div className="rounded-xl border bg-card p-12 text-center text-sm text-muted-foreground">등록된 보험/보상 보고가 없습니다.</div>;
+  return <div className="grid gap-3 lg:grid-cols-2">{items.map((claim) => <ClaimCard key={claim.id} initialClaim={claim} canComplete={canComplete} canDelete={canDelete} onDeleted={removeItem} />)}</div>;
 }
 

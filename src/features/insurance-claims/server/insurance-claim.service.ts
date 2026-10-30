@@ -1,6 +1,7 @@
 import "server-only";
 
 import { canAccessCompany, canAccessRoom, PermissionDeniedError, withAccessAuditMetadata, type AccessContext } from "@/features/access-control";
+import { getCleaningPhotoStorage } from "@/features/cleaning/storage/local-file-storage-provider";
 import type { InsuranceClaimType } from "@/lib/generated/prisma/enums";
 import { prisma } from "@/lib/prisma";
 
@@ -70,5 +71,47 @@ export async function submitInsuranceClaim(context: AccessContext, claimId: stri
     });
     return { id: claimId, status: "SUBMITTED" as const, submittedAt: now.toISOString(), submittedByName: context.name?.trim() || "-", types };
   });
+}
+
+export async function deleteSubmittedInsuranceClaim(context: AccessContext, claimId: string) {
+  const deleted = await prisma.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`insurance-claim:${claimId}`}))`;
+    const current = await tx.insuranceClaim.findUnique({
+      where: { id: claimId },
+      select: {
+        id: true,
+        companyId: true,
+        propertyId: true,
+        roomId: true,
+        status: true,
+        photos: { select: { storageKey: true } },
+      },
+    });
+    if (!current) throw new InsuranceClaimServiceError("보험/보상 보고를 찾을 수 없습니다.");
+    if (!canAccessCompany(context, current.companyId) || !canAccessRoom(context, current)) throw new PermissionDeniedError();
+    if (current.status !== "SUBMITTED") throw new InsuranceClaimServiceError("신청 완료된 보고만 삭제할 수 있습니다.");
+
+    const removed = await tx.insuranceClaim.deleteMany({ where: { id: claimId, status: "SUBMITTED" } });
+    if (removed.count !== 1) throw new InsuranceClaimServiceError("상태가 변경되어 삭제할 수 없습니다.");
+    await tx.auditLog.create({
+      data: {
+        actorUserId: context.userId,
+        targetCompanyId: current.companyId,
+        action: "INSURANCE_CLAIM_DELETED",
+        details: withAccessAuditMetadata(context, {
+          insuranceClaimId: claimId,
+          propertyId: current.propertyId,
+          roomId: current.roomId,
+          previousStatus: current.status,
+          photoCount: current.photos.length,
+        }),
+      },
+    });
+    return { id: claimId, storageKeys: current.photos.map((photo) => photo.storageKey) };
+  });
+
+  const storage = getCleaningPhotoStorage();
+  await Promise.allSettled(deleted.storageKeys.map((storageKey) => storage.delete(storageKey)));
+  return { id: deleted.id };
 }
 

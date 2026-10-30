@@ -35,7 +35,7 @@ export default async function InsuranceClaimsPage({ searchParams }: { searchPara
       <select name="status" defaultValue={status ?? ""} className="h-9 rounded-md border bg-background px-3 text-sm"><option value="">모든 상태</option><option value="REPORTED">접수</option><option value="SUBMITTED">신청 완료</option></select>
       <button className="h-9 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground" type="submit">조회</button>
     </form>
-    <InsuranceClaimList claims={result.claims} canComplete={hasPermission(access.context.role, PERMISSIONS.INSURANCE_CLAIM_COMPLETE)} />
+    <InsuranceClaimList claims={result.claims} canComplete={hasPermission(access.context.role, PERMISSIONS.INSURANCE_CLAIM_COMPLETE)} canDelete={hasPermission(access.context.role, PERMISSIONS.INSURANCE_CLAIM_DELETE)} />
     {result.totalPages > 1 && <nav className="flex items-center justify-center gap-3 text-sm"><Link aria-disabled={result.page <= 1} className={result.page <= 1 ? "pointer-events-none text-muted-foreground" : "underline"} href={paramsForPage(result.page - 1)}>이전</Link><span>{result.page} / {result.totalPages} · 총 {result.total}건</span><Link aria-disabled={result.page >= result.totalPages} className={result.page >= result.totalPages ? "pointer-events-none text-muted-foreground" : "underline"} href={paramsForPage(result.page + 1)}>다음</Link></nav>}
   </div>;
 }

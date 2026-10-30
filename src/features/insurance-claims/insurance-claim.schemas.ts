@@ -15,3 +15,7 @@ export const submitInsuranceClaimSchema = z.object({
   types: z.array(claimType).min(1).max(INSURANCE_CLAIM_TYPES.length).transform((items) => [...new Set(items)]),
 });
 
+export const deleteInsuranceClaimSchema = z.object({
+  id: z.string().trim().min(1),
+});
+

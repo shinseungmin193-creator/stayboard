@@ -4,7 +4,7 @@ import test from "node:test";
 
 import { hasPermission, PERMISSIONS } from "../../access-control/domain/access-control";
 import { INSURANCE_CLAIM_TYPE_LABELS } from "../domain/insurance-claim";
-import { createInsuranceClaimSchema, submitInsuranceClaimSchema } from "../insurance-claim.schemas";
+import { createInsuranceClaimSchema, deleteInsuranceClaimSchema, submitInsuranceClaimSchema } from "../insurance-claim.schemas";
 
 test("개발자·관리자·직원 모두 객실에서 보험/보상 보고를 등록할 수 있다", () => {
   for (const role of ["DEVELOPER", "ADMIN", "STAFF"] as const) assert.equal(hasPermission(role, PERMISSIONS.INSURANCE_CLAIM_CREATE), true);
@@ -14,9 +14,11 @@ test("보험 및 보상 관리 목록과 신청 완료는 개발자·관리자�
   for (const role of ["DEVELOPER", "ADMIN"] as const) {
     assert.equal(hasPermission(role, PERMISSIONS.INSURANCE_CLAIM_READ), true);
     assert.equal(hasPermission(role, PERMISSIONS.INSURANCE_CLAIM_COMPLETE), true);
+    assert.equal(hasPermission(role, PERMISSIONS.INSURANCE_CLAIM_DELETE), true);
   }
   assert.equal(hasPermission("STAFF", PERMISSIONS.INSURANCE_CLAIM_READ), false);
   assert.equal(hasPermission("STAFF", PERMISSIONS.INSURANCE_CLAIM_COMPLETE), false);
+  assert.equal(hasPermission("STAFF", PERMISSIONS.INSURANCE_CLAIM_DELETE), false);
 });
 
 test("화재보험과 OTA 종류를 중복 선택하고 중복 값은 정규화한다", () => {
@@ -49,6 +51,7 @@ test("sidebar·페이지·서버 action이 같은 보험/보상 권한을 사용
   assert.match(page, /authorizeSidebarMenuAccess\("insurance-claims"\)/);
   assert.match(actions, /INSURANCE_CLAIM_CREATE/);
   assert.match(actions, /INSURANCE_CLAIM_COMPLETE/);
+  assert.match(actions, /INSURANCE_CLAIM_DELETE/);
 });
 
 test("신청 완료는 REPORTED 상태에서만 원자적으로 변경하고 감사 로그를 남긴다", () => {
@@ -58,10 +61,21 @@ test("신청 완료는 REPORTED 상태에서만 원자적으로 변경하고 감
   assert.match(service, /pg_advisory_xact_lock/);
 });
 
+test("신청 완료 보고만 삭제하고 관련 사진 파일 정리와 감사 로그를 유지한다", () => {
+  assert.equal(deleteInsuranceClaimSchema.safeParse({ id: "claim" }).success, true);
+  const service = readFileSync("src/features/insurance-claims/server/insurance-claim.service.ts", "utf8");
+  const list = readFileSync("src/features/insurance-claims/components/insurance-claim-list.tsx", "utf8");
+  assert.match(service, /current\.status !== "SUBMITTED"/);
+  assert.match(service, /deleteMany\(\{ where: \{ id: claimId, status: "SUBMITTED" \} \}\)/);
+  assert.match(service, /INSURANCE_CLAIM_DELETED/);
+  assert.match(service, /storage\.delete\(storageKey\)/);
+  assert.match(list, /completed[\s\S]*canDelete[\s\S]*setDeleteOpen\(true\)/);
+});
+
 test("객실 현황은 보험 건수를 bulk count로 가져오고 상태와 동기화 사이에 표시한다", () => {
   const repository = readFileSync("src/features/room-overview/infrastructure/room-overview.repository.ts", "utf8");
   const list = readFileSync("src/features/room-overview/components/room-overview-list-view.tsx", "utf8");
-  assert.match(repository, /_count: \{ select: \{ roomNotes: true, insuranceClaims: true \} \}/);
+  assert.match(repository, /insuranceClaims: \{ where: \{ status: "REPORTED" \} \}/);
   const statusColumn = list.indexOf("inspectionStatus");
   const insuranceColumn = list.indexOf("보험/보상", statusColumn);
   const syncColumn = list.indexOf("lastSync", insuranceColumn);
