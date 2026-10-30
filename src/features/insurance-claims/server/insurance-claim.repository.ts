@@ -23,6 +23,7 @@ export async function listInsuranceClaims(context: AccessContext, input: { prope
       select: {
         id: true, content: true, types: true, status: true, reporterName: true, createdAt: true,
         submittedAt: true, submittedByName: true,
+        paidAmount: true, paidAt: true, paidByName: true,
         property: { select: { name: true } }, room: { select: { name: true, code: true } },
         photos: { select: { id: true, originalName: true }, orderBy: { createdAt: "asc" } },
       },

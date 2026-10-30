@@ -4,7 +4,7 @@ import test from "node:test";
 
 import { hasPermission, PERMISSIONS } from "../../access-control/domain/access-control";
 import { INSURANCE_CLAIM_TYPE_LABELS } from "../domain/insurance-claim";
-import { createInsuranceClaimSchema, deleteInsuranceClaimSchema, submitInsuranceClaimSchema } from "../insurance-claim.schemas";
+import { completeInsurancePayoutSchema, createInsuranceClaimSchema, deleteInsuranceClaimSchema, submitInsuranceClaimSchema } from "../insurance-claim.schemas";
 
 test("개발자·관리자·직원 모두 객실에서 보험/보상 보고를 등록할 수 있다", () => {
   for (const role of ["DEVELOPER", "ADMIN", "STAFF"] as const) assert.equal(hasPermission(role, PERMISSIONS.INSURANCE_CLAIM_CREATE), true);
@@ -61,15 +61,53 @@ test("신청 완료는 REPORTED 상태에서만 원자적으로 변경하고 감
   assert.match(service, /pg_advisory_xact_lock/);
 });
 
-test("신청 완료 보고만 삭제하고 관련 사진 파일 정리와 감사 로그를 유지한다", () => {
+test("지급 완료 금액은 양의 정수 엔 단위만 허용한다", () => {
+  assert.equal(completeInsurancePayoutSchema.safeParse({ id: "claim", paidAmount: 150000 }).success, true);
+  assert.equal(completeInsurancePayoutSchema.safeParse({ id: "claim", paidAmount: "150000" }).success, true);
+  assert.equal(completeInsurancePayoutSchema.safeParse({ id: "claim", paidAmount: 0 }).success, false);
+  assert.equal(completeInsurancePayoutSchema.safeParse({ id: "claim", paidAmount: 1.5 }).success, false);
+});
+
+test("지급 완료는 SUBMITTED 상태에서만 원자적으로 금액·처리자·시각을 기록한다", () => {
+  const service = readFileSync("src/features/insurance-claims/server/insurance-claim.service.ts", "utf8");
+  const actions = readFileSync("src/features/insurance-claims/insurance-claim.actions.ts", "utf8");
+  assert.match(service, /where: \{ id: claimId, status: "SUBMITTED" \}/);
+  assert.match(service, /status: "PAID"/);
+  assert.match(service, /paidAmount,[\s\S]*paidAt: now,[\s\S]*paidByUserId: context\.userId/);
+  assert.match(service, /INSURANCE_CLAIM_PAID/);
+  assert.match(actions, /requireInsuranceClaimAccess\(parsed\.data\.id, PERMISSIONS\.INSURANCE_CLAIM_COMPLETE\)/);
+});
+
+test("신청 완료와 지급 완료 기록을 삭제하고 관련 사진 파일 정리와 감사 로그를 유지한다", () => {
   assert.equal(deleteInsuranceClaimSchema.safeParse({ id: "claim" }).success, true);
   const service = readFileSync("src/features/insurance-claims/server/insurance-claim.service.ts", "utf8");
   const list = readFileSync("src/features/insurance-claims/components/insurance-claim-list.tsx", "utf8");
-  assert.match(service, /current\.status !== "SUBMITTED"/);
-  assert.match(service, /deleteMany\(\{ where: \{ id: claimId, status: "SUBMITTED" \} \}\)/);
+  assert.match(service, /current\.status !== "SUBMITTED" && current\.status !== "PAID"/);
+  assert.match(service, /status: \{ in: \["SUBMITTED", "PAID"\] \}/);
   assert.match(service, /INSURANCE_CLAIM_DELETED/);
   assert.match(service, /storage\.delete\(storageKey\)/);
-  assert.match(list, /completed[\s\S]*canDelete[\s\S]*setDeleteOpen\(true\)/);
+  assert.match(list, /isProcessed && canDelete[\s\S]*setDeleteOpen\(true\)/);
+});
+
+test("관리 화면은 신청 대기·지급 대기·지급 완료를 구분하고 최종 금액을 표시한다", () => {
+  const page = readFileSync("src/app/insurance-claims/page.tsx", "utf8");
+  const list = readFileSync("src/features/insurance-claims/components/insurance-claim-list.tsx", "utf8");
+  const repository = readFileSync("src/features/insurance-claims/server/insurance-claim.repository.ts", "utf8");
+  assert.match(page, /statusValue === "PAID"/);
+  assert.match(page, /신청 완료 · 지급 대기중/);
+  assert.match(page, /<option value="PAID">지급 완료<\/option>/);
+  assert.match(list, /최종 지급 금액/);
+  assert.match(list, /completeInsurancePayoutAction/);
+  assert.match(list, /지급 금액 \(엔\)/);
+  assert.match(repository, /paidAmount: true, paidAt: true, paidByName: true/);
+});
+
+test("지급 상태와 금액 필드는 기존 기록을 유지하는 nullable migration으로 추가한다", () => {
+  const migration = readFileSync("prisma/migrations/20261030213000_add_insurance_claim_payout/migration.sql", "utf8");
+  assert.match(migration, /ADD VALUE 'PAID'/);
+  assert.match(migration, /ADD COLUMN "paidAmount" INTEGER/);
+  assert.match(migration, /ADD COLUMN "paidAt" TIMESTAMP\(3\)/);
+  assert.doesNotMatch(migration, /UPDATE "InsuranceClaim"|DELETE FROM "InsuranceClaim"/);
 });
 
 test("객실 현황은 보험 건수를 bulk count로 가져오고 상태와 동기화 사이에 표시한다", () => {

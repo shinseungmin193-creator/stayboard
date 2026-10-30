@@ -15,6 +15,11 @@ export const submitInsuranceClaimSchema = z.object({
   types: z.array(claimType).min(1).max(INSURANCE_CLAIM_TYPES.length).transform((items) => [...new Set(items)]),
 });
 
+export const completeInsurancePayoutSchema = z.object({
+  id: z.string().trim().min(1),
+  paidAmount: z.coerce.number().int().positive().max(2_000_000_000),
+});
+
 export const deleteInsuranceClaimSchema = z.object({
   id: z.string().trim().min(1),
 });

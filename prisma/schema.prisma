@@ -86,6 +86,7 @@ enum RoomNoteStatus {
 enum InsuranceClaimStatus {
   REPORTED
   SUBMITTED
+  PAID
 }
 
 enum InsuranceClaimType {
@@ -310,6 +311,7 @@ model User {
   roomNotesCompleted           RoomNote[]             @relation("RoomNoteCompletedBy")
   insuranceClaimsReported      InsuranceClaim[]       @relation("InsuranceClaimReporter")
   insuranceClaimsSubmitted     InsuranceClaim[]       @relation("InsuranceClaimSubmitter")
+  insuranceClaimsPaid          InsuranceClaim[]       @relation("InsuranceClaimPaidBy")
   insuranceClaimPhotosUploaded InsuranceClaimPhoto[]  @relation("InsuranceClaimPhotoUploader")
   developerRoleSessions        DeveloperRoleSession[]
   reviewSyncLogs               ReviewSyncLog[]        @relation("ReviewSyncActor")
@@ -786,6 +788,10 @@ model InsuranceClaim {
   submittedAt       DateTime?
   submittedByUserId String?
   submittedByName   String?
+  paidAmount        Int?
+  paidAt            DateTime?
+  paidByUserId      String?
+  paidByName        String?
   createdAt         DateTime              @default(now())
   updatedAt         DateTime              @updatedAt
   company           Company               @relation(fields: [companyId], references: [id], onDelete: Restrict)
@@ -793,6 +799,7 @@ model InsuranceClaim {
   room              Room                  @relation(fields: [roomId], references: [id], onDelete: Restrict)
   reporter          User?                 @relation("InsuranceClaimReporter", fields: [reporterUserId], references: [id], onDelete: SetNull)
   submittedBy       User?                 @relation("InsuranceClaimSubmitter", fields: [submittedByUserId], references: [id], onDelete: SetNull)
+  paidBy            User?                 @relation("InsuranceClaimPaidBy", fields: [paidByUserId], references: [id], onDelete: SetNull)
   photos            InsuranceClaimPhoto[]
 
   @@index([companyId, status, createdAt, id])
@@ -800,6 +807,7 @@ model InsuranceClaim {
   @@index([roomId, status, createdAt, id])
   @@index([reporterUserId, createdAt])
   @@index([submittedByUserId, submittedAt])
+  @@index([paidByUserId, paidAt])
 }
 
 model InsuranceClaimPhoto {

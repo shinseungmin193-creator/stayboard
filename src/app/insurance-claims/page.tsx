@@ -18,7 +18,7 @@ export default async function InsuranceClaimsPage({ searchParams }: { searchPara
   const properties = await listPropertyOptions(companyScopeIds(access.context), access.context.scope);
   const propertyId = properties.some((property) => property.id === value("propertyId")) ? value("propertyId") : undefined;
   const statusValue = value("status");
-  const status: InsuranceClaimStatus | undefined = statusValue === "REPORTED" || statusValue === "SUBMITTED" ? statusValue : undefined;
+  const status: InsuranceClaimStatus | undefined = statusValue === "REPORTED" || statusValue === "SUBMITTED" || statusValue === "PAID" ? statusValue : undefined;
   const requestedPage = Number(value("page"));
   const result = await listInsuranceClaims(access.context, { propertyId, status, page: Number.isSafeInteger(requestedPage) ? requestedPage : 1 });
   const paramsForPage = (page: number) => {
@@ -29,10 +29,10 @@ export default async function InsuranceClaimsPage({ searchParams }: { searchPara
     return `/insurance-claims?${next}`;
   };
   return <div className="space-y-5">
-    <PageHeader eyebrow="INSURANCE & COMPENSATION" title="보험 및 보상" description="객실에서 보고된 사고·피해를 확인하고 여러 보험/OTA에 중복 신청 완료 처리합니다." />
+    <PageHeader eyebrow="INSURANCE & COMPENSATION" title="보험 및 보상" description="사고·피해의 신청 상태부터 실제 지급 완료 금액까지 관리합니다." />
     <form className="flex flex-wrap gap-2 rounded-xl border bg-card p-3">
       <select name="propertyId" defaultValue={propertyId ?? ""} className="h-9 rounded-md border bg-background px-3 text-sm"><option value="">모든 숙소</option>{properties.map((property) => <option key={property.id} value={property.id}>{property.name}</option>)}</select>
-      <select name="status" defaultValue={status ?? ""} className="h-9 rounded-md border bg-background px-3 text-sm"><option value="">모든 상태</option><option value="REPORTED">접수</option><option value="SUBMITTED">신청 완료</option></select>
+      <select name="status" defaultValue={status ?? ""} className="h-9 rounded-md border bg-background px-3 text-sm"><option value="">모든 상태</option><option value="REPORTED">신청 대기중</option><option value="SUBMITTED">신청 완료 · 지급 대기중</option><option value="PAID">지급 완료</option></select>
       <button className="h-9 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground" type="submit">조회</button>
     </form>
     <InsuranceClaimList claims={result.claims} canComplete={hasPermission(access.context.role, PERMISSIONS.INSURANCE_CLAIM_COMPLETE)} canDelete={hasPermission(access.context.role, PERMISSIONS.INSURANCE_CLAIM_DELETE)} />
