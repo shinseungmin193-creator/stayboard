@@ -38,6 +38,8 @@ export function RoomOverviewDesktopWorkspace({
   canDeleteRoomNotes,
   canCompleteRoomNotes,
   canCreateInsuranceClaims,
+  canReadRoomAccessPassword,
+  canManageRoomAccessPassword,
   initialInspectionRoomId,
 }: {
   initialRooms: RoomOverviewCardData[];
@@ -62,6 +64,8 @@ export function RoomOverviewDesktopWorkspace({
   canDeleteRoomNotes: boolean;
   canCompleteRoomNotes: boolean;
   canCreateInsuranceClaims: boolean;
+  canReadRoomAccessPassword: boolean;
+  canManageRoomAccessPassword: boolean;
   initialInspectionRoomId?: string;
 }) {
   const i18n = useTranslations();
@@ -114,6 +118,8 @@ export function RoomOverviewDesktopWorkspace({
             onInspectionActivate={openInspection}
             onCreateRoomNote={(room) => setComposerRoomId(room.id)}
             canCreateInsuranceClaims={canCreateInsuranceClaims}
+            canReadRoomAccessPassword={canReadRoomAccessPassword}
+            canManageRoomAccessPassword={canManageRoomAccessPassword}
             onCreateInsuranceClaim={(room) => setInsuranceRoomId(room.id)}
           />
         ) : (
@@ -125,6 +131,8 @@ export function RoomOverviewDesktopWorkspace({
                 canUpdateOperationalStatus={canUpdateOperationalStatus}
                 onInspectionActivate={canReadRoomNotes ? openInspection : undefined}
                 canCreateInsuranceClaims={canCreateInsuranceClaims}
+                canReadRoomAccessPassword={canReadRoomAccessPassword}
+                canManageRoomAccessPassword={canManageRoomAccessPassword}
                 onCreateInsuranceClaim={(room) => setInsuranceRoomId(room.id)}
               />
             ))}

@@ -9,6 +9,7 @@ import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
 import { getProviderLabel } from "@/features/reservations/provider-visuals";
 import { getReservationDisplayName } from "@/features/reservations/reservation-display";
 import { formatRoomDisplayName } from "@/features/rooms/room-display";
+import { RoomAccessPasswordDialog } from "@/features/rooms/components/room-access-password-dialog";
 import { cn } from "@/lib/utils";
 import { getZonedDateInput } from "@/lib/zoned-date";
 import { requiresRoomInspection, type RoomOverviewCard as RoomOverviewCardData } from "../domain/room-overview";
@@ -26,10 +27,12 @@ function isSyncAlert(sync: RoomSyncState): sync is RoomSyncState & { status: "FA
   return sync.status === "FAILED" || sync.status === "TIMEOUT";
 }
 
-export function RoomOverviewCard({ card, canUpdateOperationalStatus = true, canCreateInsuranceClaims = false, onInspectionActivate, onCreateInsuranceClaim }: {
+export function RoomOverviewCard({ card, canUpdateOperationalStatus = true, canCreateInsuranceClaims = false, canReadRoomAccessPassword = false, canManageRoomAccessPassword = false, onInspectionActivate, onCreateInsuranceClaim }: {
   card: RoomOverviewCardData;
   canUpdateOperationalStatus?: boolean;
   canCreateInsuranceClaims?: boolean;
+  canReadRoomAccessPassword?: boolean;
+  canManageRoomAccessPassword?: boolean;
   onInspectionActivate?: (room: RoomOverviewCardData) => void;
   onCreateInsuranceClaim?: (room: RoomOverviewCardData) => void;
 }) {
@@ -73,6 +76,7 @@ export function RoomOverviewCard({ card, canUpdateOperationalStatus = true, canC
           <p data-room-overview-property className={cn("truncate font-medium leading-4 text-muted-foreground", styles.propertyName)}>{card.propertyName}</p>
           <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1.5">
             <h3 className={cn("min-w-0 flex-1 basis-20 truncate font-bold leading-6 tracking-tight", styles.roomName, theme.titleClass)}>{formatRoomDisplayName(card)}</h3>
+            {canReadRoomAccessPassword && <RoomAccessPasswordDialog roomId={card.id} roomLabel={`${card.propertyName} ${formatRoomDisplayName(card)}`} canManage={canManageRoomAccessPassword} />}
             <RoomOverviewProviderBadges providers={card.providers} currentProvider={currentProvider} />
           </div>
         </div>

@@ -12,6 +12,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { getReservationNightCount } from "@/features/reservations/reservation-date";
+import { RoomAccessPasswordDialog } from "@/features/rooms/components/room-access-password-dialog";
 import { cn } from "@/lib/utils";
 import {
   groupRoomOverviewByProperty,
@@ -56,6 +57,8 @@ function RoomOverviewRow({
   onInspectionActivate,
   onCreateRoomNote,
   canCreateInsuranceClaims,
+  canReadRoomAccessPassword,
+  canManageRoomAccessPassword,
   onCreateInsuranceClaim,
 }: {
   room: RoomOverviewCard;
@@ -64,6 +67,8 @@ function RoomOverviewRow({
   onInspectionActivate: (room: RoomOverviewCard) => void;
   onCreateRoomNote: (room: RoomOverviewCard) => void;
   canCreateInsuranceClaims: boolean;
+  canReadRoomAccessPassword: boolean;
+  canManageRoomAccessPassword: boolean;
   onCreateInsuranceClaim: (room: RoomOverviewCard) => void;
 }) {
   const locale = useLocale();
@@ -104,7 +109,9 @@ function RoomOverviewRow({
       data-room-status={room.status}
       data-room-inspection-required={inspectionRequired ? "true" : undefined}
     >
-      <td className="px-3 py-1.5 font-bold">{room.name}</td>
+      <td className="px-3 py-1.5">
+        <div className="flex items-center gap-2"><strong className="font-bold">{room.name}</strong>{canReadRoomAccessPassword && <RoomAccessPasswordDialog roomId={room.id} roomLabel={`${room.propertyName} ${room.name}`} canManage={canManageRoomAccessPassword} />}</div>
+      </td>
       <td className="px-2 py-1.5"><RoomStatusBadge room={room} /></td>
       <td className="px-2 py-1.5 text-xs tabular-nums">{current ? dateFormatter.format(current.startDate) : "-"}</td>
       <td className="px-2 py-1.5 text-xs tabular-nums">{current ? dateFormatter.format(current.endDate) : "-"}</td>
@@ -139,6 +146,8 @@ export function RoomOverviewListView({
   onInspectionActivate,
   onCreateRoomNote,
   canCreateInsuranceClaims,
+  canReadRoomAccessPassword,
+  canManageRoomAccessPassword,
   onCreateInsuranceClaim,
 }: {
   rooms: RoomOverviewCard[];
@@ -147,6 +156,8 @@ export function RoomOverviewListView({
   onInspectionActivate: (room: RoomOverviewCard) => void;
   onCreateRoomNote: (room: RoomOverviewCard) => void;
   canCreateInsuranceClaims: boolean;
+  canReadRoomAccessPassword: boolean;
+  canManageRoomAccessPassword: boolean;
   onCreateInsuranceClaim: (room: RoomOverviewCard) => void;
 }) {
   const i18n = useTranslations();
@@ -158,7 +169,7 @@ export function RoomOverviewListView({
       <table className="w-full min-w-[900px] border-collapse text-sm">
         <thead className="sticky top-0 z-10 bg-background/95 shadow-[0_1px_0_var(--border)] backdrop-blur">
           <tr className="h-10 text-left text-[11px] text-muted-foreground">
-            <th className="w-28 px-3 font-semibold">{i18n("common.room")}</th>
+            <th className="w-40 px-3 font-semibold">{i18n("common.room")}</th>
             <th className="w-32 px-2 font-semibold">{i18n("common.status")}</th>
             <th className="w-24 px-2 font-semibold">{i18n("reservation.checkIn")}</th>
             <th className="w-24 px-2 font-semibold">{i18n("reservation.checkOut")}</th>
@@ -206,6 +217,8 @@ export function RoomOverviewListView({
                   onInspectionActivate={onInspectionActivate}
                   onCreateRoomNote={onCreateRoomNote}
                   canCreateInsuranceClaims={canCreateInsuranceClaims}
+                  canReadRoomAccessPassword={canReadRoomAccessPassword}
+                  canManageRoomAccessPassword={canManageRoomAccessPassword}
                   onCreateInsuranceClaim={onCreateInsuranceClaim}
                 />
               ))}

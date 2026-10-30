@@ -110,6 +110,24 @@
     "searchButton": "조회",
     "instantDescription": "선택 필터는 즉시 반영되며, 객실 검색어는 조회 버튼 또는 Enter로 적용됩니다."
   },
+  "roomAccessPassword": {
+    "button": "비밀번호",
+    "title": "객실 비밀번호 · {room}",
+    "description": "객실 출입 비밀번호를 확인합니다.",
+    "loading": "비밀번호를 불러오는 중...",
+    "notRegistered": "등록된 비밀번호가 없습니다.",
+    "inputLabel": "객실 비밀번호",
+    "inputPlaceholder": "비밀번호 입력",
+    "save": "저장",
+    "close": "닫기",
+    "retry": "다시 시도",
+    "clearHint": "빈 값으로 저장하면 등록된 비밀번호를 삭제합니다.",
+    "loadFailed": "비밀번호를 불러오지 못했습니다.",
+    "saveFailed": "비밀번호를 저장하지 못했습니다.",
+    "saved": "비밀번호를 저장했습니다.",
+    "cleared": "비밀번호를 삭제했습니다.",
+    "readOnly": "직원 계정은 조회만 가능합니다."
+  },
   "roomOverviewList": {
     "listView": "리스트",
     "cardView": "카드",

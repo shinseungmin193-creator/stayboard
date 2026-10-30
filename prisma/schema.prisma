@@ -243,6 +243,7 @@ model Room {
   capacity                   Int                   @default(1)
   sortOrder                  Int                   @default(0)
   isActive                   Boolean               @default(true)
+  accessPasswordEncrypted    String?               @db.Text
   operationalStatus          RoomOperationalStatus @default(NONE)
   operationalStatusUpdatedAt DateTime?
   createdAt                  DateTime              @default(now())

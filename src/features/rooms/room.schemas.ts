@@ -19,6 +19,10 @@ export const roomDeleteSchema = z.object({
 });
 export const roomDeleteImpactSchema = roomDeleteSchema.pick({ roomId: true });
 export const roomOperationalStatusSchema = z.object({ roomId: z.string().trim().min(1), operationalStatus: z.enum(ROOM_OPERATIONAL_STATUS_VALUES) });
+export const roomAccessPasswordReadSchema = z.object({ roomId: z.string().trim().min(1).max(100) });
+export const roomAccessPasswordUpdateSchema = roomAccessPasswordReadSchema.extend({
+  password: z.string().trim().max(100, "비밀번호는 100자 이하여야 합니다.").refine((value) => !/[\r\n]/.test(value), "비밀번호에는 줄바꿈을 사용할 수 없습니다."),
+});
 
 const roomCalendarProviderSchema = z.custom<RoomCalendarProvider>(
   (value) => typeof value === "string" && ROOM_CALENDAR_PROVIDER_CONFIG.some((item) => item.provider === value),

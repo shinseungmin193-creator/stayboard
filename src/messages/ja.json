@@ -110,6 +110,24 @@
     "searchButton": "検索",
     "instantDescription": "選択フィルターはすぐに反映され、客室検索は検索ボタンまたはEnterで適用されます。"
   },
+  "roomAccessPassword": {
+    "button": "パスワード",
+    "title": "客室パスワード · {room}",
+    "description": "客室の入室パスワードを確認します。",
+    "loading": "パスワードを読み込み中...",
+    "notRegistered": "登録されたパスワードはありません。",
+    "inputLabel": "客室パスワード",
+    "inputPlaceholder": "パスワードを入力",
+    "save": "保存",
+    "close": "閉じる",
+    "retry": "再試行",
+    "clearHint": "空欄で保存すると登録済みのパスワードを削除します。",
+    "loadFailed": "パスワードを読み込めませんでした。",
+    "saveFailed": "パスワードを保存できませんでした。",
+    "saved": "パスワードを保存しました。",
+    "cleared": "パスワードを削除しました。",
+    "readOnly": "スタッフアカウントは閲覧のみ可能です。"
+  },
   "roomOverviewList": {
     "listView": "リスト",
     "cardView": "カード",

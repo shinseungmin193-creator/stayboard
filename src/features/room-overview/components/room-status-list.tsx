@@ -5,6 +5,7 @@ import { ArrowDown, ArrowUp, Check, Plus } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { RoomAccessPasswordDialog } from "@/features/rooms/components/room-access-password-dialog";
 import { cn } from "@/lib/utils";
 import { groupRoomOverviewByProperty, type RoomOverviewCard } from "../domain/room-overview";
 import type { MobileRoomSortDirection, MobileRoomSortField } from "../domain/room-overview-mobile";
@@ -20,6 +21,8 @@ function MobileRoomListRow({
   selected,
   canReadRoomNotes,
   canCreateRoomNotes,
+  canReadRoomAccessPassword,
+  canManageRoomAccessPassword,
   onActivate,
   onInspectionActivate,
   onCreateRoomNote,
@@ -30,6 +33,8 @@ function MobileRoomListRow({
   selected: boolean;
   canReadRoomNotes: boolean;
   canCreateRoomNotes: boolean;
+  canReadRoomAccessPassword: boolean;
+  canManageRoomAccessPassword: boolean;
   onActivate: () => void;
   onInspectionActivate: () => void;
   onCreateRoomNote: () => void;
@@ -38,7 +43,7 @@ function MobileRoomListRow({
   const reservation = room.currentReservation ?? room.nextReservation;
   const status = getMobileRoomStatusVisual(room, i18n);
   const StatusIcon = status.icon;
-  const showInspectionRow = !selectionMode && (canCreateRoomNotes || room.inspectionStatus !== "NONE");
+  const showInspectionRow = !selectionMode && (canCreateRoomNotes || room.inspectionStatus !== "NONE" || canReadRoomAccessPassword);
   const canOpenInspection = canReadRoomNotes && room.inspectionStatus !== "NONE";
 
   return (
@@ -71,6 +76,7 @@ function MobileRoomListRow({
               onClick={canOpenInspection ? onInspectionActivate : undefined}
             />
           )}
+          {canReadRoomAccessPassword && <RoomAccessPasswordDialog roomId={room.id} roomLabel={`${room.propertyName} ${room.name}`} canManage={canManageRoomAccessPassword} className="h-7" />}
           {canCreateRoomNotes && (
             <Button type="button" variant="outline" size="xs" className="ml-auto h-7 gap-1 px-2 text-[10px]" onClick={onCreateRoomNote}>
               <Plus className="size-3" />{i18n("roomOverviewList.registerInspection")}
@@ -90,6 +96,8 @@ export function RoomStatusList({
   selectedIds,
   canReadRoomNotes,
   canCreateRoomNotes,
+  canReadRoomAccessPassword,
+  canManageRoomAccessPassword,
   onSort,
   onActivate,
   onInspectionActivate,
@@ -102,6 +110,8 @@ export function RoomStatusList({
   selectedIds: ReadonlySet<string>;
   canReadRoomNotes: boolean;
   canCreateRoomNotes: boolean;
+  canReadRoomAccessPassword: boolean;
+  canManageRoomAccessPassword: boolean;
   onSort: (field: MobileRoomSortField) => void;
   onActivate: (room: RoomOverviewCard) => void;
   onInspectionActivate: (room: RoomOverviewCard) => void;
@@ -166,6 +176,8 @@ export function RoomStatusList({
                     selected={selectedIds.has(room.id)}
                     canReadRoomNotes={canReadRoomNotes}
                     canCreateRoomNotes={canCreateRoomNotes}
+                    canReadRoomAccessPassword={canReadRoomAccessPassword}
+                    canManageRoomAccessPassword={canManageRoomAccessPassword}
                     onActivate={() => onActivate(room)}
                     onInspectionActivate={() => onInspectionActivate(room)}
                     onCreateRoomNote={() => onCreateRoomNote(room)}

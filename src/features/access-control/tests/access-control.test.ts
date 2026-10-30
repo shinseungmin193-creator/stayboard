@@ -60,6 +60,15 @@ test("ADMIN과 DEVELOPER만 객실 메모 삭제 권한을 가진다", () => {
   assert.equal(hasPermission("DEVELOPER", PERMISSIONS.ROOM_NOTE_DELETE), true);
 });
 
+test("모든 로그인 역할은 객실 비밀번호를 보고 ADMIN과 DEVELOPER만 변경한다", () => {
+  assert.equal(hasPermission("DEVELOPER", PERMISSIONS.ROOM_ACCESS_PASSWORD_READ), true);
+  assert.equal(hasPermission("ADMIN", PERMISSIONS.ROOM_ACCESS_PASSWORD_READ), true);
+  assert.equal(hasPermission("STAFF", PERMISSIONS.ROOM_ACCESS_PASSWORD_READ), true);
+  assert.equal(hasPermission("DEVELOPER", PERMISSIONS.ROOM_ACCESS_PASSWORD_MANAGE), true);
+  assert.equal(hasPermission("ADMIN", PERMISSIONS.ROOM_ACCESS_PASSWORD_MANAGE), true);
+  assert.equal(hasPermission("STAFF", PERMISSIONS.ROOM_ACCESS_PASSWORD_MANAGE), false);
+});
+
 test("permission mapping covers every role", () => {
   assert.deepEqual(Object.keys(ROLE_PERMISSIONS).sort(), [...USER_ROLES].sort());
 });

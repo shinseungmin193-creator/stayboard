@@ -62,12 +62,14 @@ export default async function RoomOverviewPage({ searchParams }: {searchParams: 
   const canDeleteRoomNotes = canReadRoomNotes && hasPermission(context?.role, PERMISSIONS.ROOM_NOTE_DELETE);
   const canCompleteRoomNotes = canReadRoomNotes && hasPermission(context?.role, PERMISSIONS.ROOM_NOTE_COMPLETE);
   const canCreateInsuranceClaims = hasPermission(context?.role, PERMISSIONS.INSURANCE_CLAIM_CREATE);
+  const canReadRoomAccessPassword = hasPermission(context?.role, PERMISSIONS.ROOM_ACCESS_PASSWORD_READ);
+  const canManageRoomAccessPassword = hasPermission(context?.role, PERMISSIONS.ROOM_ACCESS_PASSWORD_MANAGE);
   const requestedInspectionRoomId = value("openMemo") === "true" && result.allCards.some((room) => room.id === value("roomId")) ? value("roomId") : undefined;
 
   return (
     <RoomOverviewDeveloperSettingsBoundary enabled={context?.actualRole === "DEVELOPER"}>
       <div className="space-y-4 xl:space-y-2">
-        <MobileRoomStatusWorkspace key={propertyId ?? "all-properties"} rooms={result.allCards} properties={properties} selectedDate={selectedDate} today={today} propertyId={propertyId} queryView={value("view")} calendarRange={calendarRange} hasCalendarRangeQuery={Boolean(value("range"))} initialFilters={mobileFilters} canSync={canSync} canReadRoomNotes={canReadRoomNotes} canCreateRoomNotes={canCreateRoomNotes} canUpdateRoomNotes={canUpdateRoomNotes} canDeleteRoomNotes={canDeleteRoomNotes} canCompleteRoomNotes={canCompleteRoomNotes} canCreateInsuranceClaims={canCreateInsuranceClaims} initialInspectionRoomId={requestedInspectionRoomId} />
+        <MobileRoomStatusWorkspace key={propertyId ?? "all-properties"} rooms={result.allCards} properties={properties} selectedDate={selectedDate} today={today} propertyId={propertyId} queryView={value("view")} calendarRange={calendarRange} hasCalendarRangeQuery={Boolean(value("range"))} initialFilters={mobileFilters} canSync={canSync} canReadRoomNotes={canReadRoomNotes} canCreateRoomNotes={canCreateRoomNotes} canUpdateRoomNotes={canUpdateRoomNotes} canDeleteRoomNotes={canDeleteRoomNotes} canCompleteRoomNotes={canCompleteRoomNotes} canCreateInsuranceClaims={canCreateInsuranceClaims} canReadRoomAccessPassword={canReadRoomAccessPassword} canManageRoomAccessPassword={canManageRoomAccessPassword} initialInspectionRoomId={requestedInspectionRoomId} />
         <RoomOverviewDesktopWorkspace
           initialRooms={result.allCards}
           initialVisibleRooms={result.cards}
@@ -84,6 +86,8 @@ export default async function RoomOverviewPage({ searchParams }: {searchParams: 
           canDeleteRoomNotes={canDeleteRoomNotes}
           canCompleteRoomNotes={canCompleteRoomNotes}
           canCreateInsuranceClaims={canCreateInsuranceClaims}
+          canReadRoomAccessPassword={canReadRoomAccessPassword}
+          canManageRoomAccessPassword={canManageRoomAccessPassword}
           initialInspectionRoomId={requestedInspectionRoomId}
         />
       </div>
