@@ -15,7 +15,7 @@ function revalidateInsuranceViews() {
 
 export async function createInsuranceClaimAction(input: unknown): Promise<ActionResult<{ id: string }>> {
   const parsed = createInsuranceClaimSchema.safeParse(input);
-  if (!parsed.success) return { success: false, status: 422, errorCode: "VALIDATION_ERROR", message: "종류와 보고 내용을 확인해 주세요.", fieldErrors: parsed.error.flatten().fieldErrors };
+  if (!parsed.success) return { success: false, status: 422, errorCode: "VALIDATION_ERROR", message: "보고 내용을 확인해 주세요.", fieldErrors: parsed.error.flatten().fieldErrors };
   try {
     const context = await requireRoomAccess(parsed.data.roomId, PERMISSIONS.INSURANCE_CLAIM_CREATE);
     const claim = await createInsuranceClaim(context, parsed.data);

@@ -9,8 +9,6 @@ import { Label } from "@/components/ui/label";
 import { CLEANING_PHOTO_ACCEPT, isSupportedCleaningPhotoSelection, MAX_CLEANING_PHOTO_SIZE } from "@/features/cleaning/domain/cleaning-photo-validation";
 import { withBasePath } from "@/lib/base-path";
 import { createClientOperationId } from "@/lib/client-operation-id";
-import type { InsuranceClaimType } from "@/lib/generated/prisma/enums";
-import { INSURANCE_CLAIM_TYPES, INSURANCE_CLAIM_TYPE_LABELS } from "../domain/insurance-claim";
 import { createInsuranceClaimAction } from "../insurance-claim.actions";
 
 export interface InsuranceClaimComposerRoom { id: string; propertyId: string; propertyName: string; name: string }
@@ -22,20 +20,18 @@ export function InsuranceClaimComposerDialog({ room, open, onOpenChange, onCreat
   onCreated?: (roomId: string) => void;
 }) {
   const [content, setContent] = useState("");
-  const [types, setTypes] = useState<InsuranceClaimType[]>([]);
   const [photos, setPhotos] = useState<File[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
-  const reset = () => { setContent(""); setTypes([]); setPhotos([]); setError(null); };
+  const reset = () => { setContent(""); setPhotos([]); setError(null); };
   const changeOpen = (next: boolean) => { if (!next) reset(); onOpenChange(next); };
-  const toggleType = (type: InsuranceClaimType) => setTypes((current) => current.includes(type) ? current.filter((item) => item !== type) : [...current, type]);
   const submit = () => {
-    if (!room || !content.trim() || types.length === 0) return;
+    if (!room || !content.trim()) return;
     const target = room;
     setError(null);
     startTransition(async () => {
-      const result = await createInsuranceClaimAction({ propertyId: target.propertyId, roomId: target.id, content, types });
+      const result = await createInsuranceClaimAction({ propertyId: target.propertyId, roomId: target.id, content });
       if (!result.success || !result.data) { setError(result.message || "등록하지 못했습니다."); return; }
       let photoUploadFailed = false;
       for (const photo of photos) {
@@ -56,13 +52,6 @@ export function InsuranceClaimComposerDialog({ room, open, onOpenChange, onCreat
         <DialogTitle className="flex items-center gap-2"><ShieldPlus className="size-5" />보험/보상 보고</DialogTitle>
         <DialogDescription>{room ? `${room.propertyName} ${room.name}` : "객실의 사고 또는 보상 내용을 보고합니다."}</DialogDescription>
       </DialogHeader>
-      <fieldset className="space-y-2" disabled={pending}>
-        <legend className="text-sm font-medium">신청 종류 (중복 선택 가능)</legend>
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-          {INSURANCE_CLAIM_TYPES.map((type) => <label key={type} className="flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm has-[:checked]:border-primary has-[:checked]:bg-primary/5"><input type="checkbox" checked={types.includes(type)} onChange={() => toggleType(type)} />{INSURANCE_CLAIM_TYPE_LABELS[type]}</label>)}
-        </div>
-        {types.length === 0 && <p className="text-xs text-muted-foreground">신청 종류를 1개 이상 선택해 주세요.</p>}
-      </fieldset>
       <div className="space-y-2">
         <Label htmlFor="insurance-claim-content">보고 내용</Label>
         <textarea id="insurance-claim-content" value={content} onChange={(event) => setContent(event.target.value)} rows={6} maxLength={2000} disabled={pending} className="w-full resize-y rounded-xl border border-input bg-background px-3 py-2 text-sm outline-none focus:border-ring focus:ring-2 focus:ring-ring/30" placeholder="발생 내용, 피해 상태, 필요한 조치를 입력하세요." />
@@ -82,7 +71,7 @@ export function InsuranceClaimComposerDialog({ room, open, onOpenChange, onCreat
       {error && <p role="alert" className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</p>}
       <DialogFooter>
         <Button type="button" variant="outline" disabled={pending} onClick={() => changeOpen(false)}>취소</Button>
-        <Button type="button" disabled={pending || !content.trim() || types.length === 0} onClick={submit}>{pending ? <LoaderCircle className="animate-spin" /> : <ShieldPlus />}보고 등록</Button>
+        <Button type="button" disabled={pending || !content.trim()} onClick={submit}>{pending ? <LoaderCircle className="animate-spin" /> : <ShieldPlus />}보고 등록</Button>
       </DialogFooter>
     </DialogContent>
   </Dialog>;

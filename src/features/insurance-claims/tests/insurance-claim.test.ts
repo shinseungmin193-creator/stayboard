@@ -21,22 +21,24 @@ test("보험 및 보상 관리 목록과 신청 완료는 개발자·관리자�
 
 test("화재보험과 OTA 종류를 중복 선택하고 중복 값은 정규화한다", () => {
   assert.deepEqual(INSURANCE_CLAIM_TYPE_LABELS, { FIRE_INSURANCE: "화재보험", AIRBNB: "에어비앤비", BOOKING: "부킹", AGODA: "아고다", EXPEDIA: "익스피디아" });
-  const parsed = createInsuranceClaimSchema.parse({ propertyId: "p", roomId: "r", content: "피해 보고", types: ["FIRE_INSURANCE", "AIRBNB", "AIRBNB"] });
+  const parsed = submitInsuranceClaimSchema.parse({ id: "claim", types: ["FIRE_INSURANCE", "AIRBNB", "AIRBNB"] });
   assert.deepEqual(parsed.types, ["FIRE_INSURANCE", "AIRBNB"]);
 });
 
-test("종류 또는 보고 내용이 없으면 등록 및 신청 완료를 거부한다", () => {
+test("보고 등록은 내용만 필수이고 신청 완료 단계에서 종류를 요구한다", () => {
   assert.equal(createInsuranceClaimSchema.safeParse({ propertyId: "p", roomId: "r", content: "", types: ["AIRBNB"] }).success, false);
-  assert.equal(createInsuranceClaimSchema.safeParse({ propertyId: "p", roomId: "r", content: "보고", types: [] }).success, false);
+  const reported = createInsuranceClaimSchema.parse({ propertyId: "p", roomId: "r", content: "보고" });
+  assert.deepEqual(reported.types, []);
   assert.equal(submitInsuranceClaimSchema.safeParse({ id: "claim", types: [] }).success, false);
 });
 
 test("사진이 없어도 보고 등록 payload는 정상이며 UI가 선택 사항임을 안내한다", () => {
-  const parsed = createInsuranceClaimSchema.safeParse({ propertyId: "p", roomId: "r", content: "사진 없는 피해 보고", types: ["FIRE_INSURANCE"] });
+  const parsed = createInsuranceClaimSchema.safeParse({ propertyId: "p", roomId: "r", content: "사진 없는 피해 보고" });
   assert.equal(parsed.success, true);
   const dialog = readFileSync("src/features/insurance-claims/components/insurance-claim-composer-dialog.tsx", "utf8");
   assert.match(dialog, /사진 \(선택 · 없어도 등록 가능, 최대 12장\)/);
-  assert.doesNotMatch(dialog, /disabled=\{pending \|\| !content\.trim\(\) \|\| types\.length === 0 \|\| photos\.length === 0\}/);
+  assert.doesNotMatch(dialog, /신청 종류 \(중복 선택 가능\)/);
+  assert.match(dialog, /disabled=\{pending \|\| !content\.trim\(\)\}/);
 });
 
 test("sidebar·페이지·서버 action이 같은 보험/보상 권한을 사용한다", () => {

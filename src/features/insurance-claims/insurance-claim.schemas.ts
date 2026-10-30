@@ -7,7 +7,7 @@ export const createInsuranceClaimSchema = z.object({
   propertyId: z.string().trim().min(1),
   roomId: z.string().trim().min(1),
   content: z.string().trim().min(1).max(2000),
-  types: z.array(claimType).min(1).max(INSURANCE_CLAIM_TYPES.length).transform((items) => [...new Set(items)]),
+  types: z.array(claimType).max(INSURANCE_CLAIM_TYPES.length).transform((items) => [...new Set(items)]).optional().default([]),
 });
 
 export const submitInsuranceClaimSchema = z.object({
