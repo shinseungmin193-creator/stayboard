@@ -30,8 +30,8 @@ test("기본 Sidebar 설정은 실제 메뉴와 기본 구분선을 모두 포�
 });
 
 test("기존 문자열 메뉴 순서는 보존하고 이전 category 경계는 divider로 자동 변환한다", () => {
-  const normalized = normalizeSidebarPreference({ menuOrder: ["rooms", "dashboard"], hiddenMenuIds: [] });
-  assert.deepEqual(menuKeys(normalized.menuOrder).slice(0, 2), ["rooms", "dashboard"]);
+  const normalized = normalizeSidebarPreference({ menuOrder: ["calendar-sources", "dashboard"], hiddenMenuIds: [] });
+  assert.deepEqual(menuKeys(normalized.menuOrder).slice(0, 2), ["calendar-sources", "dashboard"]);
   assert.equal(menuKeys(normalized.menuOrder).length, SIDEBAR_MENU_ITEMS.length);
   assert.ok(normalized.menuOrder.some((item) => item.type === "DIVIDER" && item.id.startsWith("divider:legacy-")));
 });
@@ -46,9 +46,9 @@ test("중복·알 수 없는 메뉴를 제거하고 필수 설정 메뉴는 숨�
 });
 
 test("Sidebar 메뉴는 저장된 전역 순서로 정렬한다", () => {
-  const preference = normalizeSidebarPreference({ menuOrder: [{ type: "MENU", key: "rooms" }, { type: "MENU", key: "dashboard" }], hiddenMenuIds: [] });
+  const preference = normalizeSidebarPreference({ menuOrder: [{ type: "MENU", key: "calendar-sources" }, { type: "MENU", key: "dashboard" }], hiddenMenuIds: [] });
   const ordered = orderSidebarMenus(SIDEBAR_MENU_ITEMS, preference);
-  assert.deepEqual(ordered.slice(0, 2).map((menu) => menu.id), ["rooms", "dashboard"]);
+  assert.deepEqual(ordered.slice(0, 2).map((menu) => menu.id), ["calendar-sources", "dashboard"]);
 });
 
 test("MENU와 DIVIDER는 같은 배열에서 drag 순서가 변경된다", () => {
@@ -117,19 +117,25 @@ test("역할 권한과 사용자 숨김 설정을 순서 설정에 함께 적용
   assert.equal(admin.some((item) => item.id === "property-reviews"), true);
 });
 
-test("객실 메모는 객실 현황에 통합되어 독립 사이드바 항목을 만들지 않는다", () => {
+test("객실 메모와 객실 관리는 각각 통합 화면을 사용해 독립 사이드바 항목을 만들지 않는다", () => {
   const keys = menuKeys(DEFAULT_SIDEBAR_PREFERENCE.menuOrder);
   assert.equal(keys.includes("room-notes" as never), false);
   assert.equal(SIDEBAR_MENU_ITEMS.some((item) => (item.id as string) === "room-notes"), false);
+  assert.equal(keys.includes("rooms" as never), false);
+  assert.equal(SIDEBAR_MENU_ITEMS.some((item) => (item.id as string) === "rooms"), false);
+  const propertyMenu = SIDEBAR_MENU_ITEMS.find((item) => item.id === "properties");
+  assert.equal(propertyMenu?.label, "건물 및 객실");
+  assert.equal(propertyMenu?.relatedPermissions.includes(PERMISSIONS.ROOM_MANAGE as never), true);
 });
 
 test("사용자 지정 이름은 메뉴 ID별로 정규화하고 기본 정의는 변경하지 않는다", () => {
-  const preference = normalizeSidebarPreference({ customLabels: { dashboard: "  운영 홈  ", reservations: "예약", unknown: "무시", rooms: "" } });
+  const preference = normalizeSidebarPreference({ customLabels: { dashboard: "  운영 홈  ", reservations: "예약", properties: "건물", unknown: "무시", "calendar-sources": "" } });
   const dashboard = SIDEBAR_MENU_ITEMS.find((menu) => menu.id === "dashboard");
   assert.ok(dashboard);
   assert.equal(getSidebarMenuLabel(dashboard, preference), "운영 홈");
   assert.equal(preference.customLabels.reservations, undefined);
-  assert.equal(preference.customLabels.rooms, undefined);
+  assert.equal(preference.customLabels.properties, undefined);
+  assert.equal(preference.customLabels["calendar-sources"], undefined);
   assert.equal(dashboard.label, "대시보드");
 });
 
@@ -143,7 +149,7 @@ test("잠긴 메뉴도 사용자 지정 이름을 사용할 수 있다", () => {
 });
 
 test("빈 이름과 20자 초과 이름은 저장값에서 제거한다", () => {
-  const preference = normalizeSidebarPreference({ customLabels: { dashboard: "   ", rooms: "가".repeat(21) } });
+  const preference = normalizeSidebarPreference({ customLabels: { dashboard: "   ", "calendar-sources": "가".repeat(21) } });
   assert.deepEqual(preference.customLabels, {});
 });
 

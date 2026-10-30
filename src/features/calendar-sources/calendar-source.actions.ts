@@ -15,7 +15,7 @@ async function serviceFailure(error: unknown, context: string): Promise<ActionRe
 export async function createCalendarSourceAction(_state: ActionResult, formData: FormData): Promise<ActionResult> {
   const parsed = calendarSourceInputSchema.safeParse(fields(formData));
   if (!parsed.success) return { success: false, message: "입력 내용을 확인해 주세요.", fieldErrors: parsed.error.flatten().fieldErrors };
-  try { await requireRoomAccess(parsed.data.roomId, PERMISSIONS.CALENDAR_SOURCE_MANAGE); await createCalendarSourceSafely(parsed.data); revalidatePath("/calendar-sources"); revalidatePath("/rooms"); return { success: true, message: "캘린더 연결을 등록했습니다." }; }
+  try { await requireRoomAccess(parsed.data.roomId, PERMISSIONS.CALENDAR_SOURCE_MANAGE); await createCalendarSourceSafely(parsed.data); revalidatePath("/calendar-sources"); revalidatePath("/rooms"); revalidatePath("/properties"); return { success: true, message: "캘린더 연결을 등록했습니다." }; }
   catch (error) { return await serviceFailure(error, "createCalendarSource"); }
 }
 
@@ -23,7 +23,7 @@ export async function updateCalendarSourceAction(_state: ActionResult, formData:
   const parsed = calendarSourceUpdateSchema.safeParse({ id: formData.get("id"), ...fields(formData) });
   if (!parsed.success) return { success: false, message: "입력 내용을 확인해 주세요.", fieldErrors: parsed.error.flatten().fieldErrors };
   const { id, ...data } = parsed.data;
-  try { await requireCalendarSourceAccess(id, PERMISSIONS.CALENDAR_SOURCE_MANAGE); await requireRoomAccess(data.roomId, PERMISSIONS.CALENDAR_SOURCE_MANAGE); await updateCalendarSourceSafely(id, data); revalidatePath("/calendar-sources"); revalidatePath("/rooms"); return { success: true, message: "캘린더 연결을 수정했습니다." }; }
+  try { await requireCalendarSourceAccess(id, PERMISSIONS.CALENDAR_SOURCE_MANAGE); await requireRoomAccess(data.roomId, PERMISSIONS.CALENDAR_SOURCE_MANAGE); await updateCalendarSourceSafely(id, data); revalidatePath("/calendar-sources"); revalidatePath("/rooms"); revalidatePath("/properties"); return { success: true, message: "캘린더 연결을 수정했습니다." }; }
   catch (error) { return await serviceFailure(error, "updateCalendarSource"); }
 }
 
@@ -43,6 +43,7 @@ export async function replaceCalendarSourceUrlAction(_state: ActionResult<Calend
         : t("urlReplaced", { removedCount: replacement.removedReservationCount, createdCount: replacement.createdReservationCount });
     revalidatePath("/calendar-sources");
     revalidatePath("/rooms");
+    revalidatePath("/properties");
     revalidatePath("/reservations");
     revalidatePath("/room-overview");
     revalidatePath("/room-status");
@@ -71,6 +72,7 @@ async function applyCalendarSourceActiveChange(id: string, isActive: boolean): P
     await changeCalendarSourceActive(id, isActive);
     revalidatePath("/calendar-sources");
     revalidatePath("/rooms");
+    revalidatePath("/properties");
     revalidatePath("/room-overview");
     revalidatePath("/room-status");
     return { success: true, message: isActive ? t("activeChange.activated") : t("activeChange.deactivated") };
@@ -138,6 +140,7 @@ export async function deleteCalendarSourceAction(input: {
     const data = await deleteCalendarSourceSafely({ target, confirmationText: parsed.data.confirmationText, context });
     revalidatePath("/calendar-sources");
     revalidatePath("/rooms");
+    revalidatePath("/properties");
     revalidatePath("/reservations");
     revalidatePath("/room-overview");
     revalidatePath("/room-status");

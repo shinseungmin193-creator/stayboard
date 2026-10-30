@@ -1,11 +1,14 @@
 import { useTranslations } from "next-intl";
-import { Building2 } from "lucide-react";
+import Link from "next/link";
+import { ArrowRight, Building2 } from "lucide-react";
 import type { CompanyOption } from "@/features/companies";
 import type { PropertyListItem } from "../property.types";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { cn } from "@/lib/utils";
 import { PropertyActiveForm } from "./property-active-form";
 import { PropertyDeleteDialog } from "./property-delete-dialog";
 import { PropertyFormDialog } from "./property-form-dialog";
@@ -13,9 +16,11 @@ import { PropertyFormDialog } from "./property-form-dialog";
 export function PropertyList({
   properties,
   companies,
+  selectedPropertyId,
 }: {
   properties: PropertyListItem[];
   companies: CompanyOption[];
+  selectedPropertyId?: string;
 }) {
   const i18n = useTranslations();
   if (!properties.length) {
@@ -35,7 +40,7 @@ export function PropertyList({
     <>
       <div className="grid gap-3 md:hidden">
         {properties.map((property) => (
-          <Card key={property.id}>
+          <Card key={property.id} className={cn(selectedPropertyId === property.id && "border-primary/50 bg-primary/5")}>
             <CardContent className="space-y-3 p-4">
               <div className="flex items-start justify-between gap-3">
                 <div>
@@ -52,6 +57,9 @@ export function PropertyList({
                 <span>{i18n("common.room")}{property.activeRooms}/{property.totalRooms}{i18n("auto.m0210")}</span>
               </div>
               <div className="flex flex-wrap gap-2">
+                <Button nativeButton={false} render={<Link href={`/properties?propertyId=${encodeURIComponent(property.id)}#rooms`} />} variant={selectedPropertyId === property.id ? "default" : "outline"} size="sm">
+                  {i18n("propertyRooms.viewRooms")} <ArrowRight />
+                </Button>
                 <PropertyFormDialog companies={companies} property={property} />
                 <PropertyActiveForm id={property.id} isActive={property.isActive} />
                 <PropertyDeleteDialog property={property} />
@@ -74,7 +82,7 @@ export function PropertyList({
           </TableHeader>
           <TableBody>
             {properties.map((property) => (
-              <TableRow key={property.id}>
+              <TableRow key={property.id} className={cn(selectedPropertyId === property.id && "bg-primary/5")}>
                 <TableCell>
                   <p className="font-medium">{property.name}</p>
                   <p className="text-xs text-muted-foreground">{property.companyName}</p>
@@ -89,6 +97,9 @@ export function PropertyList({
                 </TableCell>
                 <TableCell>
                   <div className="flex justify-end gap-2">
+                    <Button nativeButton={false} render={<Link href={`/properties?propertyId=${encodeURIComponent(property.id)}#rooms`} />} variant={selectedPropertyId === property.id ? "default" : "outline"} size="sm">
+                      {i18n("propertyRooms.viewRooms")} <ArrowRight />
+                    </Button>
                     <PropertyFormDialog companies={companies} property={property} />
                     <PropertyActiveForm id={property.id} isActive={property.isActive} />
                     <PropertyDeleteDialog property={property} />

@@ -80,7 +80,7 @@
       "cleaning": "清掃管理",
       "insurance-claims": "保険・補償",
       "reservation-conflicts": "オーバーブッキング",
-      "properties": "宿泊施設",
+      "properties": "建物・客室",
       "rooms": "客室",
       "room-notes": "客室メモ",
       "calendar-sources": "カレンダー連携",
@@ -95,6 +95,15 @@
       "developer-audit-logs": "操作ログ"
     },
     "currentOperations": "運営状況"
+  },
+  "propertyRooms": {
+    "description": "建物と建物別の客室を1つの画面で管理します。",
+    "buildingsTitle": "建物一覧",
+    "selectBuilding": "建物を選択すると、その建物の客室一覧を確認できます。",
+    "viewRooms": "客室を見る",
+    "roomSectionTitle": "{name}の客室",
+    "roomSectionDescription": "{name}に登録された客室と連携情報を管理します。",
+    "allBuildings": "建物一覧"
   },
   "sidebarPreferences": {
     "allowedRoles": "表示権限",

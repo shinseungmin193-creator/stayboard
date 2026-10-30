@@ -80,7 +80,7 @@
       "cleaning": "청소 관리",
       "insurance-claims": "보험 및 보상",
       "reservation-conflicts": "오버부킹",
-      "properties": "숙소",
+      "properties": "건물 및 객실",
       "rooms": "객실",
       "room-notes": "객실 메모",
       "calendar-sources": "캘린더 연결",
@@ -95,6 +95,15 @@
       "developer-audit-logs": "작업 로그"
     },
     "currentOperations": "운영 현황"
+  },
+  "propertyRooms": {
+    "description": "건물과 건물별 객실을 한 화면에서 관리합니다.",
+    "buildingsTitle": "건물 목록",
+    "selectBuilding": "건물을 선택하면 해당 건물의 객실 목록으로 들어갈 수 있습니다.",
+    "viewRooms": "객실 보기",
+    "roomSectionTitle": "{name} 객실",
+    "roomSectionDescription": "{name}에 등록된 객실과 연결 정보를 관리합니다.",
+    "allBuildings": "건물 목록"
   },
   "sidebarPreferences": {
     "allowedRoles": "노출 권한",

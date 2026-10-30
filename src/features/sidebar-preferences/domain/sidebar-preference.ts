@@ -23,7 +23,6 @@ export const DEFAULT_SIDEBAR_ITEM_ORDER: readonly SidebarOrderItem[] = [
   { type: "MENU", key: "reservation-conflicts" },
   { type: "DIVIDER", id: "divider:default-operations" },
   { type: "MENU", key: "properties" },
-  { type: "MENU", key: "rooms" },
   { type: "MENU", key: "calendar-sources" },
   { type: "DIVIDER", id: "divider:default-management" },
   { type: "MENU", key: "occupancy-statistics" },
@@ -72,7 +71,7 @@ function menuItem(key: SidebarMenuId): SidebarMenuOrderItem {
 // reads these sections; after normalization the divider positions are explicit.
 const LEGACY_SECTIONS: readonly (readonly SidebarMenuId[])[] = [
   ["dashboard", "room-overview", "room-status", "reservations", "cleaning", "reservation-conflicts"],
-  ["properties", "rooms", "calendar-sources", "member-management"],
+  ["properties", "calendar-sources", "member-management"],
   ["occupancy-statistics", "property-reviews"],
   ["admin-settings"],
   ["developer-settings", "developer-users", "developer-companies", "developer-audit-logs", "developer-error-logs"],
@@ -135,7 +134,8 @@ function normalizeCustomLabels(value: unknown): Partial<Record<SidebarMenuId, st
     if (!isSidebarMenuId(menuId) || typeof label !== "string") return [];
     const normalizedLabel = label.trim();
     const menu = SIDEBAR_MENU_ITEMS.find((item) => item.id === menuId);
-    if (!normalizedLabel || normalizedLabel.length > 20 || normalizedLabel === menu?.label) return [];
+    const isLegacyPropertyLabel = menuId === "properties" && ["숙소", "건물", "宿泊施設", "建物"].includes(normalizedLabel);
+    if (!normalizedLabel || normalizedLabel.length > 20 || normalizedLabel === menu?.label || isLegacyPropertyLabel) return [];
     return [[menuId, normalizedLabel]];
   })) as Partial<Record<SidebarMenuId, string>>;
 }

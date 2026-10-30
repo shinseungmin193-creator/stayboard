@@ -207,7 +207,7 @@ test("삭제 성공 전에는 로컬 목록을 변경하지 않고 성공 시 �
 test("객실 수정 OTA 연결 행에 연결 해제와 실제 삭제가 함께 렌더링된다", () => {
   const editor = readFileSync("src/features/rooms/components/room-calendar-source-editor.tsx", "utf8");
   const roomDialog = readFileSync("src/features/rooms/components/room-form-dialog.tsx", "utf8");
-  const roomsPage = readFileSync("src/app/rooms/page.tsx", "utf8");
+  const propertiesPage = readFileSync("src/app/properties/page.tsx", "utf8");
   const actions = readFileSync("src/features/calendar-sources/calendar-source.actions.ts", "utf8");
   assert.match(editor, /CalendarSourceDeleteDialog/);
   assert.match(editor, /i18n\("auto\.m0565"\)/);
@@ -217,6 +217,7 @@ test("객실 수정 OTA 연결 행에 연결 해제와 실제 삭제가 함께 �
   assert.match(editor, /changeCalendarSourceActiveAction/);
   assert.match(roomDialog, /<RoomCalendarSourceEditor[^>]+canManageCalendarSources/);
   assert.match(roomDialog, /removeExistingCalendarSourceDraft/);
-  assert.match(roomsPage, /hasPermission\(access\.context\.role, PERMISSIONS\.CALENDAR_SOURCE_MANAGE\)/);
+  assert.match(propertiesPage, /hasPermission\(access\.context\.role, PERMISSIONS\.CALENDAR_SOURCE_MANAGE\)/);
   assert.match(actions, /revalidatePath\("\/rooms"\)/);
+  assert.match(actions, /revalidatePath\("\/properties"\)/);
 });

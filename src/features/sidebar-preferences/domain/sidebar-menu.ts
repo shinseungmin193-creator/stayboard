@@ -1,5 +1,5 @@
 import type { LucideIcon } from "lucide-react";
-import { BedDouble, Bug, Building2, CalendarDays, ChartNoAxesCombined, Code2, Hotel, LayoutDashboard, Rows3, ScrollText, Settings, ShieldCheck, Sparkles, Star, TriangleAlert, Unplug, UserCog, Users } from "lucide-react";
+import { Bug, Building2, CalendarDays, ChartNoAxesCombined, Code2, Hotel, LayoutDashboard, Rows3, ScrollText, Settings, ShieldCheck, Sparkles, Star, TriangleAlert, Unplug, UserCog, Users } from "lucide-react";
 import { PERMISSIONS, type Permission } from "../../access-control/domain/access-control";
 import { RESERVATION_CONFLICT_UI } from "../../reservation-conflicts/reservation-conflict.labels";
 
@@ -19,8 +19,7 @@ export const SIDEBAR_MENU_ITEMS = [
   { id: "dashboard", label: "대시보드", href: "/", icon: LayoutDashboard, requiredPermission: PERMISSIONS.RESERVATION_READ, relatedPermissions: [PERMISSIONS.RESERVATION_READ, PERMISSIONS.SYNC_READ], hideable: true },
   { id: "reservations", label: "예약", href: "/reservations", icon: CalendarDays, requiredPermission: PERMISSIONS.RESERVATION_READ, relatedPermissions: [PERMISSIONS.RESERVATION_READ], hideable: true },
   { id: "reservation-conflicts", label: RESERVATION_CONFLICT_UI.label, href: "/reservation-conflicts", icon: TriangleAlert, requiredPermission: PERMISSIONS.RESERVATION_READ, relatedPermissions: [PERMISSIONS.RESERVATION_READ], hideable: true },
-  { id: "properties", label: "숙소", href: "/properties", icon: Building2, requiredPermission: PERMISSIONS.PROPERTY_MANAGE, relatedPermissions: [PERMISSIONS.PROPERTY_MANAGE], hideable: true },
-  { id: "rooms", label: "객실", href: "/rooms", icon: BedDouble, requiredPermission: PERMISSIONS.ROOM_MANAGE, relatedPermissions: [PERMISSIONS.ROOM_MANAGE, PERMISSIONS.CALENDAR_SOURCE_READ, PERMISSIONS.CALENDAR_SOURCE_MANAGE], hideable: true },
+  { id: "properties", label: "건물 및 객실", href: "/properties", icon: Building2, requiredPermission: PERMISSIONS.PROPERTY_MANAGE, relatedPermissions: [PERMISSIONS.PROPERTY_MANAGE, PERMISSIONS.ROOM_MANAGE, PERMISSIONS.CALENDAR_SOURCE_READ, PERMISSIONS.CALENDAR_SOURCE_MANAGE], hideable: true },
   { id: "calendar-sources", label: "캘린더 연결", href: "/calendar-sources", icon: Unplug, requiredPermission: PERMISSIONS.CALENDAR_SOURCE_READ, relatedPermissions: [PERMISSIONS.CALENDAR_SOURCE_READ, PERMISSIONS.CALENDAR_SOURCE_MANAGE, PERMISSIONS.SYNC_READ, PERMISSIONS.SYNC_RUN], hideable: true },
   { id: "occupancy-statistics", label: "점유율 통계", href: "/statistics/occupancy", icon: ChartNoAxesCombined, requiredPermission: PERMISSIONS.STATISTICS_READ, relatedPermissions: [PERMISSIONS.STATISTICS_READ], hideable: true },
   { id: "cleaning", label: "청소 관리", href: "/cleaning", icon: Sparkles, requiredPermission: PERMISSIONS.CLEANING_READ, relatedPermissions: [PERMISSIONS.CLEANING_READ, PERMISSIONS.CLEANING_MANAGE, PERMISSIONS.CLEANING_COMPLETION_MANAGE, PERMISSIONS.CLEANING_ASSIGN, PERMISSIONS.CLEANING_WORKER_READ, PERMISSIONS.CLEANING_WORKER_CREATE, PERMISSIONS.CLEANING_WORKER_MANAGE, PERMISSIONS.ROOM_NOTE_COMPLETE, PERMISSIONS.STATISTICS_READ], hideable: true },
@@ -61,6 +60,6 @@ export function findSidebarMenu(menuId: SidebarMenuId) {
   return SIDEBAR_MENU_ITEMS.find((item) => item.id === menuId);
 }
 
-export const MOBILE_NAVIGATION_ITEMS = ["room-status", "dashboard", "reservations", "cleaning", "reservation-conflicts", "properties", "rooms", "calendar-sources", "member-management"]
+export const MOBILE_NAVIGATION_ITEMS = ["room-status", "dashboard", "reservations", "cleaning", "reservation-conflicts", "properties", "calendar-sources", "member-management"]
   .map((menuId) => SIDEBAR_MENU_ITEMS.find((item) => item.id === menuId))
   .filter((item): item is (typeof SIDEBAR_MENU_ITEMS)[number] => Boolean(item));
