@@ -220,10 +220,14 @@ export function sortRoomOverviewCards(cards: RoomOverviewCard[]) {
   return [...cards].sort((a, b) => a.propertyName.localeCompare(b.propertyName, "ko") || a.sortOrder - b.sortOrder || a.code.localeCompare(b.code, "ko", { numeric: true }) || a.name.localeCompare(b.name, "ko", { numeric: true }));
 }
 
-export function groupRoomOverviewByProperty(cards: RoomOverviewCard[]): RoomOverviewPropertyGroup[] {
+export function groupRoomOverviewByProperty(
+  cards: RoomOverviewCard[],
+  options: { preserveRoomOrder?: boolean } = {},
+): RoomOverviewPropertyGroup[] {
   const groups = new Map<string, { id: string; name: string; rooms: RoomOverviewCard[] }>();
 
-  for (const room of sortRoomOverviewCards(cards)) {
+  const orderedCards = options.preserveRoomOrder ? cards : sortRoomOverviewCards(cards);
+  for (const room of orderedCards) {
     const group = groups.get(room.propertyId);
     if (group) {
       group.rooms.push(room);
@@ -236,8 +240,10 @@ export function groupRoomOverviewByProperty(cards: RoomOverviewCard[]): RoomOver
     });
   }
 
-  return [...groups.values()].map((group) => ({
-    ...group,
-    summary: summarizeRoomOverview(group.rooms),
-  }));
+  return [...groups.values()]
+    .sort((left, right) => left.name.localeCompare(right.name, "ko"))
+    .map((group) => ({
+      ...group,
+      summary: summarizeRoomOverview(group.rooms),
+    }));
 }

@@ -6,10 +6,81 @@ import { ArrowDown, ArrowUp, Check, Plus } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import type { RoomOverviewCard } from "../domain/room-overview";
+import { groupRoomOverviewByProperty, type RoomOverviewCard } from "../domain/room-overview";
 import type { MobileRoomSortDirection, MobileRoomSortField } from "../domain/room-overview-mobile";
+import { useCollapsedRoomGroups } from "../hooks/use-collapsed-room-groups";
 import { formatMobileRoomDate, getMobileRoomStatusVisual } from "../room-overview-mobile-visuals";
+import { MobileRoomPropertyGroupHeader } from "./mobile-room-property-group-header";
 import { RoomInspectionStatusBadge } from "./room-inspection-status-badge";
+
+function MobileRoomListRow({
+  room,
+  localeTag,
+  selectionMode,
+  selected,
+  canReadRoomNotes,
+  canCreateRoomNotes,
+  onActivate,
+  onInspectionActivate,
+  onCreateRoomNote,
+}: {
+  room: RoomOverviewCard;
+  localeTag: string;
+  selectionMode: boolean;
+  selected: boolean;
+  canReadRoomNotes: boolean;
+  canCreateRoomNotes: boolean;
+  onActivate: () => void;
+  onInspectionActivate: () => void;
+  onCreateRoomNote: () => void;
+}) {
+  const i18n = useTranslations();
+  const reservation = room.currentReservation ?? room.nextReservation;
+  const status = getMobileRoomStatusVisual(room, i18n);
+  const StatusIcon = status.icon;
+  const showInspectionRow = !selectionMode && (canCreateRoomNotes || room.inspectionStatus !== "NONE");
+  const canOpenInspection = canReadRoomNotes && room.inspectionStatus !== "NONE";
+
+  return (
+    <div
+      className={cn("[content-visibility:auto] [contain-intrinsic-size:auto_76px]", selected && "bg-primary/5")}
+      data-mobile-room-inspection-status={room.inspectionStatus}
+    >
+      <button
+        type="button"
+        onClick={onActivate}
+        aria-pressed={selectionMode ? selected : undefined}
+        className="grid min-h-14 w-full grid-cols-[minmax(0,1fr)_4.5rem_3.5rem_3.5rem] items-center px-2 text-left outline-none hover:bg-muted/40 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+      >
+        <span className="flex min-w-0 items-center gap-2">
+          {selectionMode && <span className={cn("grid size-4 shrink-0 place-items-center rounded border", selected && "border-primary bg-primary text-primary-foreground")}>{selected && <Check className="size-3" />}</span>}
+          <span className="min-w-0"><strong className="block truncate text-sm leading-4">{room.name}</strong><span className="block truncate text-[9px] text-muted-foreground">{room.propertyName}</span></span>
+        </span>
+        <Badge variant="outline" className={cn("mx-auto h-5 max-w-[4.25rem] gap-0.5 px-1 text-[8px]", status.badgeClass)}><StatusIcon aria-hidden="true" className="size-2.5 shrink-0" /><span className="truncate">{status.label}</span></Badge>
+        <span className="text-center text-[10px] tabular-nums">{formatMobileRoomDate(reservation?.startDate, localeTag)}</span>
+        <span className="text-center text-[10px] tabular-nums">{formatMobileRoomDate(reservation?.endDate, localeTag)}</span>
+      </button>
+
+      {showInspectionRow && (
+        <div className="flex min-h-9 items-center gap-2 border-t border-dashed bg-muted/15 px-2 py-1">
+          <span className="shrink-0 text-[9px] font-semibold text-muted-foreground">{i18n("roomOverviewList.inspection")}</span>
+          {room.inspectionStatus !== "NONE" && (
+            <RoomInspectionStatusBadge
+              status={room.inspectionStatus}
+              pendingCount={room.pendingMemoCount}
+              onClick={canOpenInspection ? onInspectionActivate : undefined}
+            />
+          )}
+          {canCreateRoomNotes && (
+            <Button type="button" variant="outline" size="xs" className="ml-auto h-7 gap-1 px-2 text-[10px]" onClick={onCreateRoomNote}>
+              <Plus className="size-3" />{i18n("roomOverviewList.registerInspection")}
+            </Button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export function RoomStatusList({
   rooms,
@@ -39,6 +110,8 @@ export function RoomStatusList({
   const locale = useLocale();
   const localeTag = locale === "ja" ? "ja-JP" : "ko-KR";
   const i18n = useTranslations();
+  const groups = groupRoomOverviewByProperty(rooms, { preserveRoomOrder: true });
+  const { collapsedIds, toggleGroup } = useCollapsedRoomGroups();
   const columns: Array<{ field: MobileRoomSortField; label: string; className: string }> = [
     { field: "status", label: i18n("common.status"), className: "justify-center" },
     { field: "checkIn", label: i18n("reservation.checkIn"), className: "justify-center" },
@@ -78,59 +151,28 @@ export function RoomStatusList({
         })}
       </div>
       <div className="divide-y">
-        {rooms.map((room) => {
-          const reservation = room.currentReservation ?? room.nextReservation;
-          const status = getMobileRoomStatusVisual(room, i18n);
-          const StatusIcon = status.icon;
-          const selected = selectedIds.has(room.id);
-          const showInspectionRow = !selectionMode && (canCreateRoomNotes || room.inspectionStatus !== "NONE");
-          const canOpenInspection = canReadRoomNotes && room.inspectionStatus !== "NONE";
-
+        {groups.map((group) => {
+          const collapsed = collapsedIds.has(group.id);
           return (
-            <div
-              key={room.id}
-              className={cn("[content-visibility:auto] [contain-intrinsic-size:auto_76px]", selected && "bg-primary/5")}
-              data-mobile-room-inspection-status={room.inspectionStatus}
-            >
-              <button
-                type="button"
-                onClick={() => onActivate(room)}
-                aria-pressed={selectionMode ? selected : undefined}
-                className="grid min-h-14 w-full grid-cols-[minmax(0,1fr)_4.5rem_3.5rem_3.5rem] items-center px-2 text-left outline-none hover:bg-muted/40 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
-              >
-                <span className="flex min-w-0 items-center gap-2">
-                  {selectionMode && <span className={cn("grid size-4 shrink-0 place-items-center rounded border", selected && "border-primary bg-primary text-primary-foreground")}>{selected && <Check className="size-3" />}</span>}
-                  <span className="min-w-0"><strong className="block truncate text-sm leading-4">{room.name}</strong><span className="block truncate text-[9px] text-muted-foreground">{room.propertyName}</span></span>
-                </span>
-                <Badge variant="outline" className={cn("mx-auto h-5 max-w-[4.25rem] gap-0.5 px-1 text-[8px]", status.badgeClass)}><StatusIcon aria-hidden="true" className="size-2.5 shrink-0" /><span className="truncate">{status.label}</span></Badge>
-                <span className="text-center text-[10px] tabular-nums">{formatMobileRoomDate(reservation?.startDate, localeTag)}</span>
-                <span className="text-center text-[10px] tabular-nums">{formatMobileRoomDate(reservation?.endDate, localeTag)}</span>
-              </button>
-
-              {showInspectionRow && (
-                <div className="flex min-h-9 items-center gap-2 border-t border-dashed bg-muted/15 px-2 py-1">
-                  <span className="shrink-0 text-[9px] font-semibold text-muted-foreground">{i18n("roomOverviewList.inspection")}</span>
-                  {room.inspectionStatus !== "NONE" && (
-                    <RoomInspectionStatusBadge
-                      status={room.inspectionStatus}
-                      pendingCount={room.pendingMemoCount}
-                      onClick={canOpenInspection ? () => onInspectionActivate(room) : undefined}
-                    />
-                  )}
-                  {canCreateRoomNotes && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="xs"
-                      className="ml-auto h-7 gap-1 px-2 text-[10px]"
-                      onClick={() => onCreateRoomNote(room)}
-                    >
-                      <Plus className="size-3" />{i18n("roomOverviewList.registerInspection")}
-                    </Button>
-                  )}
-                </div>
-              )}
-            </div>
+            <section key={group.id} data-property-id={group.id} aria-label={group.name}>
+              <MobileRoomPropertyGroupHeader group={group} collapsed={collapsed} onToggle={() => toggleGroup(group.id)} />
+              {!collapsed && <div className="divide-y">
+                {group.rooms.map((room) => (
+                  <MobileRoomListRow
+                    key={room.id}
+                    room={room}
+                    localeTag={localeTag}
+                    selectionMode={selectionMode}
+                    selected={selectedIds.has(room.id)}
+                    canReadRoomNotes={canReadRoomNotes}
+                    canCreateRoomNotes={canCreateRoomNotes}
+                    onActivate={() => onActivate(room)}
+                    onInspectionActivate={() => onInspectionActivate(room)}
+                    onCreateRoomNote={() => onCreateRoomNote(room)}
+                  />
+                ))}
+              </div>}
+            </section>
           );
         })}
       </div>

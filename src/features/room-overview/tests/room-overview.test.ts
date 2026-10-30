@@ -59,6 +59,18 @@ test("PC 리스트는 숙소별로 객실을 묶고 같은 공통 상태 집계�
   assert.equal(groups[0].summary.statuses.OCCUPIED, 1);
   assert.equal(groups[0].summary.operationalStatuses.INSPECTION_REQUIRED, 1);
 });
+test("모바일 리스트 그룹은 숙소 순서를 유지하면서 그룹 안의 선택 정렬을 보존한다", () => {
+  const groups = groupRoomOverviewByProperty([
+    card({ id: "g2", propertyId: "gran", propertyName: "그란", code: "505", sortOrder: 2 }),
+    card({ id: "g1", propertyId: "gran", propertyName: "그란", code: "301", sortOrder: 1 }),
+    card({ id: "c1", propertyId: "center", propertyName: "센터코즈", code: "202", sortOrder: 1 }),
+  ], { preserveRoomOrder: true });
+
+  assert.deepEqual(groups.map(({ id, rooms }) => ({ id, rooms: rooms.map((room) => room.id) })), [
+    { id: "gran", rooms: ["g2", "g1"] },
+    { id: "center", rooms: ["c1"] },
+  ]);
+});
 test("자동 상태와 청소 상태·미완료 메모 기반 점검 상태를 집계한다", () => { const result = summarizeRoomOverview([card({ status: "VACANT" }), card({ id: "2", status: "OCCUPIED", operationalStatus: "CLEANING_REQUIRED" }), card({ id: "3", status: "CONFLICT", pendingMemoCount: 2 })]); assert.equal(result.total, 3); assert.equal(result.statuses.VACANT, 1); assert.equal(result.statuses.CONFLICT, 1); assert.equal(result.operationalStatuses.CLEANING_REQUIRED, 1); assert.equal(result.operationalStatuses.INSPECTION_REQUIRED, 1); });
 test("선택 날짜 청소는 미완료를 우선하고 완료·없음을 분리한다", () => {
   assert.equal(getRoomOverviewCleaningStatus([]), "NONE");
@@ -513,6 +525,24 @@ test("모바일 리스트·카드·상세는 점검 상태와 관리자 점검 �
   assert.match(card, /canCreateRoomNotes && <Button[\s\S]*registerInspection/);
   assert.match(detail, /RoomInspectionStatusBadge status=\{room\.inspectionStatus\}/);
   assert.match(detail, /canCreateRoomNotes && <Button[\s\S]*registerInspection/);
+});
+
+test("모바일 리스트는 PC와 같은 숙소별 그룹을 사용하고 하단 내비게이션은 Dialog 밖에 고정한다", () => {
+  const list = readFileSync("src/features/room-overview/components/room-status-list.tsx", "utf8");
+  const cards = readFileSync("src/features/room-overview/components/room-status-card-grid.tsx", "utf8");
+  const groupHeader = readFileSync("src/features/room-overview/components/mobile-room-property-group-header.tsx", "utf8");
+  const navigation = readFileSync("src/components/layout/mobile-navigation.tsx", "utf8");
+
+  assert.match(list, /groupRoomOverviewByProperty\(rooms, \{ preserveRoomOrder: true \}\)/);
+  assert.match(list, /useCollapsedRoomGroups\(\)/);
+  assert.match(list, /data-property-id=\{group\.id\}/);
+  assert.match(cards, /groupRoomOverviewByProperty\(rooms, \{ preserveRoomOrder: true \}\)/);
+  assert.match(cards, /data-property-id=\{group\.id\}/);
+  assert.match(groupHeader, /GROUP_STATUS_ORDER\.map/);
+  assert.match(navigation, /data-mobile-navigation/);
+  assert.match(navigation, /fixed inset-x-0 bottom-0 z-40/);
+  assert.ok(navigation.indexOf("<nav") < navigation.indexOf("<Sheet open={open}"));
+  assert.match(navigation, /onClick=\{\(\) => setOpen\(true\)\}/);
 });
 
 test("PC 리스트는 기존 bulk 객실 현황 응답만 사용하고 모바일 workspace는 유지한다", () => {
