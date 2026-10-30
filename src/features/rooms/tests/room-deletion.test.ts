@@ -63,3 +63,10 @@ test("객실 목록 삭제 UI는 영향과 비가역 경고를 보여주고 객�
   assert.match(dialog, /impact\.reviews/);
 });
 
+test("객실 삭제 성공 상태에서는 transition이 끝나기 전에도 Dialog를 닫을 수 있다", () => {
+  assert.match(dialog, /if \(deletePending && !success\) return/);
+  assert.match(dialog, /showCloseButton=\{!deletePending \|\| Boolean\(success\)\}/);
+  assert.match(dialog, /onClick=\{\(\) => handleOpenChange\(false\)\}/);
+  assert.match(dialog, /if \(success\) router\.refresh\(\)/);
+});
+

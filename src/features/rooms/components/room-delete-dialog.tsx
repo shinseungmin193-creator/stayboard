@@ -32,7 +32,7 @@ export function RoomDeleteDialog({ room }: { room: RoomListItem }) {
   const confirmationValid = isRoomDeletionConfirmationValid(confirmationText, room.name);
 
   const handleOpenChange = (nextOpen: boolean) => {
-    if (deletePending) return;
+    if (deletePending && !success) return;
     setOpen(nextOpen);
     if (!nextOpen) {
       if (success) router.refresh();
@@ -84,7 +84,7 @@ export function RoomDeleteDialog({ room }: { room: RoomListItem }) {
         <Trash2 />
         <span className="hidden lg:inline">{t("button")}</span>
       </DialogTrigger>
-      <DialogContent role="alertdialog" className="sm:max-w-lg" showCloseButton={!deletePending}>
+      <DialogContent role="alertdialog" className="sm:max-w-lg" showCloseButton={!deletePending || Boolean(success)}>
         <DialogHeader>
           <DialogTitle>{t("title")}</DialogTitle>
           <DialogDescription>
