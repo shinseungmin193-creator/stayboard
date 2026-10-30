@@ -1,10 +1,8 @@
 import { ArrowRight } from "lucide-react";
-import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 
 import { PageHeader } from "@/components/shared/page-header";
 import { StatCard } from "@/components/shared/stat-card";
-import { Button } from "@/components/ui/button";
 import {
   AccessDenied,
   authorizeSidebarMenuAccess,
@@ -107,12 +105,9 @@ async function renderDashboardPage() {
   };
   const dashboardCards = getDashboardCardIds(dashboardRole);
 
-  const canManageProperties = hasPermission(dashboardRole, PERMISSIONS.PROPERTY_MANAGE);
-  const propertyAction = canManageProperties
-    ? <Button nativeButton={false} render={<Link href="/properties" />} className="w-full sm:w-auto">{i18n("auto.m0068")}<ArrowRight /></Button>
-    : !context
-      ? <AuthTrigger mode="signup" className="w-full sm:w-auto">{i18n("auto.m0069")}<ArrowRight /></AuthTrigger>
-      : undefined;
+  const propertyAction = !context
+    ? <AuthTrigger mode="signup" className="w-full sm:w-auto">{i18n("auto.m0069")}<ArrowRight /></AuthTrigger>
+    : undefined;
 
   return <div className="space-y-5">
     <PageHeader eyebrow="OVERVIEW" title={i18n("common.dashboard")} description={i18n("auto.m0071")} action={propertyAction} />

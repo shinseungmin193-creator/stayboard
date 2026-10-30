@@ -310,3 +310,9 @@ test("셀프 호스팅 스트리밍과 운영 성능 계측은 명시적으로 �
   assert.match(performance, /configured === "true"/);
   assert.match(performance, /maxTimeMs/);
 });
+
+test("로그인 대시보드에서 숙소 등록 시작 CTA를 표시하지 않는다", () => {
+  const page = readFileSync("src/app/page.tsx", "utf8");
+  assert.doesNotMatch(page, /i18n\("auto\.m0068"\)/);
+  assert.doesNotMatch(page, /href="\/properties"/);
+});
