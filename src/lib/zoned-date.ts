@@ -1,6 +1,7 @@
 import { DEFAULT_TIMEZONE } from "./constants";
 
 const dateInputFormatters = new Map<string, Intl.DateTimeFormat>();
+const resolvedTimeZones = new Map<string, string>();
 
 export function isValidDateInput(value: string | null | undefined): value is string {
   if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
@@ -12,12 +13,18 @@ export function isValidDateInput(value: string | null | undefined): value is str
 }
 
 export function resolveTimeZone(timeZone = DEFAULT_TIMEZONE) {
+  const cached = resolvedTimeZones.get(timeZone);
+  if (cached) return cached;
+
+  let resolved = DEFAULT_TIMEZONE;
   try {
     new Intl.DateTimeFormat("en", { timeZone }).format();
-    return timeZone;
+    resolved = timeZone;
   } catch {
-    return DEFAULT_TIMEZONE;
+    // Invalid zones consistently fall back to the application default.
   }
+  resolvedTimeZones.set(timeZone, resolved);
+  return resolved;
 }
 
 export function getZonedDateInput(now = new Date(), timeZone = DEFAULT_TIMEZONE) {

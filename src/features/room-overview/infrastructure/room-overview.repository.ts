@@ -1,15 +1,60 @@
 import "server-only";
 
+import { performance } from "node:perf_hooks";
 import { prisma } from "@/lib/prisma";
-import type { AccessScope } from "@/features/access-control";
-import { roomScopeWhere } from "@/features/access-control";
+import { Prisma } from "@/lib/generated/prisma/client";
+import type { SyncStatus } from "@/lib/generated/prisma/enums";
+import type { AccessScope } from "@/features/access-control/domain/access-control";
+import { roomScopeWhere } from "@/features/access-control/infrastructure/prisma-scope";
 import { CALENDAR_PROVIDER_TYPES } from "@/providers/calendar";
 import { buildOperationalReservationWhere } from "@/features/reservations/operational-reservation-where";
 import { buildReservationOverlapWhere } from "@/features/reservations/reservation-range-overlap";
 import { OPEN_ROOM_NOTE_STATUS } from "@/features/room-notes/domain/room-note";
 
-export function findRoomOverviewData(input: { propertyId?: string; operationalStatus?: "NONE" | "CLEANING_REQUIRED" | "INSPECTION_REQUIRED"; companyIds?: readonly string[]; accessScope?: AccessScope; from: Date; todayStart: Date; todayEnd: Date; toExclusive: Date }) {
-  return prisma.room.findMany({
+interface RoomOverviewLatestSync {
+  calendarSourceId: string;
+  status: SyncStatus;
+  startedAt: Date;
+  completedAt: Date | null;
+}
+
+async function measureRoomOverviewQuery<T>(query: string, operation: () => Promise<T>): Promise<T> {
+  const startedAt = performance.now();
+  try {
+    return await operation();
+  } finally {
+    if (process.env.ROOM_OVERVIEW_PERFORMANCE_LOG === "true") {
+      console.info("[room-overview.query]", JSON.stringify({
+        query,
+        durationMs: Math.round((performance.now() - startedAt) * 100) / 100,
+      }));
+    }
+  }
+}
+
+function findLatestRoomOverviewSyncs(calendarSourceIds: readonly string[]) {
+  if (!calendarSourceIds.length) return Promise.resolve([] as RoomOverviewLatestSync[]);
+
+  return measureRoomOverviewQuery("latest-syncs", () => prisma.$queryRaw<RoomOverviewLatestSync[]>(Prisma.sql`
+    SELECT
+      source.id AS "calendarSourceId",
+      latest.status,
+      latest."startedAt",
+      latest."completedAt"
+    FROM "CalendarSource" source
+    JOIN LATERAL (
+      SELECT status, "startedAt", "completedAt"
+      FROM "SyncLog"
+      WHERE "calendarSourceId" = source.id
+      ORDER BY "createdAt" DESC, id DESC
+      LIMIT 1
+    ) latest ON TRUE
+    WHERE source.id IN (${Prisma.join([...calendarSourceIds])})
+  `));
+}
+
+export async function findRoomOverviewData(input: { propertyId?: string; operationalStatus?: "NONE" | "CLEANING_REQUIRED" | "INSPECTION_REQUIRED"; companyIds?: readonly string[]; accessScope?: AccessScope; from: Date; todayStart: Date; todayEnd: Date; toExclusive: Date }) {
+  const rooms = await measureRoomOverviewQuery("rooms", () => prisma.room.findMany({
     where: {
       ...(roomScopeWhere(input.accessScope) ?? {}),
       isActive: true,
@@ -58,15 +103,28 @@ export function findRoomOverviewData(input: { propertyId?: string; operationalSt
       },
       calendarSources: {
         where: { isActive: true, provider: { in: [...CALENDAR_PROVIDER_TYPES] } },
-        select: {
-          id: true, provider: true,
-          syncLogs: { select: { status: true, startedAt: true, completedAt: true }, orderBy: [{ createdAt: "desc" }, { id: "desc" }], take: 1 },
-        },
+        select: { id: true, provider: true },
         orderBy: [{ provider: "asc" }, { name: "asc" }],
       },
     },
     orderBy: [{ property: { name: "asc" } }, { sortOrder: "asc" }, { code: "asc" }, { name: "asc" }],
-  });
+  }));
+
+  if (!rooms.length) return [];
+  const latestSyncs = await findLatestRoomOverviewSyncs(
+    rooms.flatMap((room) => room.calendarSources.map((source) => source.id)),
+  );
+  const latestSyncBySourceId = new Map(
+    latestSyncs.map(({ calendarSourceId, ...sync }) => [calendarSourceId, sync]),
+  );
+
+  return rooms.map((room) => ({
+    ...room,
+    calendarSources: room.calendarSources.map((source) => {
+      const latestSync = latestSyncBySourceId.get(source.id);
+      return { ...source, syncLogs: latestSync ? [latestSync] : [] };
+    }),
+  }));
 }
 
 export function findUpcomingRoomOverviewConflicts(input: { propertyId?: string; companyIds?: readonly string[]; accessScope?: AccessScope; from: Date; todayStart: Date; toExclusive: Date }) {

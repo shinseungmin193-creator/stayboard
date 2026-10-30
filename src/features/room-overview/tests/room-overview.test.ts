@@ -153,6 +153,23 @@ test("객실 카드 점검 배지는 OPEN 메모 count를 사용하고 정상 �
   assert.match(mobileCard, /room\.activeConflictCount > 0/);
 });
 
+test("객실 현황은 대용량 동기화 로그에서 소스별 최신 1건만 인덱스 탐색한다", () => {
+  const repository = readFileSync("src/features/room-overview/infrastructure/room-overview.repository.ts", "utf8");
+
+  assert.match(repository, /JOIN LATERAL \([\s\S]*WHERE "calendarSourceId" = source\.id[\s\S]*LIMIT 1/);
+  assert.match(repository, /ORDER BY "createdAt" DESC, id DESC/);
+  assert.match(repository, /latestSyncBySourceId/);
+  assert.doesNotMatch(repository, /syncLogs: \{[\s\S]*take: 1/);
+});
+
+test("객실 현황 날짜 계산은 검증된 timezone을 재사용한다", () => {
+  const zonedDate = readFileSync("src/lib/zoned-date.ts", "utf8");
+
+  assert.match(zonedDate, /const resolvedTimeZones = new Map<string, string>\(\)/);
+  assert.match(zonedDate, /const cached = resolvedTimeZones\.get\(timeZone\)/);
+  assert.match(zonedDate, /resolvedTimeZones\.set\(timeZone, resolved\)/);
+});
+
 test("점검 필요 카드는 상태 배경을 유지하면서 PC·모바일에서 빨간 테두리와 강조 badge를 사용한다", () => {
   const visuals = readFileSync("src/features/room-overview/room-overview-visuals.ts", "utf8");
   const desktopCard = readFileSync("src/features/room-overview/components/room-overview-card.tsx", "utf8");

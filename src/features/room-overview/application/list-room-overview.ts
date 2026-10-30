@@ -1,4 +1,5 @@
 import { addDays } from "date-fns";
+import { performance } from "node:perf_hooks";
 import type { RoomOperationalStatus, SyncStatus } from "@/lib/generated/prisma/enums";
 import { getDashboardTodayRange } from "@/features/dashboard/dashboard-time";
 import { buildRoomOperationalSchedule, calculateRoomOverviewStatus, getRoomInspectionStatus, getRoomOverviewCleaningStatus, isValidReservation, matchesRoomOperationalStatus, selectCurrentReservation, selectNextReservation, sortRoomOverviewCards, summarizeRoomOverview, type RoomOverviewCard, type RoomOverviewCleaningFilter, type RoomOverviewReservation, type RoomOverviewStatus } from "../domain/room-overview";
@@ -12,6 +13,7 @@ import { getReservationDateDifference } from "@/features/reservations/reservatio
 export interface RoomOverviewFilters { propertyId?: string; query?: string; status?: RoomOverviewStatus; cleaningStatus?: RoomOverviewCleaningFilter; operationalStatus?: RoomOperationalStatus; syncStatus?: SyncStatus; companyIds?: readonly string[]; accessScope?: AccessScope }
 
 export async function listRoomOverview(filters: RoomOverviewFilters, now = new Date(), calendarRangeDays: CalendarRangeDays = 7, includeOperationalScheduleConflicts = true) {
+  const performanceStartedAt = performance.now();
   const { start: todayStart, end: todayEnd } = getDashboardTodayRange(now);
   const rangeEnd = addDays(todayEnd, 7);
   const calendarStart = addDays(todayStart, -Math.floor(calendarRangeDays / 2));
@@ -23,6 +25,7 @@ export async function listRoomOverview(filters: RoomOverviewFilters, now = new D
       ? findUpcomingRoomOverviewConflicts({ propertyId: filters.propertyId, companyIds: filters.companyIds, accessScope: filters.accessScope, from: calendarStart, todayStart, toExclusive: queryEnd })
       : Promise.resolve([]),
   ]);
+  const repositoryCompletedAt = performance.now();
 
   const cards = sortRoomOverviewCards(rows.map((row): RoomOverviewCard => {
     const actualConflicts = row.conflicts.filter(isCurrentReservationConflict);
@@ -55,6 +58,7 @@ export async function listRoomOverview(filters: RoomOverviewFilters, now = new D
       reservations,
     };
   }));
+  const cardsCompletedAt = performance.now();
 
   const normalizedQuery = filters.query?.trim().toLocaleLowerCase("ko");
   const filteredCards = cards.filter((card) => {
@@ -68,5 +72,14 @@ export async function listRoomOverview(filters: RoomOverviewFilters, now = new D
 
   const scheduleReservations = cards.flatMap((card) => card.reservations.filter((item) => item.status !== "CANCELLED" && item.status !== "BLOCKED" && isValidReservation(item)).map((item) => ({ ...item, roomId: card.id, roomName: card.name, hasConflict: item.activeConflicts.length > 0 })));
   const operationalSchedule = buildRoomOperationalSchedule(scheduleReservations, todayStart, todayEnd, rangeEnd);
+  if (process.env.ROOM_OVERVIEW_PERFORMANCE_LOG === "true") {
+    console.info("[room-overview.application]", JSON.stringify({
+      repositoryMs: Math.round((repositoryCompletedAt - performanceStartedAt) * 100) / 100,
+      cardsMs: Math.round((cardsCompletedAt - repositoryCompletedAt) * 100) / 100,
+      filteringAndScheduleMs: Math.round((performance.now() - cardsCompletedAt) * 100) / 100,
+      rowCount: rows.length,
+      cardCount: cards.length,
+    }));
+  }
   return { cards: filteredCards, allCards: cards, summary: summarizeRoomOverview(cards), todayStart, todayEnd, rangeEnd, calendarStart, calendarEnd, operationalSchedule, conflicts: conflicts.filter(isCurrentReservationConflict) };
 }
