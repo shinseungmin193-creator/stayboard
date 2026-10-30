@@ -19,6 +19,7 @@ export const TIMELINE_DATE_COLUMN_WIDTHS: Record<CalendarRangeDays, number> = {
 
 export const MOBILE_ROOM_STATUS_FILTERS = [
   "ALL",
+  "INSPECTION",
   "RESERVED",
   "VACANT",
   "CHECK_IN_TODAY",
@@ -47,6 +48,7 @@ export interface MobileRoomFilters {
 
 export interface MobileRoomSummary {
   total: number;
+  inspection: number;
   reserved: number;
   vacant: number;
   checkIn: number;
@@ -130,8 +132,9 @@ export function hasRoomSyncError(room: RoomOverviewCard) {
 }
 
 export function summarizeMobileRooms(rooms: readonly RoomOverviewCard[]): MobileRoomSummary {
-  const summary: MobileRoomSummary = { total: rooms.length, reserved: 0, vacant: 0, checkIn: 0, checkOut: 0, cleaning: 0, conflict: 0 };
+  const summary: MobileRoomSummary = { total: rooms.length, inspection: 0, reserved: 0, vacant: 0, checkIn: 0, checkOut: 0, cleaning: 0, conflict: 0 };
   for (const room of rooms) {
+    if (room.inspectionStatus !== "NONE") summary.inspection += 1;
     if (room.status === "VACANT") summary.vacant += 1;
     if (room.status === "OCCUPIED" || room.status === "CONFLICT") summary.reserved += 1;
     if (room.status === "CHECK_IN_TODAY") summary.checkIn += 1;
@@ -144,6 +147,7 @@ export function summarizeMobileRooms(rooms: readonly RoomOverviewCard[]): Mobile
 
 function matchesStatus(room: RoomOverviewCard, status: MobileRoomStatusFilter) {
   if (status === "ALL") return true;
+  if (status === "INSPECTION") return room.inspectionStatus !== "NONE";
   if (status === "RESERVED") return room.status === "OCCUPIED" || room.status === "CONFLICT";
   if (status === "CLEANING") return room.operationalStatus === "CLEANING_REQUIRED";
   return room.status === status;

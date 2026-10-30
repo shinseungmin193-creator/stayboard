@@ -278,15 +278,15 @@ test("모바일 조회 날짜는 잘못된 값을 거부하고 하루씩 이동�
   assert.equal(moveRoomOverviewDate("2026-01-01", -1), "2025-12-31");
 });
 
-test("모바일 상태 요약은 예약·공실·체크인·체크아웃과 청소중을 계산한다", () => {
+test("모바일 상태 요약은 점검·예약·공실·체크인·체크아웃과 청소중을 계산한다", () => {
   const summary = summarizeMobileRooms([
-    card({ id: "vacant", status: "VACANT" }),
+    card({ id: "vacant", status: "VACANT", inspectionStatus: "INCOMPLETE", pendingMemoCount: 1 }),
     card({ id: "reserved", status: "OCCUPIED" }),
     card({ id: "conflict", status: "CONFLICT" }),
     card({ id: "check-in", status: "CHECK_IN_TODAY" }),
     card({ id: "check-out", status: "CHECK_OUT_TODAY", operationalStatus: "CLEANING_REQUIRED" }),
   ]);
-  assert.deepEqual(summary, { total: 5, reserved: 2, vacant: 1, checkIn: 1, checkOut: 1, cleaning: 1, conflict: 1 });
+  assert.deepEqual(summary, { total: 5, inspection: 1, reserved: 2, vacant: 1, checkIn: 1, checkOut: 1, cleaning: 1, conflict: 1 });
 });
 
 test("모바일 캘린더 기간은 3·7·14·30일만 허용하고 선택 날짜를 중앙 기준으로 배치한다", () => {
@@ -304,6 +304,19 @@ test("모바일 검색과 상태·OTA·동기화 필터를 함께 적용한다",
   ];
   assert.deepEqual(filterMobileRooms(rooms, { query: "선샤인", status: "RESERVED", ota: "CONNECTED", sync: "ERROR" }).map((room) => room.id), ["1"]);
   assert.deepEqual(filterMobileRooms(rooms, { query: "502", status: "VACANT", ota: "DISCONNECTED", sync: "NORMAL" }).map((room) => room.id), ["2"]);
+});
+
+test("모바일 점검 필터는 점검이 등록된 미완료·읽음·처리중·완료 객실만 표시한다", () => {
+  const rooms = [
+    card({ id: "none", inspectionStatus: "NONE" }),
+    card({ id: "incomplete", inspectionStatus: "INCOMPLETE", pendingMemoCount: 1 }),
+    card({ id: "read", inspectionStatus: "READ", pendingMemoCount: 1 }),
+    card({ id: "progress", inspectionStatus: "IN_PROGRESS", pendingMemoCount: 1 }),
+    card({ id: "completed", inspectionStatus: "COMPLETED" }),
+  ];
+  assert.deepEqual(filterMobileRooms(rooms, { query: "", status: "INSPECTION", ota: "ALL", sync: "ALL" }).map((room) => room.id), ["incomplete", "read", "progress", "completed"]);
+  const toolbar = readFileSync("src/features/room-overview/components/room-status-mobile-toolbar.tsx", "utf8");
+  assert.ok(toolbar.indexOf('key: "ALL"') < toolbar.indexOf('key: "INSPECTION"'));
 });
 
 test("모바일 목록 정렬은 객실·숙소·상태·체크인·체크아웃 기준을 지원한다", () => {

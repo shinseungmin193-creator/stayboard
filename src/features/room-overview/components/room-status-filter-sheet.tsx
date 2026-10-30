@@ -20,6 +20,7 @@ export function RoomStatusFilterSheet({ filters, propertyId, properties, onApply
   const i18n = useTranslations();
   const statusOptions: Array<{ value: MobileRoomFilters["status"]; label: string }> = [
     { value: "ALL", label: i18n("auto.m0244") },
+    { value: "INSPECTION", label: i18n("roomOverviewList.inspection") },
     { value: "RESERVED", label: i18n("common.reservation") },
     { value: "VACANT", label: i18n("reservation.vacant") },
     { value: "CHECK_IN_TODAY", label: i18n("reservation.checkIn") },
