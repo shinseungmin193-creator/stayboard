@@ -1,5 +1,5 @@
 import type { LucideIcon } from "lucide-react";
-import { BedDouble, Bug, Building2, CalendarDays, ChartNoAxesCombined, Code2, Hotel, LayoutDashboard, Rows3, ScrollText, Settings, Sparkles, Star, TriangleAlert, Unplug, UserCog, Users } from "lucide-react";
+import { BedDouble, Bug, Building2, CalendarDays, ChartNoAxesCombined, Code2, Hotel, LayoutDashboard, Rows3, ScrollText, Settings, ShieldCheck, Sparkles, Star, TriangleAlert, Unplug, UserCog, Users } from "lucide-react";
 import { PERMISSIONS, type Permission } from "../../access-control/domain/access-control";
 import { RESERVATION_CONFLICT_UI } from "../../reservation-conflicts/reservation-conflict.labels";
 
@@ -24,6 +24,7 @@ export const SIDEBAR_MENU_ITEMS = [
   { id: "calendar-sources", label: "캘린더 연결", href: "/calendar-sources", icon: Unplug, requiredPermission: PERMISSIONS.CALENDAR_SOURCE_READ, relatedPermissions: [PERMISSIONS.CALENDAR_SOURCE_READ, PERMISSIONS.CALENDAR_SOURCE_MANAGE, PERMISSIONS.SYNC_READ, PERMISSIONS.SYNC_RUN], hideable: true },
   { id: "occupancy-statistics", label: "점유율 통계", href: "/statistics/occupancy", icon: ChartNoAxesCombined, requiredPermission: PERMISSIONS.STATISTICS_READ, relatedPermissions: [PERMISSIONS.STATISTICS_READ], hideable: true },
   { id: "cleaning", label: "청소 관리", href: "/cleaning", icon: Sparkles, requiredPermission: PERMISSIONS.CLEANING_READ, relatedPermissions: [PERMISSIONS.CLEANING_READ, PERMISSIONS.CLEANING_MANAGE, PERMISSIONS.CLEANING_COMPLETION_MANAGE, PERMISSIONS.CLEANING_ASSIGN, PERMISSIONS.CLEANING_WORKER_READ, PERMISSIONS.CLEANING_WORKER_CREATE, PERMISSIONS.CLEANING_WORKER_MANAGE, PERMISSIONS.ROOM_NOTE_COMPLETE, PERMISSIONS.STATISTICS_READ], hideable: true },
+  { id: "insurance-claims", label: "보험 및 보상", href: "/insurance-claims", icon: ShieldCheck, requiredPermission: PERMISSIONS.INSURANCE_CLAIM_READ, relatedPermissions: [PERMISSIONS.INSURANCE_CLAIM_READ, PERMISSIONS.INSURANCE_CLAIM_CREATE, PERMISSIONS.INSURANCE_CLAIM_COMPLETE], hideable: true },
   { id: "property-reviews", label: "숙소별 리뷰", href: "/property-reviews", icon: Star, requiredPermission: PERMISSIONS.PROPERTY_REVIEW_READ, relatedPermissions: [PERMISSIONS.PROPERTY_REVIEW_READ, PERMISSIONS.PROPERTY_REVIEW_SYNC], hideable: true },
   { id: "member-management", label: "구성원 관리", href: "/settings/members", icon: Users, requiredPermission: PERMISSIONS.USER_MANAGE, relatedPermissions: [PERMISSIONS.USER_MANAGE], hideable: true },
   { id: "admin-settings", label: "관리자 설정", href: "/settings/admin", icon: Settings, requiredPermission: PERMISSIONS.ADMIN_SETTINGS_READ, relatedPermissions: [PERMISSIONS.ADMIN_SETTINGS_READ, PERMISSIONS.ADMIN_SETTINGS_MANAGE], hideable: false },

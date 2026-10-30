@@ -42,7 +42,7 @@ test("오늘 체크아웃과 체크인이 겹치는 turnover는 체크아웃 우
 });
 test("예약자 이름이 없으면 가짜 이름을 만들지 않는다", () => { assert.equal(getRoomOverviewGuestName(reservation({ guestName: "Kim" })), "Kim"); assert.equal(getRoomOverviewGuestName(reservation()), "예약자 정보 없음"); assert.equal(getRoomOverviewGuestName(reservation({ status: "BLOCKED" })), "예약자 정보 없음"); assert.equal(getRoomOverviewGuestName(reservation({ provider: "BOOKING" })), "예약자 정보 없음"); });
 
-const card = (overrides: Partial<RoomOverviewCard>): RoomOverviewCard => ({ id: "1", propertyId: "p", propertyName: "세레니테", name: "객실", code: "801", sortOrder: 0, operationalStatus: "NONE", operationalStatusUpdatedAt: null, status: "VACANT", currentReservation: null, nextReservation: null, nextReservationLeadDays: null, reservationCount: 0, activeConflictCount: 0, pendingMemoCount: 0, inspectionStatus: "NONE", cleaningStatus: "NONE", providers: [], latestSync: null, syncStates: [], reservations: [], ...overrides });
+const card = (overrides: Partial<RoomOverviewCard>): RoomOverviewCard => ({ id: "1", propertyId: "p", propertyName: "세레니테", name: "객실", code: "801", sortOrder: 0, operationalStatus: "NONE", operationalStatusUpdatedAt: null, status: "VACANT", currentReservation: null, nextReservation: null, nextReservationLeadDays: null, reservationCount: 0, activeConflictCount: 0, pendingMemoCount: 0, insuranceClaimCount: 0, inspectionStatus: "NONE", cleaningStatus: "NONE", providers: [], latestSync: null, syncStates: [], reservations: [], ...overrides });
 test("객실은 숙소·sortOrder·객실 코드 순서로 정렬한다", () => { const result = sortRoomOverviewCards([card({ id: "801", code: "801", sortOrder: 2 }), card({ id: "303", code: "303", sortOrder: 1 }), card({ id: "701", code: "701", sortOrder: 2 })]); assert.deepEqual(result.map((item) => item.id), ["303", "701", "801"]); });
 test("PC 리스트는 숙소별로 객실을 묶고 같은 공통 상태 집계를 사용한다", () => {
   const groups = groupRoomOverviewByProperty([
@@ -150,7 +150,7 @@ test("객실 카드 점검 배지는 OPEN 메모 count를 사용하고 정상 �
   const mobileCard = readFileSync("src/features/room-overview/components/compact-room-status-card.tsx", "utf8");
 
   assert.match(repository, /roomNotes: \{ some: \{ status: OPEN_ROOM_NOTE_STATUS \} \}/);
-  assert.match(repository, /_count: \{ select: \{ roomNotes: true \} \}/);
+  assert.match(repository, /_count: \{ select: \{ roomNotes: true, insuranceClaims: true \} \}/);
   assert.match(repository, /roomNotes: \{[\s\S]*where: \{ status: OPEN_ROOM_NOTE_STATUS \}[\s\S]*acknowledgedAt: true, processedAt: true/);
   assert.doesNotMatch(repository, /prisma\.roomNote\.(findMany|count)/);
   assert.match(desktopCard, /requiresRoomInspection\(card\)/);

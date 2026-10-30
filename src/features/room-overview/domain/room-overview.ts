@@ -61,6 +61,7 @@ export interface RoomOverviewCard {
   reservationCount: number;
   activeConflictCount: number;
   pendingMemoCount: number;
+  insuranceClaimCount: number;
   inspectionStatus: RoomInspectionStatus;
   cleaningStatus: RoomOverviewCleaningStatus;
   providers: CalendarProviderType[];

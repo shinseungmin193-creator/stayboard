@@ -60,9 +60,14 @@ export async function deleteRoomRelatedData(
     where: { roomNote: { roomId: { in: [...input.roomIds] } } },
     select: { storageKey: true },
   });
+  const insuranceClaimPhotos = await tx.insuranceClaimPhoto.findMany({
+    where: { claim: { roomId: { in: [...input.roomIds] } } },
+    select: { storageKey: true },
+  });
   const photoStorageKeys = [
     ...photos.flatMap((photo) => photo.storageKey ? [photo.storageKey] : []),
     ...roomNotePhotos.map((photo) => photo.storageKey),
+    ...insuranceClaimPhotos.map((photo) => photo.storageKey),
   ];
 
   const [reviewSnapshotCount, listingReviewCount, reviewSyncLogCount] = input.roomListingIds.length
@@ -84,6 +89,7 @@ export async function deleteRoomRelatedData(
       ],
     },
   });
+  await tx.insuranceClaim.deleteMany({ where: { roomId: { in: [...input.roomIds] } } });
   if (cleaningTaskIds.length) {
     await tx.cleaningTaskLog.deleteMany({ where: { taskId: { in: cleaningTaskIds } } });
   }

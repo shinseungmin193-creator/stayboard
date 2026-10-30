@@ -6,6 +6,7 @@ import {
   ChevronDown,
   ChevronRight,
   Plus,
+  ShieldPlus,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -23,7 +24,7 @@ import { ROOM_STATUS_THEME } from "../room-overview-visuals";
 import { RoomInspectionButton } from "./room-inspection-button";
 import { RoomInspectionStatusBadge } from "./room-inspection-status-badge";
 
-const COLUMN_COUNT = 9;
+const COLUMN_COUNT = 10;
 
 function RoomStatusBadge({ room }: { room: RoomOverviewCard }) {
   const i18n = useTranslations();
@@ -54,12 +55,16 @@ function RoomOverviewRow({
   canCreateRoomNotes,
   onInspectionActivate,
   onCreateRoomNote,
+  canCreateInsuranceClaims,
+  onCreateInsuranceClaim,
 }: {
   room: RoomOverviewCard;
   canReadRoomNotes: boolean;
   canCreateRoomNotes: boolean;
   onInspectionActivate: (room: RoomOverviewCard) => void;
   onCreateRoomNote: (room: RoomOverviewCard) => void;
+  canCreateInsuranceClaims: boolean;
+  onCreateInsuranceClaim: (room: RoomOverviewCard) => void;
 }) {
   const locale = useLocale();
   const i18n = useTranslations();
@@ -116,6 +121,9 @@ function RoomOverviewRow({
         </div>
       </td>
       <td className="px-2 py-1.5 text-center"><RoomInspectionStatusBadge status={room.inspectionStatus} pendingCount={room.pendingMemoCount} /></td>
+      <td className="px-2 py-1.5 text-center">
+        {canCreateInsuranceClaims ? <Button type="button" variant="outline" size="xs" className="h-6 gap-1 px-2 text-[10px]" onClick={() => onCreateInsuranceClaim(room)}><ShieldPlus className="size-3" />{room.insuranceClaimCount > 0 ? `보고 ${room.insuranceClaimCount}` : "보고"}</Button> : <span className="text-xs text-muted-foreground">-</span>}
+      </td>
       <td className="px-2 py-1.5 text-xs" title={sync.label}>
         <span className={cn("mr-1.5 inline-block size-2 rounded-full", syncDotClass)} aria-hidden="true" />
         <span className={cn("tabular-nums", sync.error && "text-destructive")}>{latestSyncAt ? syncFormatter.format(latestSyncAt) : sync.label}</span>
@@ -130,12 +138,16 @@ export function RoomOverviewListView({
   canCreateRoomNotes,
   onInspectionActivate,
   onCreateRoomNote,
+  canCreateInsuranceClaims,
+  onCreateInsuranceClaim,
 }: {
   rooms: RoomOverviewCard[];
   canReadRoomNotes: boolean;
   canCreateRoomNotes: boolean;
   onInspectionActivate: (room: RoomOverviewCard) => void;
   onCreateRoomNote: (room: RoomOverviewCard) => void;
+  canCreateInsuranceClaims: boolean;
+  onCreateInsuranceClaim: (room: RoomOverviewCard) => void;
 }) {
   const i18n = useTranslations();
   const groups = groupRoomOverviewByProperty(rooms);
@@ -154,6 +166,7 @@ export function RoomOverviewListView({
             <th className="w-28 px-2 font-semibold">{i18n("roomOverviewList.nextReservation")}</th>
             <th className="w-44 px-2 font-semibold">{i18n("roomOverviewList.inspection")}</th>
             <th className="w-20 px-2 text-center font-semibold">{i18n("roomOverviewList.inspectionStatus")}</th>
+            <th className="w-24 px-2 text-center font-semibold">보험/보상</th>
             <th className="w-32 px-2 font-semibold">{i18n("roomOverviewList.lastSync")}</th>
           </tr>
         </thead>
@@ -192,6 +205,8 @@ export function RoomOverviewListView({
                   canCreateRoomNotes={canCreateRoomNotes}
                   onInspectionActivate={onInspectionActivate}
                   onCreateRoomNote={onCreateRoomNote}
+                  canCreateInsuranceClaims={canCreateInsuranceClaims}
+                  onCreateInsuranceClaim={onCreateInsuranceClaim}
                 />
               ))}
             </tbody>

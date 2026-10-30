@@ -28,6 +28,7 @@ export const DEFAULT_SIDEBAR_ITEM_ORDER: readonly SidebarOrderItem[] = [
   { type: "DIVIDER", id: "divider:default-management" },
   { type: "MENU", key: "occupancy-statistics" },
   { type: "MENU", key: "cleaning" },
+  { type: "MENU", key: "insurance-claims" },
   { type: "MENU", key: "property-reviews" },
   { type: "DIVIDER", id: "divider:default-work" },
   { type: "MENU", key: "member-management" },

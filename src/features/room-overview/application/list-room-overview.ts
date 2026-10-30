@@ -50,6 +50,7 @@ export async function listRoomOverview(filters: RoomOverviewFilters, now = new D
       reservationCount: reservations.filter((item) => item.status !== "CANCELLED" && item.status !== "BLOCKED" && isValidReservation(item)).length,
       activeConflictCount: currentConflicts.length,
       pendingMemoCount: row.roomNotes.length,
+      insuranceClaimCount: row._count.insuranceClaims,
       inspectionStatus: getRoomInspectionStatus(row.roomNotes, row._count.roomNotes > row.roomNotes.length),
       cleaningStatus: getRoomOverviewCleaningStatus(row.cleaningTasks),
       providers: [...new Set(row.calendarSources.map((source) => source.provider))],

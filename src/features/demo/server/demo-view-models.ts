@@ -41,6 +41,7 @@ function buildDemoCards(now = new Date()) {
       reservationCount: reservations.length,
       activeConflictCount,
       pendingMemoCount: room.id === "demo-room-201" ? 1 : 0,
+      insuranceClaimCount: 0,
       inspectionStatus: room.id === "demo-room-201" ? "INCOMPLETE" : "NONE",
       cleaningStatus: room.id === "demo-room-101"
         ? "INCOMPLETE"

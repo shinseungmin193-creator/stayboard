@@ -15,13 +15,14 @@ import { ReservationDetailSheet } from "./reservation-detail-sheet";
 import { RoomDetailSheet } from "./room-detail-sheet";
 import { RoomInspectionDialog } from "./room-inspection-dialog";
 import { RoomNoteComposerDialog } from "@/features/room-notes/components/room-note-composer-dialog";
+import { InsuranceClaimComposerDialog } from "@/features/insurance-claims/components/insurance-claim-composer-dialog";
 import { RoomSelectionActionBar } from "./room-selection-action-bar";
 import { RoomStatusCalendar } from "./room-status-calendar";
 import { RoomStatusCardGrid } from "./room-status-card-grid";
 import { RoomStatusList } from "./room-status-list";
 import { RoomStatusMobileToolbar } from "./room-status-mobile-toolbar";
 
-export function MobileRoomStatusWorkspace({ rooms: initialRooms, properties, selectedDate, today, propertyId, queryView, calendarRange, hasCalendarRangeQuery, initialFilters, canSync, canReadRoomNotes, canCreateRoomNotes, canUpdateRoomNotes, canDeleteRoomNotes, canCompleteRoomNotes, initialInspectionRoomId }: {
+export function MobileRoomStatusWorkspace({ rooms: initialRooms, properties, selectedDate, today, propertyId, queryView, calendarRange, hasCalendarRangeQuery, initialFilters, canSync, canReadRoomNotes, canCreateRoomNotes, canUpdateRoomNotes, canDeleteRoomNotes, canCompleteRoomNotes, canCreateInsuranceClaims, initialInspectionRoomId }: {
   rooms: RoomOverviewCard[];
   properties: Array<{ id: string; name: string; isActive: boolean }>;
   selectedDate: string;
@@ -37,10 +38,11 @@ export function MobileRoomStatusWorkspace({ rooms: initialRooms, properties, sel
   canUpdateRoomNotes: boolean;
   canDeleteRoomNotes: boolean;
   canCompleteRoomNotes: boolean;
+  canCreateInsuranceClaims: boolean;
   initialInspectionRoomId?: string;
 }) {
   const i18n = useTranslations();
-  const { rooms, updatePendingMemoCount } = useRoomInspectionCounts(initialRooms);
+  const { rooms, updatePendingMemoCount, updateInsuranceClaimCount } = useRoomInspectionCounts(initialRooms);
   const { viewMode, setViewMode } = useRoomStatusViewMode(queryView);
   const { rangeDays, setRange } = useRoomTimelineRange(calendarRange, hasCalendarRangeQuery);
   const { filters, updateQuery, updateStatus, applyFilters, resetFilters } = useRoomStatusFilters({ initialFilters, initialPropertyId: propertyId });
@@ -53,6 +55,7 @@ export function MobileRoomStatusWorkspace({ rooms: initialRooms, properties, sel
   const [inspectionRoomId, setInspectionRoomId] = useState<string | null>(initialInspectionRoomId ?? null);
   const [composerRoomId, setComposerRoomId] = useState<string | null>(null);
   const [inspectionRefreshKey, setInspectionRefreshKey] = useState(0);
+  const [insuranceRoomId, setInsuranceRoomId] = useState<string | null>(null);
   const [todayScrollRequest, setTodayScrollRequest] = useState(0);
 
   const summary = useMemo(() => summarizeMobileRooms(rooms), [rooms]);
@@ -60,6 +63,7 @@ export function MobileRoomStatusWorkspace({ rooms: initialRooms, properties, sel
   const selectedRooms = useMemo(() => rooms.filter((room) => selectedIds.has(room.id)), [rooms, selectedIds]);
   const inspectionRoom = rooms.find((room) => room.id === inspectionRoomId) ?? null;
   const composerRoom = rooms.find((room) => room.id === composerRoomId) ?? null;
+  const insuranceRoom = rooms.find((room) => room.id === insuranceRoomId) ?? null;
 
   const activateRoom = (room: RoomOverviewCard) => {
     if (!selectionMode) {
@@ -146,10 +150,11 @@ export function MobileRoomStatusWorkspace({ rooms: initialRooms, properties, sel
         {viewMode === "calendar" && <RoomStatusCalendar rooms={visibleRooms} selectedDate={selectedDate} today={today} rangeDays={rangeDays} todayScrollRequest={todayScrollRequest} selectionMode={selectionMode} selectedIds={selectedIds} onRangeChange={setRange} onRoomActivate={activateRoom} onReservationActivate={(room, reservation) => { if (selectionMode) activateRoom(room); else setDetailReservation({ room, reservation }); }} />}
       </>}
 
-      <RoomDetailSheet room={detailRoom} open={Boolean(detailRoom)} canSync={canSync} canReadRoomNotes={canReadRoomNotes} canCreateRoomNotes={canCreateRoomNotes} onInspectionActivate={openInspection} onCreateRoomNote={(room) => { setDetailRoom(null); setComposerRoomId(room.id); }} onOpenChange={(open) => { if (!open) setDetailRoom(null); }} />
+      <RoomDetailSheet room={detailRoom} open={Boolean(detailRoom)} canSync={canSync} canReadRoomNotes={canReadRoomNotes} canCreateRoomNotes={canCreateRoomNotes} canCreateInsuranceClaims={canCreateInsuranceClaims} onInspectionActivate={openInspection} onCreateRoomNote={(room) => { setDetailRoom(null); setComposerRoomId(room.id); }} onCreateInsuranceClaim={(room) => { setDetailRoom(null); setInsuranceRoomId(room.id); }} onOpenChange={(open) => { if (!open) setDetailRoom(null); }} />
       <ReservationDetailSheet room={detailReservation?.room ?? null} reservation={detailReservation?.reservation ?? null} open={Boolean(detailReservation)} canSync={canSync} onOpenChange={(open) => { if (!open) setDetailReservation(null); }} />
       <RoomInspectionDialog room={inspectionRoom} open={Boolean(inspectionRoom)} canComplete={canCompleteRoomNotes} canCreate={canCreateRoomNotes} canUpdate={canUpdateRoomNotes} canDelete={canDeleteRoomNotes} refreshKey={inspectionRefreshKey} onCreate={(room) => setComposerRoomId(room.id)} onOpenChange={(open) => { if (!open) closeInspection(); }} onPendingMemoCountChange={handlePendingMemoCountChange} />
       <RoomNoteComposerDialog room={composerRoom} open={Boolean(composerRoom)} onOpenChange={(open) => { if (!open) setComposerRoomId(null); }} onCreated={handleCreated} />
+      <InsuranceClaimComposerDialog room={insuranceRoom} open={Boolean(insuranceRoom)} onOpenChange={(open) => { if (!open) setInsuranceRoomId(null); }} onCreated={(roomId) => { const room = rooms.find((item) => item.id === roomId); updateInsuranceClaimCount(roomId, (room?.insuranceClaimCount ?? 0) + 1); }} />
       <RoomSelectionActionBar rooms={selectedRooms} canSync={canSync} onShowDetail={() => setDetailRoom(selectedRooms[0] ?? null)} onClose={() => changeSelectionMode(false)} />
     </div>
   );

@@ -1,7 +1,7 @@
 ﻿"use client";import { useTranslations } from "next-intl";
 
 import Link from "next/link";
-import { AlertTriangle, ArrowUpRight, CalendarDays, Clock3, List, Plus, WifiOff } from "lucide-react";
+import { AlertTriangle, ArrowUpRight, CalendarDays, Clock3, List, Plus, ShieldPlus, WifiOff } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -14,7 +14,7 @@ import { RoomStatusRoomSyncButton } from "./room-status-room-sync-button";
 import { getReservationDateInput, getReservationNightCount } from "@/features/reservations/reservation-date";
 import { RoomInspectionStatusBadge } from "./room-inspection-status-badge";
 
-export function RoomDetailContent({ room, canSync, canReadRoomNotes, canCreateRoomNotes, onInspectionActivate, onCreateRoomNote }: {room: RoomOverviewCard;canSync: boolean;canReadRoomNotes: boolean;canCreateRoomNotes: boolean;onInspectionActivate: (room: RoomOverviewCard) => void;onCreateRoomNote: (room: RoomOverviewCard) => void;}) {const i18n = useTranslations();
+export function RoomDetailContent({ room, canSync, canReadRoomNotes, canCreateRoomNotes, canCreateInsuranceClaims, onInspectionActivate, onCreateRoomNote, onCreateInsuranceClaim }: {room: RoomOverviewCard;canSync: boolean;canReadRoomNotes: boolean;canCreateRoomNotes: boolean;canCreateInsuranceClaims: boolean;onInspectionActivate: (room: RoomOverviewCard) => void;onCreateRoomNote: (room: RoomOverviewCard) => void;onCreateInsuranceClaim: (room: RoomOverviewCard) => void;}) {const i18n = useTranslations();
   const reservation = room.currentReservation ?? room.nextReservation;
   const status = getMobileRoomStatusVisual(room, i18n);
   const StatusIcon = status.icon;
@@ -40,6 +40,7 @@ export function RoomDetailContent({ room, canSync, canReadRoomNotes, canCreateRo
 
     {room.activeConflictCount > 0 && <div className="mx-4 flex items-center gap-2 rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-xs font-medium text-destructive"><AlertTriangle className="size-4" />{i18n("reservation.overbooking")}{room.activeConflictCount}{i18n("auto.m0471")}</div>}
     {(room.inspectionStatus !== "NONE" || canCreateRoomNotes) && <div className="mx-4 flex min-h-11 items-center gap-2 rounded-lg border bg-muted/20 px-3 py-2"><span className="text-xs font-semibold">{i18n("roomOverviewList.inspection")}</span>{room.inspectionStatus !== "NONE" && <RoomInspectionStatusBadge status={room.inspectionStatus} pendingCount={room.pendingMemoCount} onClick={canReadRoomNotes ? () => onInspectionActivate(room) : undefined} />}{canCreateRoomNotes && <Button type="button" variant="outline" size="sm" className="ml-auto" onClick={() => onCreateRoomNote(room)}><Plus />{i18n("roomOverviewList.registerInspection")}</Button>}</div>}
+    {canCreateInsuranceClaims && <div className="mx-4 flex min-h-11 items-center gap-2 rounded-lg border bg-muted/20 px-3 py-2"><span className="text-xs font-semibold">보험/보상</span>{room.insuranceClaimCount > 0 && <Badge variant="outline">보고 {room.insuranceClaimCount}</Badge>}<Button type="button" variant="outline" size="sm" className="ml-auto" onClick={() => onCreateInsuranceClaim(room)}><ShieldPlus />보고 등록</Button></div>}
 
     <section className="min-h-0 space-y-2 px-4" aria-labelledby="room-detail-reservations">
       <h3 id="room-detail-reservations" className="text-xs font-semibold">{i18n("auto.m0250")}</h3>
@@ -57,7 +58,7 @@ export function RoomDetailContent({ room, canSync, canReadRoomNotes, canCreateRo
   </>;
 }
 
-export function RoomDetailSheet({ room, open, canSync, canReadRoomNotes, canCreateRoomNotes, onInspectionActivate, onCreateRoomNote, onOpenChange }: {room: RoomOverviewCard | null;open: boolean;canSync: boolean;canReadRoomNotes: boolean;canCreateRoomNotes: boolean;onInspectionActivate: (room: RoomOverviewCard) => void;onCreateRoomNote: (room: RoomOverviewCard) => void;onOpenChange: (open: boolean) => void;}) {const i18n = useTranslations();
+export function RoomDetailSheet({ room, open, canSync, canReadRoomNotes, canCreateRoomNotes, canCreateInsuranceClaims, onInspectionActivate, onCreateRoomNote, onCreateInsuranceClaim, onOpenChange }: {room: RoomOverviewCard | null;open: boolean;canSync: boolean;canReadRoomNotes: boolean;canCreateRoomNotes: boolean;canCreateInsuranceClaims: boolean;onInspectionActivate: (room: RoomOverviewCard) => void;onCreateRoomNote: (room: RoomOverviewCard) => void;onCreateInsuranceClaim: (room: RoomOverviewCard) => void;onOpenChange: (open: boolean) => void;}) {const i18n = useTranslations();
   return <Sheet open={open} onOpenChange={onOpenChange}>
     <SheetContent side="bottom" className="h-[82dvh] max-h-[82dvh] gap-3 overflow-hidden p-0" aria-label={i18n("auto.m0473")}>
       {room && <>
@@ -65,7 +66,7 @@ export function RoomDetailSheet({ room, open, canSync, canReadRoomNotes, canCrea
           <SheetTitle className="text-lg font-bold">{room.name}</SheetTitle>
           <SheetDescription>{room.propertyName}</SheetDescription>
         </SheetHeader>
-        <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto"><RoomDetailContent room={room} canSync={canSync} canReadRoomNotes={canReadRoomNotes} canCreateRoomNotes={canCreateRoomNotes} onInspectionActivate={onInspectionActivate} onCreateRoomNote={onCreateRoomNote} /></div>
+        <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto"><RoomDetailContent room={room} canSync={canSync} canReadRoomNotes={canReadRoomNotes} canCreateRoomNotes={canCreateRoomNotes} canCreateInsuranceClaims={canCreateInsuranceClaims} onInspectionActivate={onInspectionActivate} onCreateRoomNote={onCreateRoomNote} onCreateInsuranceClaim={onCreateInsuranceClaim} /></div>
       </>}
     </SheetContent>
   </Sheet>;

@@ -83,6 +83,19 @@ enum RoomNoteStatus {
   COMPLETED
 }
 
+enum InsuranceClaimStatus {
+  REPORTED
+  SUBMITTED
+}
+
+enum InsuranceClaimType {
+  FIRE_INSURANCE
+  AIRBNB
+  BOOKING
+  AGODA
+  EXPEDIA
+}
+
 enum GuestFallbackMode {
   PROVIDER
   GENERIC
@@ -132,6 +145,7 @@ model Company {
   cleaningTasks               CleaningTask[]
   cleaningWorkers             CleaningWorker[]
   roomNotes                   RoomNote[]
+  insuranceClaims             InsuranceClaim[]
   developerRoleSessions       DeveloperRoleSession[]
   mobileNavigationPreferences MobileNavigationPreference[]
   suspendedBy                 User?                        @relation("CompanySuspendedBy", fields: [suspendedById], references: [id], onDelete: SetNull)
@@ -214,6 +228,7 @@ model Property {
   propertyAccesses PropertyAccess[]
   cleaningTasks    CleaningTask[]
   roomNotes        RoomNote[]
+  insuranceClaims  InsuranceClaim[]
 
   @@unique([companyId, name])
   @@index([companyId, isActive])
@@ -241,6 +256,7 @@ model Room {
   syncRuns                   SyncRun[]
   cleaningTasks              CleaningTask[]
   roomNotes                  RoomNote[]
+  insuranceClaims            InsuranceClaim[]
 
   @@unique([propertyId, code])
   @@index([propertyId, isActive, sortOrder])
@@ -249,50 +265,53 @@ model Room {
 }
 
 model User {
-  id                      String                 @id @default(cuid())
-  username                String?                @unique
-  email                   String                 @unique
-  name                    String
-  passwordHash            String?
-  systemRole              UserSystemRole         @default(NONE)
-  isActive                Boolean                @default(true)
-  status                  UserStatus             @default(ACTIVE)
-  sessionVersion          Int                    @default(0)
-  suspendedAt             DateTime?
-  suspendedById           String?
-  suspensionReason        String?
-  deletedAt               DateTime?
-  deletedById             String?
-  deletionReason          String?
-  anonymizedAt            DateTime?
-  lastLoginAt             DateTime?
-  createdAt               DateTime               @default(now())
-  updatedAt               DateTime               @updatedAt
-  memberships             CompanyMembership[]
-  assignments             StaffAssignment[]
-  auditLogsAsActor        AuditLog[]             @relation("AuditActor")
-  auditLogsAsTarget       AuditLog[]             @relation("AuditTarget")
-  syncRuns                SyncRun[]
-  invitationCodesCreated  InvitationCode[]       @relation("InvitationCodeCreator")
-  invitationCodesUsed     InvitationCode[]       @relation("InvitationCodeUser")
-  suspendedBy             User?                  @relation("UserSuspendedBy", fields: [suspendedById], references: [id], onDelete: SetNull)
-  suspendedUsers          User[]                 @relation("UserSuspendedBy")
-  deletedBy               User?                  @relation("UserDeletedBy", fields: [deletedById], references: [id], onDelete: SetNull)
-  deletedUsers            User[]                 @relation("UserDeletedBy")
-  companiesSuspended      Company[]              @relation("CompanySuspendedBy")
-  cleaningTasksAssigned   CleaningTask[]         @relation("CleaningTaskAssignee")
-  cleaningTasksAssignedBy CleaningTask[]         @relation("CleaningTaskAssignedBy")
-  cleaningTasksStarted    CleaningTask[]         @relation("CleaningTaskStartedBy")
-  cleaningTasksCompleted  CleaningTask[]         @relation("CleaningTaskCompletedBy")
-  cleaningTaskLogs        CleaningTaskLog[]      @relation("CleaningTaskLogActor")
-  cleaningPhotosUploaded  CleaningPhoto[]        @relation("CleaningPhotoUploader")
-  roomNotePhotosUploaded  RoomNotePhoto[]        @relation("RoomNotePhotoUploader")
-  roomNotesAuthored       RoomNote[]             @relation("RoomNoteAuthor")
-  roomNotesAcknowledged   RoomNote[]             @relation("RoomNoteAcknowledgedBy")
-  roomNotesProcessed      RoomNote[]             @relation("RoomNoteProcessedBy")
-  roomNotesCompleted      RoomNote[]             @relation("RoomNoteCompletedBy")
-  developerRoleSessions   DeveloperRoleSession[]
-  reviewSyncLogs          ReviewSyncLog[]        @relation("ReviewSyncActor")
+  id                           String                 @id @default(cuid())
+  username                     String?                @unique
+  email                        String                 @unique
+  name                         String
+  passwordHash                 String?
+  systemRole                   UserSystemRole         @default(NONE)
+  isActive                     Boolean                @default(true)
+  status                       UserStatus             @default(ACTIVE)
+  sessionVersion               Int                    @default(0)
+  suspendedAt                  DateTime?
+  suspendedById                String?
+  suspensionReason             String?
+  deletedAt                    DateTime?
+  deletedById                  String?
+  deletionReason               String?
+  anonymizedAt                 DateTime?
+  lastLoginAt                  DateTime?
+  createdAt                    DateTime               @default(now())
+  updatedAt                    DateTime               @updatedAt
+  memberships                  CompanyMembership[]
+  assignments                  StaffAssignment[]
+  auditLogsAsActor             AuditLog[]             @relation("AuditActor")
+  auditLogsAsTarget            AuditLog[]             @relation("AuditTarget")
+  syncRuns                     SyncRun[]
+  invitationCodesCreated       InvitationCode[]       @relation("InvitationCodeCreator")
+  invitationCodesUsed          InvitationCode[]       @relation("InvitationCodeUser")
+  suspendedBy                  User?                  @relation("UserSuspendedBy", fields: [suspendedById], references: [id], onDelete: SetNull)
+  suspendedUsers               User[]                 @relation("UserSuspendedBy")
+  deletedBy                    User?                  @relation("UserDeletedBy", fields: [deletedById], references: [id], onDelete: SetNull)
+  deletedUsers                 User[]                 @relation("UserDeletedBy")
+  companiesSuspended           Company[]              @relation("CompanySuspendedBy")
+  cleaningTasksAssigned        CleaningTask[]         @relation("CleaningTaskAssignee")
+  cleaningTasksAssignedBy      CleaningTask[]         @relation("CleaningTaskAssignedBy")
+  cleaningTasksStarted         CleaningTask[]         @relation("CleaningTaskStartedBy")
+  cleaningTasksCompleted       CleaningTask[]         @relation("CleaningTaskCompletedBy")
+  cleaningTaskLogs             CleaningTaskLog[]      @relation("CleaningTaskLogActor")
+  cleaningPhotosUploaded       CleaningPhoto[]        @relation("CleaningPhotoUploader")
+  roomNotePhotosUploaded       RoomNotePhoto[]        @relation("RoomNotePhotoUploader")
+  roomNotesAuthored            RoomNote[]             @relation("RoomNoteAuthor")
+  roomNotesAcknowledged        RoomNote[]             @relation("RoomNoteAcknowledgedBy")
+  roomNotesProcessed           RoomNote[]             @relation("RoomNoteProcessedBy")
+  roomNotesCompleted           RoomNote[]             @relation("RoomNoteCompletedBy")
+  insuranceClaimsReported      InsuranceClaim[]       @relation("InsuranceClaimReporter")
+  insuranceClaimsSubmitted     InsuranceClaim[]       @relation("InsuranceClaimSubmitter")
+  insuranceClaimPhotosUploaded InsuranceClaimPhoto[]  @relation("InsuranceClaimPhotoUploader")
+  developerRoleSessions        DeveloperRoleSession[]
+  reviewSyncLogs               ReviewSyncLog[]        @relation("ReviewSyncActor")
 
   @@index([isActive, name])
   @@index([status, createdAt])
@@ -750,6 +769,55 @@ model RoomNotePhoto {
 
   @@unique([roomNoteId, clientUploadId])
   @@index([roomNoteId, createdAt])
+  @@index([uploadedById, createdAt])
+}
+
+model InsuranceClaim {
+  id                String                @id @default(cuid())
+  companyId         String
+  propertyId        String
+  roomId            String
+  reporterUserId    String?
+  reporterName      String
+  content           String
+  types             InsuranceClaimType[]
+  status            InsuranceClaimStatus  @default(REPORTED)
+  submittedAt       DateTime?
+  submittedByUserId String?
+  submittedByName   String?
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
+  company           Company               @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  property          Property              @relation(fields: [propertyId], references: [id], onDelete: Restrict)
+  room              Room                  @relation(fields: [roomId], references: [id], onDelete: Restrict)
+  reporter          User?                 @relation("InsuranceClaimReporter", fields: [reporterUserId], references: [id], onDelete: SetNull)
+  submittedBy       User?                 @relation("InsuranceClaimSubmitter", fields: [submittedByUserId], references: [id], onDelete: SetNull)
+  photos            InsuranceClaimPhoto[]
+
+  @@index([companyId, status, createdAt, id])
+  @@index([propertyId, status, createdAt, id])
+  @@index([roomId, status, createdAt, id])
+  @@index([reporterUserId, createdAt])
+  @@index([submittedByUserId, submittedAt])
+}
+
+model InsuranceClaimPhoto {
+  id               String         @id @default(cuid())
+  insuranceClaimId String
+  clientUploadId   String
+  storageKey       String         @unique
+  originalName     String
+  mimeType         String
+  size             Int
+  width            Int?
+  height           Int?
+  uploadedById     String
+  createdAt        DateTime       @default(now())
+  claim            InsuranceClaim @relation(fields: [insuranceClaimId], references: [id], onDelete: Cascade)
+  uploadedBy       User           @relation("InsuranceClaimPhotoUploader", fields: [uploadedById], references: [id], onDelete: Restrict)
+
+  @@unique([insuranceClaimId, clientUploadId])
+  @@index([insuranceClaimId, createdAt])
   @@index([uploadedById, createdAt])
 }
 

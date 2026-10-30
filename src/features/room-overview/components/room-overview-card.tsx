@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { AlertTriangle, ArrowUpRight, CalendarDays, Clock3 } from "lucide-react";
+import { AlertTriangle, ArrowUpRight, CalendarDays, Clock3, ShieldPlus } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
@@ -26,10 +26,12 @@ function isSyncAlert(sync: RoomSyncState): sync is RoomSyncState & { status: "FA
   return sync.status === "FAILED" || sync.status === "TIMEOUT";
 }
 
-export function RoomOverviewCard({ card, canUpdateOperationalStatus = true, onInspectionActivate }: {
+export function RoomOverviewCard({ card, canUpdateOperationalStatus = true, canCreateInsuranceClaims = false, onInspectionActivate, onCreateInsuranceClaim }: {
   card: RoomOverviewCardData;
   canUpdateOperationalStatus?: boolean;
+  canCreateInsuranceClaims?: boolean;
   onInspectionActivate?: (room: RoomOverviewCardData) => void;
+  onCreateInsuranceClaim?: (room: RoomOverviewCardData) => void;
 }) {
   const i18n = useTranslations();
   const syncLabel = { FAILED: i18n("sync.failed"), TIMEOUT: i18n("sync.delayed") } as const;
@@ -85,10 +87,11 @@ export function RoomOverviewCard({ card, canUpdateOperationalStatus = true, onIn
         </div>}
       </CardContent>
 
-      <CardFooter data-room-overview-footer className={cn("grid grid-cols-3 gap-0 bg-transparent p-0", styles.actionBar)}>
+      <CardFooter data-room-overview-footer className={cn("grid gap-0 bg-transparent p-0", canCreateInsuranceClaims ? "grid-cols-4" : "grid-cols-3", styles.actionBar)}>
         <Button nativeButton={false} render={<Link href={currentHref} />} variant="ghost" size="xs" className={footerButtonClassName}>{i18n("common.details")}<ArrowUpRight /></Button>
         <Button nativeButton={false} render={<Link href={reservationsHref} />} variant="ghost" size="xs" className={footerButtonClassName}>{i18n("auto.m0250")}</Button>
         <Button nativeButton={false} render={<Link href={`/room-status?propertyId=${card.propertyId}`} />} variant="ghost" size="xs" className={footerButtonClassName}><CalendarDays />{i18n("common.calendar")}</Button>
+        {canCreateInsuranceClaims && <Button type="button" variant="ghost" size="xs" className={footerButtonClassName} onClick={() => onCreateInsuranceClaim?.(card)}><ShieldPlus />보험/보상{card.insuranceClaimCount > 0 ? ` ${card.insuranceClaimCount}` : ""}</Button>}
       </CardFooter>
     </Card>
   );
