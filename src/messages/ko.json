@@ -141,7 +141,7 @@
     "operationalStatus": "운영 상태",
     "cleaningIncomplete": "청소 미완료",
     "cleaningCompleted": "청소 완료",
-    "inspection": "점검",
+    "inspection": "점검 및 클레임",
     "registerInspection": "점검 등록",
     "inspectionStatus": "상태",
     "inspectionStates": {

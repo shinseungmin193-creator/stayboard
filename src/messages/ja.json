@@ -141,7 +141,7 @@
     "operationalStatus": "運営状態",
     "cleaningIncomplete": "清掃未完了",
     "cleaningCompleted": "清掃完了",
-    "inspection": "点検",
+    "inspection": "点検・クレーム",
     "registerInspection": "点検登録",
     "inspectionStatus": "状態",
     "inspectionStates": {
